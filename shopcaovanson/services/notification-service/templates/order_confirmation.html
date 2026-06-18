@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Xác nhận đơn hàng</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { background: #1565C0; color: #fff; padding: 16px; border-radius: 8px 8px 0 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #f5f5f5; }
+    .total { font-weight: bold; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Shop Cao Văn Sơn</h1>
+      <p>Cảm ơn bạn đã đặt hàng!</p>
+    </div>
+    <p>Xin chào,</p>
+    <p>Đơn hàng <strong>{{ order_id }}</strong> của bạn đã được tiếp nhận.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Sản phẩm</th>
+          <th>Số lượng</th>
+          <th>Đơn giá</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.product_name }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ "{:,.0f}".format(item.unit_price) }} ₫</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="total">Tổng tiền: {{ "{:,.0f}".format(total_amount) }} ₫</p>
+    <p>Chúng tôi sẽ liên hệ khi đơn hàng được xác nhận.</p>
+  </div>
+</body>
+</html>

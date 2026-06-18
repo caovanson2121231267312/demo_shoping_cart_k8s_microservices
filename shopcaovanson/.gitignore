@@ -1,0 +1,45 @@
+# Go
+services/*/tmp/
+services/*/*.exe
+
+# Python
+**/__pycache__/
+**/*.pyc
+services/*/.venv/
+
+# Node
+frontend/web/node_modules/
+frontend/web/.nuxt/
+frontend/web/.output/
+
+# Env files — KHÔNG commit
+**/.env
+# .env.example thì ĐƯỢC commit
+
+# K8s secrets — KHÔNG commit
+k8s/**/*-secret.yaml
+k8s/**/secret*.yaml
+
+# Build artifacts
+**/dist/
+**/build/
+
+# Cluster setup generated files
+k8s/cluster-setup/cloud-init/
+k8s/cluster-setup/ubuntu-22.04-server-cloudimg-amd64.img
+k8s/cluster-setup/inventory.env
+k8s/cluster-setup/kubeadm-join.sh
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubeconfig
+*.kubeconfig
+shopcaovanson-config

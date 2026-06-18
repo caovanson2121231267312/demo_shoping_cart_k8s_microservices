@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hướng dẫn chạy shopcaovanson A → Z</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --border: #2d3f5a;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --primary: #1565c0;
+      --primary-light: #42a5f5;
+      --accent: #00897b;
+      --warning: #f57c00;
+      --success: #388e3c;
+      --danger: #d32f2f;
+      --code-bg: #0d1117;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+    .hero {
+      background: linear-gradient(135deg, #0d47a1 0%, #1565c0 40%, #00897b 100%);
+      padding: 3rem 2rem;
+      text-align: center;
+      border-bottom: 3px solid var(--accent);
+    }
+    .hero h1 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+    .hero p { color: rgba(255,255,255,0.9); font-size: 1.1rem; max-width: 700px; margin: 0 auto; }
+    .hero .badges { margin-top: 1.2rem; display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+    .badge {
+      background: rgba(255,255,255,0.15);
+      padding: 0.3rem 0.9rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      backdrop-filter: blur(4px);
+    }
+    .page-wrap {
+      margin-left: 260px;
+      transition: margin-left 0.3s ease;
+    }
+    .page-wrap.sidebar-collapsed { margin-left: 52px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* Sidebar mục lục — cuộn xuống thì thu sang trái */
+    .toc-sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 200;
+      height: 100vh;
+      width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s ease, box-shadow 0.3s ease;
+      overflow: hidden;
+    }
+    .toc-sidebar.collapsed { width: 52px; }
+    .toc-sidebar.collapsed:hover,
+    .toc-sidebar.collapsed.pinned { width: 260px; box-shadow: 8px 0 32px rgba(0,0,0,0.45); }
+
+    .toc-toggle {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--surface2);
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--primary-light);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.2s;
+    }
+    .toc-toggle:hover { background: #2a3d56; }
+    .toc-toggle .icon { font-size: 1.2rem; line-height: 1; flex-shrink: 0; }
+    .toc-toggle .label { white-space: nowrap; overflow: hidden; transition: opacity 0.2s; }
+    .toc-sidebar.collapsed .toc-toggle .label { opacity: 0; width: 0; }
+    .toc-sidebar.collapsed:hover .toc-toggle .label,
+    .toc-sidebar.collapsed.pinned .toc-toggle .label { opacity: 1; width: auto; }
+
+    .toc-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.2rem 1.5rem;
+      opacity: 1;
+      transition: opacity 0.25s ease;
+    }
+    .toc-sidebar.collapsed .toc-panel {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .toc-sidebar.collapsed:hover .toc-panel,
+    .toc-sidebar.collapsed.pinned .toc-panel {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .toc-panel h2 {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .toc-panel ol { list-style: none; padding: 0; margin: 0; }
+    .toc-panel li { margin-bottom: 0.25rem; }
+    .toc-panel a {
+      display: block;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      transition: background 0.15s, color 0.15s;
+    }
+    .toc-panel a:hover { background: var(--surface2); color: var(--primary-light); }
+    .toc-panel a.active { background: rgba(21,101,192,0.25); color: var(--primary-light); font-weight: 600; }
+
+    section { margin-bottom: 3rem; scroll-margin-top: 1.5rem; }
+    h2 {
+      font-size: 1.6rem;
+      color: var(--primary-light);
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.2rem;
+    }
+    h3 { font-size: 1.15rem; color: var(--accent); margin: 1.5rem 0 0.8rem; }
+    h4 { font-size: 1rem; color: var(--warning); margin: 1rem 0 0.5rem; }
+    p, li { color: var(--text); }
+    ul, ol { padding-left: 1.5rem; margin: 0.5rem 0 1rem; }
+    li { margin-bottom: 0.35rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.5rem;
+      margin: 1rem 0;
+    }
+    .card.info { border-left: 4px solid var(--primary); }
+    .card.warn { border-left: 4px solid var(--warning); }
+    .card.ok { border-left: 4px solid var(--success); }
+    .card.danger { border-left: 4px solid var(--danger); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.9rem;
+      text-align: left;
+    }
+    th { background: var(--surface2); color: var(--primary-light); }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin: 0.8rem 0;
+    }
+    code {
+      font-family: 'Cascadia Code', Consolas, monospace;
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88em;
+      color: #79c0ff;
+    }
+    pre code { background: none; padding: 0; color: #c9d1d9; }
+    .step {
+      display: flex;
+      gap: 1rem;
+      margin: 1.2rem 0;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    .step-body { flex: 1; }
+    .arch {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+      font-family: Consolas, monospace;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      white-space: pre;
+      overflow-x: auto;
+      color: #8b9cb3;
+    }
+    .tabs { display: flex; gap: 0; margin-bottom: 0; }
+    .tab-btn {
+      padding: 0.5rem 1.2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      cursor: default;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .tab-btn.active { background: var(--code-bg); color: var(--primary-light); font-weight: 600; }
+    .tab-content { border: 1px solid var(--border); border-radius: 0 8px 8px 8px; }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    @media (max-width: 768px) {
+      .page-wrap,
+      .page-wrap.sidebar-collapsed { margin-left: 0; }
+      .toc-sidebar {
+        width: 52px;
+        height: auto;
+        max-height: 100vh;
+        border-radius: 0 10px 10px 0;
+        top: auto;
+        bottom: 1rem;
+      }
+      .toc-sidebar.expanded-mobile { width: min(280px, 85vw); }
+      .toc-sidebar .toc-panel { opacity: 0; pointer-events: none; }
+      .toc-sidebar.expanded-mobile .toc-panel { opacity: 1; pointer-events: auto; }
+      .hero h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<aside id="toc-sidebar" class="toc-sidebar" aria-label="Mục lục">
+  <button type="button" class="toc-toggle" id="toc-toggle" aria-expanded="true">
+    <span class="icon">☰</span>
+    <span class="label">Mục lục</span>
+  </button>
+  <nav class="toc-panel">
+    <h2>Nội dung</h2>
+    <ol>
+      <li><a href="#tong-quan">A. Tổng quan kiến trúc</a></li>
+      <li><a href="#yeu-cau">B. Yêu cầu hệ thống</a></li>
+      <li><a href="#cau-truc">C. Cấu trúc thư mục</a></li>
+      <li><a href="#local-win">D. Chạy local Windows</a></li>
+      <li><a href="#local-full">E. Chạy đủ service local</a></li>
+      <li><a href="#dns">F. Cấu hình DNS</a></li>
+      <li><a href="#vps-cluster">G. Cluster K8s trên VPS</a></li>
+      <li><a href="#secrets">H. Kubernetes Secrets</a></li>
+      <li><a href="#deploy">I. Deploy lên K8s</a></li>
+      <li><a href="#migrate-seed">J. Migration &amp; Seed</a></li>
+      <li><a href="#truy-cap">K. Truy cập &amp; đăng nhập</a></li>
+      <li><a href="#dev-service">L. Dev từng service</a></li>
+      <li><a href="#makefile">M. Lệnh Makefile</a></li>
+      <li><a href="#cicd">N. CI/CD GitHub Actions</a></li>
+      <li><a href="#sua-loi">O. Xử lý lỗi</a></li>
+      <li><a href="#checklist">P. Checklist production</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<div id="page-wrap" class="page-wrap">
+
+<header class="hero">
+  <h1>🛒 shopcaovanson — Hướng dẫn A → Z</h1>
+  <p>E-commerce demo: NuxtJS 3 + Go microservices + Python + Kubernetes multi-node</p>
+  <div class="badges">
+    <span class="badge">Frontend: shopcaovanson.xyz</span>
+    <span class="badge">API: shopapicaovanson.xyz</span>
+    <span class="badge">K8s 1 master + 2 workers</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- A. TỔNG QUAN -->
+  <section id="tong-quan">
+    <h2>A. Tổng quan kiến trúc</h2>
+    <div class="arch">                         Internet
+                            |
+                   [ VPS 6 CPU / 12 GB RAM ]
+                            |
+              +-------------+-------------+
+              |    KVM / libvirt VMs      |
+              | master | worker-1 | worker-2 |
+              +-------------+-------------+
+                            |
+                 nginx-ingress + cert-manager (Let's Encrypt)
+              +-------------+-------------+
+              |                           |
+     shopcaovanson.xyz          shopapicaovanson.xyz
+     (NuxtJS Frontend)          /api → api-gateway
+                                /ws  → chat-service (WebSocket)
+                                           |
+              +----------------------------+---------------------------+
+              |  namespace <b>shop</b>: api-gateway, auth, product,   |
+              |  order, chat, notification, search, frontend           |
+              +----------------------------+---------------------------+
+                                           |
+              +----------------------------+---------------------------+
+              |  namespace <b>infra</b>: PostgreSQL, MongoDB, Redis,  |
+              |  Kafka, Zookeeper, Elasticsearch                      |
+              +-------------------------------------------------------+</div>
+
+    <table>
+      <tr><th>Thành phần</th><th>Công nghệ</th><th>URL production</th></tr>
+      <tr><td>Frontend</td><td>NuxtJS 3.12 + Vuetify 3.6</td><td>https://shopcaovanson.xyz</td></tr>
+      <tr><td>API Gateway</td><td>Go 1.22 + Fiber v2</td><td>https://shopapicaovanson.xyz/api</td></tr>
+      <tr><td>Auth Service</td><td>Go + PostgreSQL + Redis</td><td>/api/auth/*</td></tr>
+      <tr><td>Product Service</td><td>Go + PostgreSQL + MongoDB + ES</td><td>/api/products/*</td></tr>
+      <tr><td>Order Service</td><td>Go + PostgreSQL + Redis (cart)</td><td>/api/cart, /api/orders/*</td></tr>
+      <tr><td>Chat Service</td><td>Go + MongoDB + WebSocket</td><td>wss://shopapicaovanson.xyz/ws</td></tr>
+      <tr><td>Notification</td><td>Python 3.12 + Kafka</td><td>Gửi email (nội bộ)</td></tr>
+      <tr><td>Search</td><td>Python + Kafka + Elasticsearch</td><td>Index sản phẩm (nội bộ)</td></tr>
+    </table>
+  </section>
+
+  <!-- B. YÊU CẦU -->
+  <section id="yeu-cau">
+    <h2>B. Yêu cầu hệ thống</h2>
+
+    <h3>B.1 Chạy local (máy dev — Windows / macOS / Linux)</h3>
+    <table>
+      <tr><th>Phần mềm</th><th>Phiên bản</th><th>Ghi chú</th></tr>
+      <tr><td>Docker Desktop</td><td>latest</td><td>Bắt buộc — phải bật Docker trước khi chạy</td></tr>
+      <tr><td>Go</td><td>1.22+</td><td>Chạy migration, seed data</td></tr>
+      <tr><td>Node.js</td><td>20+</td><td>Frontend NuxtJS</td></tr>
+      <tr><td>npm</td><td>10+</td><td>Cài dependency frontend</td></tr>
+      <tr><td>Git</td><td>—</td><td>Clone repo</td></tr>
+    </table>
+
+    <h3>B.2 Deploy production (VPS)</h3>
+    <table>
+      <tr><th>Hạng mục</th><th>Thông số</th></tr>
+      <tr><td>VPS</td><td>6 CPU · 12 GB RAM · 150 GB NVMe · Ubuntu 22.04</td></tr>
+      <tr><td>Hypervisor</td><td>KVM / libvirt (3 VM: 1 master + 2 worker)</td></tr>
+      <tr><td>Domain</td><td>shopcaovanson.xyz + shopapicaovanson.xyz</td></tr>
+      <tr><td>Công cụ trên VPS</td><td>kubectl, helm, docker, git, SSH key</td></tr>
+      <tr><td>Registry</td><td>ghcr.io/caovanson/{service}:latest</td></tr>
+    </table>
+  </section>
+
+  <!-- C. CẤU TRÚC -->
+  <section id="cau-truc">
+    <h2>C. Cấu trúc thư mục dự án</h2>
+    <pre><code>shopcaovanson/
+├── README.md
+├── Makefile
+├── .gitignore
+├── services/
+│   ├── api-gateway/          # Go — cổng API duy nhất
+│   ├── auth-service/         # Go — đăng ký, đăng nhập, JWT
+│   ├── product-service/      # Go — sản phẩm, danh mục, tìm kiếm
+│   ├── order-service/        # Go — giỏ hàng, đơn hàng
+│   ├── chat-service/         # Go — WebSocket chat real-time
+│   ├── notification-service/ # Python — gửi email qua Kafka
+│   └── search-service/       # Python — index Elasticsearch
+├── frontend/web/             # NuxtJS 3 + Vuetify 3
+├── k8s/
+│   ├── cluster-setup/        # Script KVM + kubeadm
+│   ├── base/                 # Manifest K8s
+│   └── overlays/dev|prod/    # Kustomize overlay
+├── scripts/                  # setup-cluster, deploy-all, migrate, seed
+└── docs/                     # architecture.md, api-spec.md</code></pre>
+    <div class="card info">
+      <strong>📁 Vị trí dự án trên máy bạn:</strong> <code>d:\k8s\shopcaovanson\</code><br>
+      <strong>📄 File hướng dẫn này:</strong> <code>d:\k8s\HUONG-DAN-SHOPCAOVANSON.html</code>
+    </div>
+  </section>
+
+  <!-- D. LOCAL WINDOWS -->
+  <section id="local-win">
+    <h2>D. Chạy local trên Windows (nhanh nhất)</h2>
+
+    <div class="card warn">
+      <strong>⚠️ Lưu ý PowerShell:</strong> Không dùng <code>&&</code> và <code>cp</code> (Linux). Dùng lệnh PowerShell bên dưới.
+    </div>
+
+    <h3>D.1 Bật Docker Desktop</h3>
+    <p>Mở <strong>Docker Desktop</strong> và đợi đến khi biểu tượng Docker ở taskbar hiện "Running". Nếu không bật, lệnh <code>docker compose</code> sẽ báo lỗi <code>dockerDesktopLinuxEngine</code>.</p>
+
+    <h3>D.2 Chạy Auth Service</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <p>Copy file môi trường và khởi động stack Docker:</p>
+        <pre><code>cd d:\k8s\shopcaovanson\services\auth-service
+Copy-Item .env.example .env
+docker compose up --build</code></pre>
+        <p>Stack gồm: PostgreSQL, Redis, Kafka, Zookeeper, auth-service (port <strong>8081</strong>).</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <p>Chạy migration (terminal mới, Docker đang chạy):</p>
+        <pre><code>cd d:\k8s\shopcaovanson\services\auth-service
+docker compose exec -T auth-service /app/migrate up</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <p>Seed dữ liệu mẫu (50 users):</p>
+        <pre><code>$env:DATABASE_URL="postgres://auth:authpass@localhost:5432/authdb?sslmode=disable"
+go run scripts/fake_data.go</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <p>Kiểm tra health:</p>
+        <pre><code>Invoke-RestMethod http://localhost:8081/health</code></pre>
+        <p>Kết quả mong đợi: <code>{"status":"ok","service":"auth-service"}</code></p>
+      </div>
+    </div>
+
+    <h3>D.3 Chạy Frontend</h3>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <p>Tạo <code>.env</code> trỏ về API local (không dùng URL production):</p>
+        <pre><code>cd d:\k8s\shopcaovanson\frontend\web
+@"
+NUXT_PUBLIC_API_URL=http://localhost:8081
+NUXT_PUBLIC_WS_URL=ws://localhost:8081
+NUXT_API_PROXY_TARGET=http://localhost:8081
+"@ | Set-Content .env -Encoding UTF8</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <pre><code>npm install
+npm run dev</code></pre>
+        <p>Mở trình duyệt: <strong><a href="http://localhost:3000" style="color:var(--primary-light)">http://localhost:3000</a></strong></p>
+      </div>
+    </div>
+
+    <div class="card ok">
+      <strong>✅ Đăng nhập admin:</strong> <code>admin@shop.com</code> / <code>Admin@123</code><br>
+      <strong>⚠️ Giới hạn local:</strong> Chỉ auth-service chạy → đăng nhập/đăng ký hoạt động. Danh sách sản phẩm, giỏ hàng, đặt hàng cần thêm product-service và order-service (xem mục E).
+    </div>
+
+    <h3>D.4 Dừng services</h3>
+    <pre><code># Dừng auth-service Docker
+cd d:\k8s\shopcaovanson\services\auth-service
+docker compose down
+
+# Dừng frontend (nếu bị treo process)
+taskkill /F /IM node.exe   # hoặc Ctrl+C trong terminal npm run dev</code></pre>
+  </section>
+
+  <!-- E. LOCAL FULL -->
+  <section id="local-full">
+    <h2>E. Chạy đủ service local (Docker Compose từng service)</h2>
+    <p>Mỗi service có <code>docker-compose.yml</code> riêng. Chạy theo thứ tự phụ thuộc:</p>
+
+    <table>
+      <tr><th>#</th><th>Service</th><th>Port</th><th>Lệnh</th></tr>
+      <tr><td>1</td><td>auth-service</td><td>8081</td><td><code>cd services/auth-service &amp;&amp; docker compose up -d</code></td></tr>
+      <tr><td>2</td><td>product-service</td><td>8082</td><td><code>cd services/product-service &amp;&amp; docker compose up -d</code></td></tr>
+      <tr><td>3</td><td>order-service</td><td>8083</td><td><code>cd services/order-service &amp;&amp; docker compose up -d</code></td></tr>
+      <tr><td>4</td><td>chat-service</td><td>8084</td><td><code>cd services/chat-service &amp;&amp; docker compose up -d</code></td></tr>
+      <tr><td>5</td><td>api-gateway</td><td>8080</td><td><code>cd services/api-gateway &amp;&amp; docker compose up -d</code></td></tr>
+      <tr><td>6</td><td>notification-service</td><td>8090</td><td><code>cd services/notification-service &amp;&amp; docker compose up -d</code></td></tr>
+      <tr><td>7</td><td>search-service</td><td>8091</td><td><code>cd services/search-service &amp;&amp; docker compose up -d</code></td></tr>
+    </table>
+
+    <p>Sau khi tất cả chạy, cập nhật <code>frontend/web/.env</code>:</p>
+    <pre><code>NUXT_PUBLIC_API_URL=http://localhost:8080
+NUXT_PUBLIC_WS_URL=ws://localhost:8084
+NUXT_API_PROXY_TARGET=http://localhost:8080</code></pre>
+
+    <p>Chạy migration cho từng Go service:</p>
+    <pre><code># auth-service
+docker compose exec -T auth-service /app/migrate up
+# product-service
+docker compose exec -T product-service /app/migrate up
+# order-service
+docker compose exec -T order-service /app/migrate up</code></pre>
+
+    <p>Seed data (trong thư mục từng service, set DATABASE_URL phù hợp):</p>
+    <pre><code>go run scripts/fake_data.go   # chạy trong auth, product, order, chat</code></pre>
+  </section>
+
+  <!-- F. DNS -->
+  <section id="dns">
+    <h2>F. Cấu hình DNS (bắt buộc trước khi deploy production)</h2>
+    <p>Trỏ các bản ghi <strong>A</strong> về IP public của VPS:</p>
+    <table>
+      <tr><th>Bản ghi</th><th>Loại</th><th>Giá trị</th></tr>
+      <tr><td>shopcaovanson.xyz</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
+      <tr><td>www.shopcaovanson.xyz</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
+      <tr><td>shopapicaovanson.xyz</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
+    </table>
+    <div class="card warn">
+      cert-manager dùng HTTP-01 challenge — <strong>port 80 phải mở</strong> và DNS phải resolve đúng IP trước khi cấp SSL Let's Encrypt (đợi 2–5 phút sau deploy).
+    </div>
+  </section>
+
+  <!-- G. VPS CLUSTER -->
+  <section id="vps-cluster">
+    <h2>G. Tạo cluster Kubernetes trên VPS</h2>
+    <p>Thực hiện trên <strong>VPS Ubuntu 22.04</strong> (không phải Windows).</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Clone repo</h4>
+        <pre><code>git clone https://github.com/caovanson/shopcaovanson.git
+cd shopcaovanson</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Tạo 3 VM bằng KVM (master + 2 worker)</h4>
+        <pre><code>sudo bash k8s/cluster-setup/setup-vms.sh</code></pre>
+        <table>
+          <tr><th>VM</th><th>CPU</th><th>RAM</th><th>Disk</th></tr>
+          <tr><td>master</td><td>2</td><td>3 GB</td><td>30 GB</td></tr>
+          <tr><td>worker-1</td><td>2</td><td>4 GB</td><td>50 GB</td></tr>
+          <tr><td>worker-2</td><td>2</td><td>4 GB</td><td>50 GB</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Bootstrap master (kubeadm + Calico CNI)</h4>
+        <pre><code>sudo bash k8s/cluster-setup/bootstrap-master.sh</code></pre>
+        <p>Script in ra lệnh <code>kubeadm join</code> — lưu lại file <code>kubeadm-join.sh</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Join worker nodes</h4>
+        <pre><code>bash k8s/cluster-setup/bootstrap-worker.sh</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Verify cluster</h4>
+        <pre><code>bash k8s/cluster-setup/verify-cluster.sh
+# hoặc
+make verify-cluster</code></pre>
+        <p>Tất cả nodes phải <code>Ready</code>, system pods <code>Running</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4>Copy kubeconfig về máy local (tùy chọn)</h4>
+        <pre><code>export KUBECONFIG=~/.kube/shopcaovanson-config
+kubectl get nodes</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- H. SECRETS -->
+  <section id="secrets">
+    <h2>H. Tạo Kubernetes Secrets</h2>
+    <div class="card danger">
+      <strong>🔒 Quan trọng:</strong> Secrets <strong>không</strong> được commit vào git. Phải tạo thủ công trước khi deploy.
+    </div>
+
+    <h3>H.1 Secrets hạ tầng (namespace: infra)</h3>
+    <pre><code>kubectl create namespace infra
+
+kubectl create secret generic postgres-secret -n infra \
+  --from-literal=POSTGRES_PASSWORD='your-strong-postgres-password'
+
+kubectl create secret generic mongodb-secret -n infra \
+  --from-literal=MONGO_PASSWORD='your-strong-mongo-password'
+
+kubectl create secret generic redis-secret -n infra \
+  --from-literal=REDIS_PASSWORD='your-strong-redis-password'
+
+kubectl create secret generic elasticsearch-secret -n infra \
+  --from-literal=ELASTIC_PASSWORD='your-strong-elastic-password'</code></pre>
+
+    <h3>H.2 Secrets ứng dụng (namespace: shop)</h3>
+    <pre><code>kubectl create namespace shop
+
+# Tạo cặp khóa RSA cho JWT
+openssl genrsa -out jwt-private.pem 2048
+openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem
+
+kubectl create secret generic auth-service-secret -n shop \
+  --from-literal=DB_PASSWORD='your-strong-postgres-password' \
+  --from-literal=REDIS_PASSWORD='your-strong-redis-password' \
+  --from-file=JWT_PRIVATE_KEY=jwt-private.pem \
+  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
+
+kubectl create secret generic api-gateway-secret -n shop \
+  --from-literal=REDIS_PASSWORD='your-strong-redis-password' \
+  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
+
+kubectl create secret generic product-service-secret -n shop \
+  --from-literal=DB_PASSWORD='your-strong-postgres-password' \
+  --from-literal=MONGO_PASSWORD='your-strong-mongo-password' \
+  --from-literal=ELASTIC_PASSWORD='your-strong-elastic-password'
+
+kubectl create secret generic order-service-secret -n shop \
+  --from-literal=DB_PASSWORD='your-strong-postgres-password' \
+  --from-literal=REDIS_PASSWORD='your-strong-redis-password'
+
+kubectl create secret generic chat-service-secret -n shop \
+  --from-literal=MONGO_PASSWORD='your-strong-mongo-password' \
+  --from-literal=REDIS_PASSWORD='your-strong-redis-password' \
+  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
+
+kubectl create secret generic notification-service-secret -n shop \
+  --from-literal=SMTP_USER='your-smtp@gmail.com' \
+  --from-literal=SMTP_PASSWORD='your-app-password'
+
+kubectl create secret generic search-service-secret -n shop \
+  --from-literal=ELASTIC_PASSWORD='your-strong-elastic-password'
+
+rm -f jwt-private.pem jwt-public.pem</code></pre>
+  </section>
+
+  <!-- I. DEPLOY -->
+  <section id="deploy">
+    <h2>I. Deploy lên Kubernetes</h2>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Deploy toàn bộ (cert-manager + ingress + infra + apps)</h4>
+        <pre><code>make deploy-all
+# hoặc
+bash scripts/deploy-all.sh</code></pre>
+        <p>Script tự động: cài cert-manager, nginx-ingress, kiểm tra secrets, apply manifests, chờ pods ready.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Deploy từng phần (nếu cần)</h4>
+        <pre><code>make deploy-cert-manager   # cert-manager + ClusterIssuer
+make deploy-ingress        # nginx-ingress controller
+make deploy-infra          # PostgreSQL, MongoDB, Redis, Kafka, ES
+make deploy-services       # Tất cả microservices
+make deploy-frontend       # NuxtJS frontend</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Overlay Kustomize</h4>
+        <pre><code># Production (mặc định)
+kubectl apply -k k8s/overlays/prod
+
+# Development (ít replica hơn)
+OVERLAY=dev bash scripts/deploy-all.sh</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Kiểm tra trạng thái</h4>
+        <pre><code>make status
+kubectl get ingress -n shop
+kubectl get certificates -n shop
+kubectl describe certificate frontend-tls -n shop</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- J. MIGRATE & SEED -->
+  <section id="migrate-seed">
+    <h2>J. Migration &amp; Seed dữ liệu mẫu</h2>
+
+    <h3>J.1 Trên K8s cluster</h3>
+    <pre><code>make migrate        # Chạy migration auth, product, order
+make seed           # Seed fake data (idempotent — chạy lại không bị trùng)
+# hoặc
+bash scripts/migrate-all.sh
+bash scripts/seed-data.sh</code></pre>
+
+    <h3>J.2 Dữ liệu sau khi seed</h3>
+    <table>
+      <tr><th>Entity</th><th>Số lượng</th><th>Ghi chú</th></tr>
+      <tr><td>Users</td><td>50</td><td>1 admin + 49 customers</td></tr>
+      <tr><td>Categories</td><td>10</td><td>Electronics, Fashion, Food…</td></tr>
+      <tr><td>Products</td><td>200</td><td>Giá VND, ảnh picsum.photos</td></tr>
+      <tr><td>Reviews</td><td>500</td><td>Rating 1–5</td></tr>
+      <tr><td>Orders</td><td>300</td><td>Đủ các trạng thái</td></tr>
+      <tr><td>Chat rooms</td><td>20</td><td>~400 tin nhắn</td></tr>
+    </table>
+  </section>
+
+  <!-- K. TRUY CẬP -->
+  <section id="truy-cap">
+    <h2>K. Truy cập &amp; đăng nhập</h2>
+    <table>
+      <tr><th>Tài nguyên</th><th>URL / Thông tin</th></tr>
+      <tr><td>Frontend</td><td><a href="https://shopcaovanson.xyz" style="color:var(--primary-light)">https://shopcaovanson.xyz</a></td></tr>
+      <tr><td>API</td><td><a href="https://shopapicaovanson.xyz/api" style="color:var(--primary-light)">https://shopapicaovanson.xyz/api</a></td></tr>
+      <tr><td>WebSocket Chat</td><td>wss://shopapicaovanson.xyz/ws?token=&lt;JWT&gt;</td></tr>
+      <tr><td>Admin</td><td><code>admin@shop.com</code> / <code>Admin@123</code></td></tr>
+      <tr><td>API docs</td><td><code>shopcaovanson/docs/api-spec.md</code></td></tr>
+      <tr><td>Local frontend</td><td><a href="http://localhost:3000" style="color:var(--primary-light)">http://localhost:3000</a></td></tr>
+      <tr><td>Local auth API</td><td><a href="http://localhost:8081/health" style="color:var(--primary-light)">http://localhost:8081/health</a></td></tr>
+    </table>
+  </section>
+
+  <!-- L. DEV SERVICE -->
+  <section id="dev-service">
+    <h2>L. Dev từng service riêng lẻ</h2>
+    <p>Mỗi service có <code>README.md</code> riêng với bảng env vars, API endpoints, Kafka topics.</p>
+    <pre><code># Ví dụ auth-service
+cd services/auth-service
+cp .env.example .env          # Linux/Mac
+Copy-Item .env.example .env   # Windows PowerShell
+docker-compose up --build
+go run cmd/migrate/main.go up
+go run scripts/fake_data.go
+
+# Ví dụ frontend
+cd frontend/web
+npm install
+npm run dev</code></pre>
+  </section>
+
+  <!-- M. MAKEFILE -->
+  <section id="makefile">
+    <h2>M. Tất cả lệnh Makefile</h2>
+    <div class="card warn">
+      Trên Windows, <code>make</code> không có sẵn. Cài qua <code>choco install make</code>, WSL, hoặc chạy trực tiếp script bash trong <code>scripts/</code>.
+    </div>
+    <table>
+      <tr><th>Lệnh</th><th>Mô tả</th></tr>
+      <tr><td><code>make setup-cluster</code></td><td>Tạo VM KVM + bootstrap K8s</td></tr>
+      <tr><td><code>make verify-cluster</code></td><td>Kiểm tra nodes Ready</td></tr>
+      <tr><td><code>make deploy-all</code></td><td>Deploy toàn bộ</td></tr>
+      <tr><td><code>make deploy-infra</code></td><td>Chỉ deploy infra (DB, Kafka, ES)</td></tr>
+      <tr><td><code>make deploy-services</code></td><td>Chỉ deploy microservices</td></tr>
+      <tr><td><code>make deploy-frontend</code></td><td>Chỉ deploy frontend</td></tr>
+      <tr><td><code>make migrate</code></td><td>Chạy DB migrations</td></tr>
+      <tr><td><code>make seed</code></td><td>Seed fake data</td></tr>
+      <tr><td><code>make status</code></td><td>Xem pods, services, ingress</td></tr>
+      <tr><td><code>make logs svc=auth-service</code></td><td>Xem log service</td></tr>
+      <tr><td><code>make restart svc=product-service</code></td><td>Restart deployment</td></tr>
+      <tr><td><code>make build svc=auth-service</code></td><td>Build + push Docker image</td></tr>
+    </table>
+  </section>
+
+  <!-- N. CI/CD -->
+  <section id="cicd">
+    <h2>N. CI/CD — GitHub Actions</h2>
+    <p>File: <code>.github/workflows/deploy.yaml</code></p>
+    <ul>
+      <li>Trigger: push lên branch <code>main</code></li>
+      <li>Phát hiện service thay đổi (path filter)</li>
+      <li>Build Docker image → push <code>ghcr.io/caovanson/{service}:{git-sha}</code></li>
+      <li>Tự động cập nhật image tag trong <code>k8s/base/*/deployment.yaml</code></li>
+    </ul>
+  </section>
+
+  <!-- O. SỬA LỖI -->
+  <section id="sua-loi">
+    <h2>O. Xử lý lỗi thường gặp</h2>
+
+    <h3>O.1 Docker không chạy (Windows)</h3>
+    <div class="card danger">
+      <code>failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine</code><br>
+      → Mở <strong>Docker Desktop</strong> và đợi daemon sẵn sàng.
+    </div>
+
+    <h3>O.2 PowerShell: <code>&&</code> không hợp lệ</h3>
+    <pre><code># Thay vì: cd x && cp y z
+cd x; Copy-Item y z</code></pre>
+
+    <h3>O.3 Nuxt: "Another dev server is already running"</h3>
+    <pre><code>taskkill /PID &lt;pid&gt; /F
+# hoặc
+taskkill /F /IM node.exe
+npm run dev</code></pre>
+
+    <h3>O.4 Pod Pending trên K8s</h3>
+    <pre><code>kubectl describe pod &lt;pod-name&gt; -n shop
+kubectl get pvc -n infra</code></pre>
+    <p>Thường do thiếu StorageClass hoặc RAM worker node không đủ.</p>
+
+    <h3>O.5 SSL certificate không cấp được</h3>
+    <pre><code>kubectl describe certificate -n shop
+kubectl logs -n cert-manager -l app=cert-manager</code></pre>
+    <p>Kiểm tra DNS A record trỏ đúng IP và port 80 mở ra internet.</p>
+
+    <h3>O.6 WebSocket chat không kết nối</h3>
+    <pre><code>kubectl get ingress shop-ingress -n shop -o yaml
+kubectl get svc chat-service -n shop -o yaml</code></pre>
+    <p>Đảm bảo ingress có annotation timeout 3600s và chat-service có <code>sessionAffinity: ClientIP</code>.</p>
+
+    <h3>O.7 Migration thất bại</h3>
+    <pre><code>kubectl get jobs -n shop
+kubectl logs job/migrate-auth-service-&lt;timestamp&gt; -n shop</code></pre>
+    <p>Kiểm tra PostgreSQL đang chạy và secret <code>auth-service-secret</code> có <code>DB_PASSWORD</code>.</p>
+
+    <h3>O.8 Worker không join được cluster</h3>
+    <pre><code>cat k8s/cluster-setup/kubeadm-join.sh
+bash k8s/cluster-setup/bootstrap-worker.sh</code></pre>
+    <p>Token join hết hạn sau 24h — chạy lại <code>bootstrap-master.sh</code> để tạo token mới.</p>
+  </section>
+
+  <!-- CHECKLIST -->
+  <section id="checklist">
+    <h2>P. Checklist triển khai production</h2>
+    <div class="card">
+      <ol>
+        <li>☐ VPS Ubuntu 22.04, đủ 6 CPU / 12 GB RAM</li>
+        <li>☐ DNS A records trỏ về IP VPS</li>
+        <li>☐ Cài KVM, kubectl, helm, docker trên VPS</li>
+        <li>☐ <code>make setup-cluster</code> — 3 nodes Ready</li>
+        <li>☐ Tạo tất cả secrets (infra + shop)</li>
+        <li>☐ <code>make deploy-all</code></li>
+        <li>☐ <code>make migrate</code> + <code>make seed</code></li>
+        <li>☐ <code>make status</code> — tất cả pods Running</li>
+        <li>☐ Certificate TLS issued (Let's Encrypt)</li>
+        <li>☐ Truy cập https://shopcaovanson.xyz — đăng nhập admin</li>
+      </ol>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  shopcaovanson — Hướng dẫn A → Z &nbsp;|&nbsp; Dự án: <code>d:\k8s\shopcaovanson\</code> &nbsp;|&nbsp; Cập nhật: 18/06/2026
+</footer>
+
+</div><!-- /page-wrap -->
+
+<script>
+(function () {
+  const sidebar = document.getElementById('toc-sidebar');
+  const pageWrap = document.getElementById('page-wrap');
+  const toggle = document.getElementById('toc-toggle');
+  const links = sidebar.querySelectorAll('.toc-panel a');
+  const COLLAPSE_AT = 100;
+  let pinned = false;
+  const isMobile = () => window.innerWidth <= 768;
+
+  function setCollapsed(collapsed) {
+    if (isMobile()) {
+      sidebar.classList.toggle('expanded-mobile', pinned);
+      return;
+    }
+    sidebar.classList.toggle('collapsed', collapsed && !pinned);
+    pageWrap.classList.toggle('sidebar-collapsed', collapsed && !pinned);
+    toggle.setAttribute('aria-expanded', String(!collapsed || pinned));
+  }
+
+  window.addEventListener('scroll', function () {
+    if (pinned && !isMobile()) return;
+    setCollapsed(window.scrollY > COLLAPSE_AT);
+  }, { passive: true });
+
+  toggle.addEventListener('click', function () {
+    pinned = !pinned;
+    if (isMobile()) {
+      sidebar.classList.toggle('expanded-mobile', pinned);
+      toggle.setAttribute('aria-expanded', String(pinned));
+    } else {
+      setCollapsed(window.scrollY > COLLAPSE_AT);
+      sidebar.classList.toggle('pinned', pinned);
+    }
+  });
+
+  // Highlight mục đang xem
+  const sections = Array.from(document.querySelectorAll('section[id]'));
+  function updateActiveLink() {
+    let current = sections[0]?.id || '';
+    for (const sec of sections) {
+      if (sec.getBoundingClientRect().top <= 120) current = sec.id;
+    }
+    links.forEach(function (a) {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }
+  window.addEventListener('scroll', updateActiveLink, { passive: true });
+  updateActiveLink();
+
+  // Mobile: mặc định thu gọn
+  if (isMobile()) {
+    sidebar.classList.add('collapsed');
+    pinned = false;
+  }
+  window.addEventListener('resize', function () {
+    if (isMobile()) {
+      pageWrap.classList.remove('sidebar-collapsed');
+    } else {
+      sidebar.classList.remove('expanded-mobile');
+      setCollapsed(window.scrollY > COLLAPSE_AT);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+services:
+  frontend-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL:-https://shopapicaovanson.xyz}
+        NUXT_PUBLIC_WS_URL: ${NUXT_PUBLIC_WS_URL:-wss://shopapicaovanson.xyz}
+    ports:
+      - "3000:80"
+    env_file:
+      - .env.example
+    restart: unless-stopped

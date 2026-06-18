@@ -1,0 +1,268 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: caovanson
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      product-service: ${{ steps.filter.outputs.product-service }}
+      order-service: ${{ steps.filter.outputs.order-service }}
+      chat-service: ${{ steps.filter.outputs.chat-service }}
+      notification-service: ${{ steps.filter.outputs.notification-service }}
+      search-service: ${{ steps.filter.outputs.search-service }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api-gateway:
+              - 'services/api-gateway/**'
+            auth-service:
+              - 'services/auth-service/**'
+            product-service:
+              - 'services/product-service/**'
+            order-service:
+              - 'services/order-service/**'
+            chat-service:
+              - 'services/chat-service/**'
+            notification-service:
+              - 'services/notification-service/**'
+            search-service:
+              - 'services/search-service/**'
+            frontend:
+              - 'frontend/web/**'
+
+  build-api-gateway:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api-gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/api-gateway
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/api-gateway:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/api-gateway:latest
+
+  build-auth-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.auth-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/auth-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/auth-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/auth-service:latest
+
+  build-product-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.product-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/product-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/product-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/product-service:latest
+
+  build-order-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.order-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/order-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/order-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/order-service:latest
+
+  build-chat-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.chat-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/chat-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:latest
+
+  build-notification-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.notification-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/notification-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/notification-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/notification-service:latest
+
+  build-search-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.search-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: services/search-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/search-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/search-service:latest
+
+  build-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: frontend/web
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:latest
+
+  update-manifests:
+    needs:
+      - detect-changes
+      - build-api-gateway
+      - build-auth-service
+      - build-product-service
+      - build-order-service
+      - build-chat-service
+      - build-notification-service
+      - build-search-service
+      - build-frontend
+    if: always() && !cancelled() && !failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update deployment image tags
+        run: |
+          SHA="${{ github.sha }}"
+          update_image() {
+            local svc="$1"
+            local image="$2"
+            local file="k8s/base/${svc}/deployment.yaml"
+            if [[ -f "$file" ]]; then
+              sed -i "s|image: ghcr.io/caovanson/${image}:.*|image: ghcr.io/caovanson/${image}:${SHA}|g" "$file"
+            fi
+          }
+
+          if [[ "${{ needs.detect-changes.outputs.api-gateway }}" == "true" ]]; then
+            update_image api-gateway api-gateway
+          fi
+          if [[ "${{ needs.detect-changes.outputs.auth-service }}" == "true" ]]; then
+            update_image auth-service auth-service
+          fi
+          if [[ "${{ needs.detect-changes.outputs.product-service }}" == "true" ]]; then
+            update_image product-service product-service
+          fi
+          if [[ "${{ needs.detect-changes.outputs.order-service }}" == "true" ]]; then
+            update_image order-service order-service
+          fi
+          if [[ "${{ needs.detect-changes.outputs.chat-service }}" == "true" ]]; then
+            update_image chat-service chat-service
+          fi
+          if [[ "${{ needs.detect-changes.outputs.notification-service }}" == "true" ]]; then
+            update_image notification-service notification-service
+          fi
+          if [[ "${{ needs.detect-changes.outputs.search-service }}" == "true" ]]; then
+            update_image search-service search-service
+          fi
+          if [[ "${{ needs.detect-changes.outputs.frontend }}" == "true" ]]; then
+            update_image frontend frontend-web
+          fi
+
+      - name: Commit and push manifest updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+          git add k8s/base/*/deployment.yaml
+          git commit -m "ci: update image tags to ${{ github.sha }}"
+          git push

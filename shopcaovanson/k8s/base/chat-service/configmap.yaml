@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chat-service-config
+  namespace: shop
+  labels:
+    app: chat-service
+data:
+  APP_ENV: "production"
+  PORT: "8080"
+  LOG_LEVEL: "info"
+  MONGO_HOST: "mongodb.infra.svc.cluster.local"
+  MONGO_PORT: "27017"
+  MONGO_USER: "shopcaovanson"
+  MONGO_DB: "chat_db"
+  MONGO_AUTH_SOURCE: "admin"
+  REDIS_HOST: "redis.infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "2"
+  AUTH_SERVICE_URL: "http://auth-service.shop.svc.cluster.local"
+  WS_PATH: "/ws"

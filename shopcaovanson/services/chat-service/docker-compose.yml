@@ -1,0 +1,29 @@
+services:
+  chat-service:
+    build: .
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: "8084"
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DATABASE: shop_chat
+      REDIS_URL: redis://redis:6379/0
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - chat_mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  chat_mongo_data:
