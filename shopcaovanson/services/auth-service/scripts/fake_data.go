@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/shopcaovanson/seedcatalog"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -100,7 +101,7 @@ func bulkInsertCustomers(ctx context.Context, db *sqlx.DB, from, to int, hash st
 	for i := from; i <= to; i++ {
 		id := userID(i)
 		email := fmt.Sprintf("user%d@shop.com", i)
-		name := fmt.Sprintf("Khách hàng %d", i)
+		name := seedcatalog.VietnameseName(i)
 		if _, err := stmt.ExecContext(ctx, id, email, hash, name, "customer", true, now, now); err != nil {
 			return err
 		}
@@ -162,6 +163,3 @@ func envInt(key string, def int) int {
 	}
 	return n
 }
-
-// ExportUserID matches order-service seed for cross-service IDs.
-func ExportUserID(n int) uuid.UUID { return userID(n) }

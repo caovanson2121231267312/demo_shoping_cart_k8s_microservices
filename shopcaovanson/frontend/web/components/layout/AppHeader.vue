@@ -1,68 +1,114 @@
 <template>
-  <v-app-bar color="primary" elevation="0" density="comfortable" class="app-header">
-    <v-app-bar-nav-icon class="d-lg-none" color="white" @click="$emit('toggle-sidebar')" />
+  <header class="store-header">
+    <v-container class="store-header__main">
+      <v-app-bar-nav-icon
+        class="store-header__menu d-lg-none flex-shrink-0"
+        color="primary"
+        @click="$emit('toggle-sidebar')"
+      />
 
-    <NuxtLink to="/" class="app-header__brand text-white d-flex align-center ml-1">
-      <v-icon class="mr-2" size="28">mdi-storefront</v-icon>
-      <span class="text-h6 font-weight-bold d-none d-sm-inline">Shop Cao Van Son</span>
-    </NuxtLink>
+      <NuxtLink to="/" class="store-header__brand flex-shrink-0">
+        <div class="store-header__logo">
+          <v-icon color="white" size="28">mdi-storefront-outline</v-icon>
+        </div>
+        <div class="store-header__brand-text">
+          <span class="store-header__name">Shop Cao Văn Sơn</span>
+          <span class="store-header__tagline">Thương mại điện tử uy tín</span>
+        </div>
+      </NuxtLink>
 
-    <div class="d-none d-md-flex flex-grow-1 mx-4" style="max-width: 520px">
-      <ProductSearch />
-    </div>
+      <div class="store-header__search d-none d-md-flex">
+        <ProductSearch v-model="searchQuery" show-button @search="onSearch" />
+      </div>
 
-    <v-spacer class="d-md-none" />
+      <v-spacer class="d-md-none" />
 
-    <v-btn icon variant="text" color="white" class="d-md-none" to="/products">
-      <v-icon>mdi-magnify</v-icon>
-    </v-btn>
+      <div class="store-header__actions">
+        <a href="tel:19001234" class="store-header__hotline d-none d-xl-flex">
+          <div class="store-header__hotline-icon">
+            <v-icon color="primary" size="22">mdi-headset</v-icon>
+          </div>
+          <div>
+            <span class="store-header__hotline-label">Hỗ trợ / Mua hàng</span>
+            <span class="store-header__hotline-number">1900 1234</span>
+          </div>
+        </a>
 
-    <v-btn icon variant="text" color="white" to="/wishlist">
-      <v-badge :content="wishlist.count.value" :model-value="wishlist.count.value > 0" color="error">
-        <v-icon>mdi-heart-outline</v-icon>
-      </v-badge>
-    </v-btn>
+        <NuxtLink to="/wishlist" class="store-header__action d-none d-sm-flex">
+          <v-badge :content="wishlist.count" :model-value="wishlist.count > 0" color="error" floating>
+            <v-icon size="26">mdi-heart-outline</v-icon>
+          </v-badge>
+          <span class="store-header__action-label">Yêu thích</span>
+        </NuxtLink>
 
-    <v-btn icon variant="text" color="white" @click="cartDrawerOpen = true">
-      <v-badge :content="cart.count.value" :model-value="cart.count.value > 0" color="secondary">
-        <v-icon>mdi-cart-outline</v-icon>
-      </v-badge>
-    </v-btn>
+        <button type="button" class="store-header__action store-header__action--cart" @click="cartDrawerOpen = true">
+          <v-badge :content="cart.count" :model-value="cart.count > 0" color="error" floating>
+            <v-icon size="26">mdi-cart-outline</v-icon>
+          </v-badge>
+          <span class="store-header__action-label d-none d-sm-inline">Giỏ hàng</span>
+          <span v-if="cart.count > 0" class="store-header__cart-total d-none d-lg-block">
+            {{ cart.formattedTotal }}
+          </span>
+        </button>
 
-    <template v-if="auth.isLoggedIn.value">
-      <v-menu>
-        <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" icon variant="text" color="white" class="ml-1">
-            <v-avatar color="secondary" size="36">
-              <span class="text-white text-body-2">{{ initials }}</span>
-            </v-avatar>
+        <template v-if="auth.isLoggedIn">
+          <v-menu location="bottom end" offset="8">
+            <template #activator="{ props: menuProps }">
+              <button type="button" class="store-header__action store-header__action--account" v-bind="menuProps">
+                <v-avatar color="primary" size="38">
+                  <span class="text-white text-caption font-weight-bold">{{ initials }}</span>
+                </v-avatar>
+                <span class="store-header__action-label d-none d-lg-inline">Tài khoản</span>
+              </button>
+            </template>
+            <v-list density="compact" min-width="260" rounded="lg" elevation="4">
+              <v-list-item class="py-3">
+                <template #prepend>
+                  <v-avatar color="primary" size="40">
+                    <span class="text-white text-body-2 font-weight-bold">{{ initials }}</span>
+                  </v-avatar>
+                </template>
+                <v-list-item-title class="font-weight-bold">{{ auth.user?.full_name }}</v-list-item-title>
+                <v-list-item-subtitle class="text-truncate">{{ auth.user?.email }}</v-list-item-subtitle>
+              </v-list-item>
+              <v-divider class="my-1" />
+              <v-list-item to="/profile" prepend-icon="mdi-account-outline" title="Hồ sơ của tôi" />
+              <v-list-item to="/orders" prepend-icon="mdi-package-variant-closed" title="Đơn hàng" />
+              <v-list-item to="/orders/track" prepend-icon="mdi-truck-fast-outline" title="Tra cứu đơn hàng" />
+              <v-list-item to="/wishlist" prepend-icon="mdi-heart-outline" title="Sản phẩm yêu thích" />
+              <v-list-item
+                v-if="auth.isStaff"
+                to="/admin"
+                prepend-icon="mdi-view-dashboard-outline"
+                title="Quản trị hệ thống"
+              />
+              <v-divider class="my-1" />
+              <v-list-item prepend-icon="mdi-logout" title="Đăng xuất" base-color="error" @click="handleLogout" />
+            </v-list>
+          </v-menu>
+        </template>
+        <template v-else>
+          <div class="store-header__auth d-none d-sm-flex align-center ga-1">
+            <v-btn variant="text" color="grey-darken-3" to="/auth/login" class="text-none font-weight-medium" size="small">
+              Đăng nhập
+            </v-btn>
+            <v-btn color="primary" to="/auth/register" class="text-none font-weight-bold" size="small" rounded="lg" elevation="0">
+              Đăng ký
+            </v-btn>
+          </div>
+          <v-btn icon variant="text" color="grey-darken-3" to="/auth/login" class="d-sm-none">
+            <v-icon>mdi-account-outline</v-icon>
           </v-btn>
         </template>
-        <v-list density="compact" min-width="220">
-          <v-list-item>
-            <v-list-item-title>{{ auth.user.value?.full_name }}</v-list-item-title>
-            <v-list-item-subtitle>{{ auth.user.value?.email }}</v-list-item-subtitle>
-          </v-list-item>
-          <v-divider />
-          <v-list-item to="/profile" prepend-icon="mdi-account-outline" title="Hồ sơ" />
-          <v-list-item to="/orders" prepend-icon="mdi-package-variant" title="Đơn hàng" />
-          <v-list-item to="/orders/track" prepend-icon="mdi-truck-fast" title="Tra cứu đơn" />
-          <v-list-item to="/wishlist" prepend-icon="mdi-heart-outline" title="Yêu thích" />
-          <v-list-item
-            v-if="auth.isStaff.value"
-            to="/admin"
-            prepend-icon="mdi-view-dashboard"
-            title="Quản trị"
-          />
-          <v-list-item prepend-icon="mdi-logout" title="Đăng xuất" @click="handleLogout" />
-        </v-list>
-      </v-menu>
-    </template>
-    <template v-else>
-      <v-btn variant="text" color="white" to="/auth/login" class="d-none d-sm-inline-flex">Đăng nhập</v-btn>
-      <v-btn variant="outlined" color="white" to="/auth/register" class="mr-2 text-none">Đăng ký</v-btn>
-    </template>
-  </v-app-bar>
+      </div>
+    </v-container>
+
+    <div class="store-header__mobile-search d-md-none">
+      <v-container class="py-2">
+        <ProductSearch v-model="searchQuery" show-button @search="onSearch" />
+      </v-container>
+    </div>
+  </header>
 </template>
 
 <script setup lang="ts">
@@ -71,14 +117,26 @@ defineEmits<{ 'toggle-sidebar': [] }>()
 const auth = useAuth()
 const cart = useCart()
 const wishlist = useWishlist()
+const router = useRouter()
 const cartDrawerOpen = useState('cartDrawerOpen', () => false)
+const searchQuery = ref('')
 
-onMounted(() => useWishlistStore().hydrate())
+onMounted(() => {
+  useWishlistStore().hydrate()
+  useCartStore().hydrate()
+})
 
 const initials = computed(() => {
   const name = auth.user.value?.full_name || ''
-  return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+  return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || '?'
 })
+
+const onSearch = (query: string) => {
+  router.push({
+    path: '/products',
+    query: query.trim() ? { search: query.trim() } : {},
+  })
+}
 
 const handleLogout = async () => {
   await auth.logout()
@@ -87,11 +145,188 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
-.app-header {
-  background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%) !important;
+.store-header {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-header);
+  position: relative;
+  z-index: 10;
 }
 
-.app-header__brand {
+.store-header__main {
+  max-width: 1280px;
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.store-header__menu {
+  margin-left: -8px;
+}
+
+.store-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.store-header__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-primary);
+  transition: transform 0.2s;
+}
+
+.store-header__brand:hover .store-header__logo {
+  transform: scale(1.04);
+}
+
+.store-header__brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.store-header__name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+}
+
+.store-header__tagline {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 599px) {
+  .store-header__brand-text {
+    display: none;
+  }
+
+  .store-header__logo {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+.store-header__search {
+  flex: 1;
+  max-width: 580px;
+  margin: 0 20px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.store-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.store-header__hotline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  margin-right: 8px;
+  transition: background 0.2s;
+}
+
+.store-header__hotline:hover {
+  background: var(--color-surface-hover);
+}
+
+.store-header__hotline-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-primary-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.store-header__hotline-label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.store-header__hotline-number {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.store-header__action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s, color 0.2s;
+  position: relative;
+}
+
+.store-header__action:hover {
+  background: var(--color-bg);
+  color: var(--color-primary);
+}
+
+.store-header__action-label {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.store-header__action--cart {
+  position: relative;
+}
+
+.store-header__cart-total {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-sale);
+  white-space: nowrap;
+}
+
+.store-header__mobile-search {
+  background: var(--color-surface-muted);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.store-header__mobile-search .product-search {
+  width: 100%;
 }
 </style>

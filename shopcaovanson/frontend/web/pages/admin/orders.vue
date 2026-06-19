@@ -59,6 +59,7 @@
           {{ formatVND(item.total_amount) }}
         </template>
         <template #item.actions="{ item }">
+          <v-btn size="small" variant="text" :to="`/admin/orders/${item.id}`">Chi tiết</v-btn>
           <v-menu v-if="admin.canManageOrders.value">
             <template #activator="{ props }">
               <v-btn v-bind="props" size="small" variant="outlined" color="primary">

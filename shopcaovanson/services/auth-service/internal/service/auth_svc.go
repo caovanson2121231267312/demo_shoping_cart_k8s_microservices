@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -29,7 +31,11 @@ var (
 	ErrInvalidEmail       = errors.New("invalid email format")
 	ErrEmailNotVerified   = errors.New("email not verified")
 	ErrInvalidVerifyToken = errors.New("invalid or expired verification token")
+	ErrInvalidResetOTP    = errors.New("invalid or expired otp")
+	ErrAccountDisabled    = errors.New("account is disabled")
 )
+
+const passwordResetOTPTTL = 10 * time.Minute
 
 type AuthService struct {
 	cfg          *config.Config
@@ -142,7 +148,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 		return nil, ErrInvalidCredentials
 	}
 	if !user.IsActive {
-		return nil, errors.New("account is disabled")
+		return nil, ErrAccountDisabled
 	}
 	if !user.EmailVerified {
 		return nil, ErrEmailNotVerified
@@ -215,6 +221,122 @@ func (s *AuthService) ResendVerification(ctx context.Context, email string) erro
 		Token:     verifyToken,
 		VerifyURL: verifyURL,
 	})
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, email string) (*domain.ForgotPasswordResponse, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if err := validateEmail(email); err != nil {
+		return nil, err
+	}
+
+	resp := &domain.ForgotPasswordResponse{
+		Message: "Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi.",
+	}
+
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return resp, nil
+		}
+		return nil, err
+	}
+	if !user.IsActive || !user.EmailVerified {
+		return resp, nil
+	}
+
+	rateKey := fmt.Sprintf("pwd_reset_rate:%s", email)
+	set, err := s.redis.SetNX(ctx, rateKey, "1", time.Minute).Result()
+	if err != nil {
+		return nil, fmt.Errorf("redis rate limit: %w", err)
+	}
+	if !set {
+		return resp, nil
+	}
+
+	otp, err := generateOTP()
+	if err != nil {
+		return nil, err
+	}
+	expiresAt := time.Now().UTC().Add(passwordResetOTPTTL)
+	otpHash := hashToken(otp)
+
+	if err := s.userRepo.SetPasswordResetOTP(ctx, user.ID, otpHash, expiresAt); err != nil {
+		return nil, err
+	}
+
+	resetURL := fmt.Sprintf("%s/auth/reset-password?email=%s", strings.TrimRight(s.cfg.FrontendURL, "/"), url.QueryEscape(email))
+	if err := s.kafka.PublishPasswordResetRequested(kafka.PasswordResetRequestedEvent{
+		UserID:         user.ID.String(),
+		Email:          user.Email,
+		FullName:       user.FullName,
+		OTP:            otp,
+		ResetURL:       resetURL,
+		ExpiresMinutes: int(passwordResetOTPTTL.Minutes()),
+	}); err != nil {
+		return nil, fmt.Errorf("publish user.password_reset_requested: %w", err)
+	}
+
+	resp.Email = user.Email
+	return resp, nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, email, otp, newPassword string) (*domain.ResetPasswordResponse, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	otp = strings.TrimSpace(otp)
+
+	if err := validateEmail(email); err != nil {
+		return nil, err
+	}
+	if len(otp) != 6 {
+		return nil, ErrInvalidResetOTP
+	}
+	if len(newPassword) < 8 {
+		return nil, ErrWeakPassword
+	}
+
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrInvalidResetOTP
+		}
+		return nil, err
+	}
+	if user.PasswordResetOTPHash == nil || user.PasswordResetExpiresAt == nil {
+		return nil, ErrInvalidResetOTP
+	}
+	if time.Now().UTC().After(*user.PasswordResetExpiresAt) {
+		return nil, ErrInvalidResetOTP
+	}
+	if hashToken(otp) != *user.PasswordResetOTPHash {
+		return nil, ErrInvalidResetOTP
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), s.cfg.BcryptCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+	if err := s.userRepo.UpdatePasswordHash(ctx, user.ID, string(hash)); err != nil {
+		return nil, err
+	}
+
+	if err := s.refreshRepo.RevokeAllForUser(ctx, user.ID); err != nil {
+		return nil, err
+	}
+	iter := s.redis.Scan(ctx, 0, "refresh_token:*", 0).Iterator()
+	for iter.Next(ctx) {
+		key := iter.Val()
+		storedUserID, err := s.redis.Get(ctx, key).Result()
+		if err != nil {
+			continue
+		}
+		if storedUserID == user.ID.String() {
+			_ = s.redis.Del(ctx, key).Err()
+		}
+	}
+
+	return &domain.ResetPasswordResponse{
+		Message: "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập ngay.",
+	}, nil
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string, error) {
@@ -395,4 +517,12 @@ func generateVerificationToken() (string, error) {
 		return "", fmt.Errorf("generate verification token: %w", err)
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func generateOTP() (string, error) {
+	var n uint32
+	if err := binary.Read(rand.Reader, binary.BigEndian, &n); err != nil {
+		return "", fmt.Errorf("generate otp: %w", err)
+	}
+	return fmt.Sprintf("%06d", n%1000000), nil
 }

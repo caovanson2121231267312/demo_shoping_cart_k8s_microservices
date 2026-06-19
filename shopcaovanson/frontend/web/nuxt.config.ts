@@ -7,6 +7,13 @@ export default defineNuxtConfig({
 
   modules: ['@pinia/nuxt'],
 
+  components: [
+    {
+      path: '~/components',
+      pathPrefix: false,
+    },
+  ],
+
   css: ['~/assets/css/main.css', 'vuetify/styles', '@mdi/font/css/materialdesignicons.css'],
 
   build: {

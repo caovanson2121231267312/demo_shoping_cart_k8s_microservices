@@ -4,13 +4,36 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
+	"net/url"
+	"strings"
 
 	"github.com/caovanson/shopcaovanson/order-service/internal/config"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
+
+func postgresURL(cfg *config.Config) string {
+	if strings.HasPrefix(cfg.PostgresDSN, "postgres://") || strings.HasPrefix(cfg.PostgresDSN, "postgresql://") {
+		return cfg.PostgresDSN
+	}
+	vals := map[string]string{}
+	for _, part := range strings.Fields(cfg.PostgresDSN) {
+		if kv := strings.SplitN(part, "=", 2); len(kv) == 2 {
+			vals[kv[0]] = kv[1]
+		}
+	}
+	user := url.QueryEscape(vals["user"])
+	pass := url.QueryEscape(vals["password"])
+	host := vals["host"]
+	port := vals["port"]
+	dbname := vals["dbname"]
+	ssl := vals["sslmode"]
+	if ssl == "" {
+		ssl = "disable"
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, pass, host, port, dbname, ssl)
+}
 
 func main() {
 	direction := flag.String("direction", "up", "migration direction: up or down")
@@ -21,13 +44,8 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("cwd: %v", err)
-	}
-
-	sourceURL := fmt.Sprintf("file://%s/migrations", wd)
-	m, err := migrate.New(sourceURL, cfg.PostgresDSN)
+	sourceURL := "file://migrations"
+	m, err := migrate.New(sourceURL, postgresURL(cfg))
 	if err != nil {
 		log.Fatalf("migrate init: %v", err)
 	}

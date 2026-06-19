@@ -32,6 +32,7 @@ func (h *ProductHandler) RegisterRoutes(app fiber.Router) {
 	api.Get("/categories", h.ListCategories)
 	api.Get("/products", h.ListProducts)
 	api.Post("/products", middleware.RequireAuth(), middleware.RequireAdmin(), h.CreateProduct)
+	api.Post("/products/reviews/summary", h.BatchReviewSummaries)
 	api.Get("/products/:id/reviews", h.ListReviews)
 	api.Post("/products/:id/reviews", middleware.RequireAuth(), h.CreateReview)
 	api.Put("/products/:id", middleware.RequireAuth(), middleware.RequireAdmin(), h.UpdateProduct)
@@ -141,6 +142,28 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 		return mapServiceError(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *ProductHandler) BatchReviewSummaries(c *fiber.Ctx) error {
+	var body struct {
+		ProductIDs []string `json:"product_ids"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	ids := make([]uuid.UUID, 0, len(body.ProductIDs))
+	for _, raw := range body.ProductIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	result, err := h.reviewSvc.SummarizeByProducts(c.Context(), ids)
+	if err != nil {
+		return mapServiceError(c, err)
+	}
+	return c.JSON(fiber.Map{"data": result})
 }
 
 func (h *ProductHandler) ListReviews(c *fiber.Ctx) error {

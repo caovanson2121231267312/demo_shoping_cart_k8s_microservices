@@ -1,7 +1,12 @@
 <template>
-  <v-container class="page-container py-6" style="max-width: 560px">
-    <h1 class="text-h4 font-weight-bold mb-6">Hồ sơ cá nhân</h1>
-
+  <div>
+    <PageBanner
+      title="Hồ sơ cá nhân"
+      subtitle="Quản lý thông tin tài khoản"
+      :breadcrumbs="[{ label: 'Hồ sơ' }]"
+      compact
+    />
+    <v-container class="page-container py-6" style="max-width: 560px">
     <v-card>
       <v-card-text>
         <v-alert v-if="success" type="success" variant="tonal" class="mb-4">
@@ -34,7 +39,8 @@
         </v-form>
       </v-card-text>
     </v-card>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -1,7 +1,12 @@
 <template>
-  <v-container class="page-container py-6">
-    <h1 class="text-h4 font-weight-bold mb-6">Tra cứu đơn hàng</h1>
-
+  <div>
+    <PageBanner
+      title="Tra cứu đơn hàng"
+      subtitle="Nhập mã đơn và số điện thoại để kiểm tra trạng thái giao hàng"
+      :breadcrumbs="[{ label: 'Tra cứu đơn' }]"
+      compact
+    />
+    <v-container class="page-container py-6">
     <v-card max-width="560" class="pa-6 mb-6">
       <v-form @submit.prevent="search">
         <v-text-field
@@ -42,7 +47,8 @@
         <span>{{ formatVND(item.unit_price * item.quantity) }}</span>
       </div>
     </v-card>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

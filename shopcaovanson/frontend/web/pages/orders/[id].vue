@@ -1,5 +1,12 @@
 <template>
-  <v-container class="page-container py-6">
+  <div>
+    <PageBanner
+      :title="order ? `Đơn hàng #${order.order_number || orderId.slice(0, 8)}` : 'Chi tiết đơn hàng'"
+      subtitle="Chi tiết và trạng thái giao hàng"
+      :breadcrumbs="[{ label: 'Đơn hàng', to: '/orders' }, { label: 'Chi tiết' }]"
+      compact
+    />
+    <v-container class="page-container py-6">
     <LoadingSpinner v-if="loading" />
     <EmptyState
       v-else-if="!order"
@@ -9,14 +16,7 @@
       <v-btn color="primary" to="/orders" class="mt-4">Quay lại</v-btn>
     </EmptyState>
 
-    <template v-else>
-      <div class="d-flex align-center mb-6">
-        <v-btn icon variant="text" to="/orders" class="mr-2">
-          <v-icon>mdi-arrow-left</v-icon>
-        </v-btn>
-        <h1 class="text-h5 font-weight-bold">Chi tiết đơn hàng</h1>
-      </div>
-
+    <template v-else-if="order">
       <v-row>
         <v-col cols="12" md="8">
           <v-card class="mb-4">
@@ -126,7 +126,8 @@
       :loading="cancelling"
       @confirm="cancelOrder"
     />
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -150,7 +151,7 @@ const downloadInvoice = async () => {
     window.open(url, '_blank')
     setTimeout(() => URL.revokeObjectURL(url), 60000)
   } catch {
-    useSnackbar().show('Hóa đơn chưa sẵn sàng. Vui lòng thử lại sau vài giây.', 'warning')
+    useSnackbar().show('Hóa đơn chưa sẵn sàng. Vui lòng thử lại sau vài giây.', 'info')
   } finally {
     downloadingInvoice.value = false
   }

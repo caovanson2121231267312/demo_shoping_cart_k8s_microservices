@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -20,6 +22,8 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	_ = godotenv.Load()
+
 	port := getEnv("APP_PORT", getEnv("PORT", "8083"))
 	pgHost := getEnv("POSTGRES_HOST", getEnv("DB_HOST", "localhost"))
 	pgPort := getEnv("POSTGRES_PORT", getEnv("DB_PORT", "5432"))

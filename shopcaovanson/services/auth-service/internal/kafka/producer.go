@@ -23,10 +23,20 @@ type VerificationRequestedEvent struct {
 	VerifyURL string `json:"verify_url"`
 }
 
+type PasswordResetRequestedEvent struct {
+	UserID         string `json:"user_id"`
+	Email          string `json:"email"`
+	FullName       string `json:"full_name"`
+	OTP            string `json:"otp"`
+	ResetURL       string `json:"reset_url"`
+	ExpiresMinutes int    `json:"expires_minutes"`
+}
+
 type Producer struct {
-	producer sarama.SyncProducer
-	registeredTopic string
-	verifyTopic     string
+	producer            sarama.SyncProducer
+	registeredTopic     string
+	verifyTopic         string
+	passwordResetTopic  string
 }
 
 func NewProducer(brokers string) (*Producer, error) {
@@ -45,9 +55,10 @@ func NewProducer(brokers string) (*Producer, error) {
 	}
 
 	return &Producer{
-		producer:        producer,
-		registeredTopic: "user.registered",
-		verifyTopic:     "user.verification_requested",
+		producer:           producer,
+		registeredTopic:  "user.registered",
+		verifyTopic:        "user.verification_requested",
+		passwordResetTopic: "user.password_reset_requested",
 	}, nil
 }
 
@@ -79,6 +90,14 @@ func (p *Producer) PublishVerificationRequested(event VerificationRequestedEvent
 		return fmt.Errorf("marshal event: %w", err)
 	}
 	return p.publish(p.verifyTopic, event.UserID, payload)
+}
+
+func (p *Producer) PublishPasswordResetRequested(event PasswordResetRequestedEvent) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+	return p.publish(p.passwordResetTopic, event.UserID, payload)
 }
 
 func (p *Producer) Close() error {

@@ -9,6 +9,12 @@
       <v-list density="compact" nav class="text-grey-lighten-1">
         <v-list-item to="/admin" prepend-icon="mdi-view-dashboard" title="Tổng quan" />
         <v-list-item
+          v-if="authStore.can('manager')"
+          to="/admin/reports"
+          prepend-icon="mdi-chart-areaspline"
+          title="Báo cáo"
+        />
+        <v-list-item
           v-if="admin.canManageProducts.value"
           to="/admin/products"
           prepend-icon="mdi-package-variant"
@@ -19,6 +25,12 @@
           to="/admin/categories"
           prepend-icon="mdi-shape"
           title="Danh mục"
+        />
+        <v-list-item
+          v-if="authStore.can('manager')"
+          to="/admin/articles"
+          prepend-icon="mdi-post-outline"
+          title="Bài viết"
         />
         <v-list-item
           v-if="admin.canManageOrders.value"
@@ -64,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+const authStore = useAuthStore()
 const auth = useAuth()
 const admin = useAdmin()
 const drawer = ref(true)

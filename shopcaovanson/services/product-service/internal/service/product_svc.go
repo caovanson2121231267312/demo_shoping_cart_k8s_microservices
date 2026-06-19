@@ -386,6 +386,37 @@ func (s *ReviewService) ListByProduct(ctx context.Context, productID uuid.UUID, 
 	return s.reviewRepo.ListByProduct(ctx, productID, page, limit)
 }
 
+func (s *ReviewService) SummarizeByProducts(ctx context.Context, productIDs []uuid.UUID) (map[string]domain.ReviewSummary, error) {
+	if len(productIDs) > 100 {
+		productIDs = productIDs[:100]
+	}
+	unique := make([]uuid.UUID, 0, len(productIDs))
+	seen := make(map[uuid.UUID]struct{}, len(productIDs))
+	for _, id := range productIDs {
+		if id == uuid.Nil {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	summaries, err := s.reviewRepo.SummarizeByProducts(ctx, unique)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]domain.ReviewSummary, len(unique))
+	for _, id := range unique {
+		if summary, ok := summaries[id]; ok {
+			out[id.String()] = summary
+		} else {
+			out[id.String()] = domain.ReviewSummary{}
+		}
+	}
+	return out, nil
+}
+
 func (s *ReviewService) Create(ctx context.Context, productID, userID uuid.UUID, input domain.CreateReviewInput) (*domain.ProductReview, error) {
 	if input.Rating < 1 || input.Rating > 5 {
 		return nil, fmt.Errorf("%w: rating must be between 1 and 5", ErrInvalidInput)

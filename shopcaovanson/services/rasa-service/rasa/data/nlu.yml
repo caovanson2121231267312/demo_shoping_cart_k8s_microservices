@@ -1,0 +1,47 @@
+version: "3.1"
+
+nlu:
+  - intent: greet
+    examples: |
+      - xin chào
+      - chào shop
+      - hello
+      - hi
+  - intent: goodbye
+    examples: |
+      - tạm biệt
+      - cảm ơn nhé
+      - bye
+  - intent: ask_products
+    examples: |
+      - tìm [laptop](product_query)
+      - có [tai nghe](product_query) không
+      - sản phẩm [điện thoại](product_query)
+      - giá [macbook](product_query)
+  - intent: ask_orders
+    examples: |
+      - đơn hàng của tôi
+      - xem đơn hàng
+      - lịch sử mua hàng
+  - intent: track_order
+    examples: |
+      - tra cứu đơn [ORD123456](order_number) sdt [0901234567](shipping_phone)
+      - theo dõi đơn hàng
+  - intent: ask_warranty
+    examples: |
+      - chính sách bảo hành
+      - bảo hành bao lâu
+      - đổi trả thế nào
+  - intent: ask_hours
+    examples: |
+      - giờ làm việc
+      - mấy giờ mở cửa
+      - hotline
+  - intent: ask_shipping
+    examples: |
+      - giao hàng mất bao lâu
+      - phí ship
+  - intent: ask_payment
+    examples: |
+      - thanh toán cod
+      - hình thức thanh toán

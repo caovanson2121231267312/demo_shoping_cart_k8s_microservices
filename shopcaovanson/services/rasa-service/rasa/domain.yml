@@ -1,0 +1,41 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - ask_products
+  - ask_orders
+  - track_order
+  - ask_warranty
+  - ask_hours
+  - ask_shipping
+  - ask_payment
+  - nlu_fallback
+
+entities:
+  - product_query
+  - order_number
+  - shipping_phone
+
+responses:
+  utter_greet:
+    - text: "Xin chào! Mình là trợ lý Shop Cao Văn Sơn. Mình có thể hỗ trợ tìm sản phẩm, đơn hàng, bảo hành và giờ làm việc."
+  utter_goodbye:
+    - text: "Cảm ơn bạn đã liên hệ Shop Cao Văn Sơn!"
+  utter_warranty:
+    - text: "Bảo hành chính hãng 12 tháng. Đổi trả trong 7 ngày nếu lỗi NSX. Hotline 1900 1234."
+  utter_hours:
+    - text: "T2–T7: 8h–21h. CN: 9h–18h. Hotline 1900 1234."
+  utter_fallback:
+    - text: "Mình chưa hiểu rõ. Bạn hỏi về sản phẩm, đơn hàng, bảo hành hoặc giờ làm việc nhé."
+
+actions:
+  - action_search_products
+  - action_user_orders
+  - action_track_order
+  - action_shipping_info
+  - action_payment_info
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

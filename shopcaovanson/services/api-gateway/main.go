@@ -89,7 +89,9 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 	productURL := strings.TrimRight(cfg.ProductServiceURL, "/")
 	orderURL := strings.TrimRight(cfg.OrderServiceURL, "/")
 	chatURL := strings.TrimRight(cfg.ChatServiceURL, "/")
+	rasaURL := strings.TrimRight(cfg.RasaServiceURL, "/")
 	notificationURL := strings.TrimRight(cfg.NotificationServiceURL, "/")
+	analyticsURL := strings.TrimRight(cfg.AnalyticsServiceURL, "/")
 
 	app.All("/api/auth", middleware.PublicOrAuth(), proxyHandler(authURL))
 	app.All("/api/auth/*", middleware.PublicOrAuth(), proxyHandler(authURL))
@@ -101,6 +103,11 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 
 	app.All("/api/admin/categories", middleware.PublicOrAuth(), proxyHandler(productURL))
 	app.All("/api/admin/categories/*", middleware.PublicOrAuth(), proxyHandler(productURL))
+	app.All("/api/admin/articles", middleware.PublicOrAuth(), proxyHandler(productURL))
+	app.All("/api/admin/articles/*", middleware.PublicOrAuth(), proxyHandler(productURL))
+
+	app.All("/api/articles", middleware.PublicOrAuth(), proxyHandler(productURL))
+	app.All("/api/articles/*", middleware.PublicOrAuth(), proxyHandler(productURL))
 
 	app.All("/api/products", middleware.PublicOrAuth(), proxyHandler(productURL))
 	app.All("/api/products/*", middleware.PublicOrAuth(), proxyHandler(productURL))
@@ -124,6 +131,14 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 	app.All("/api/chat", middleware.PublicOrAuth(), proxyHandler(chatURL))
 	app.All("/api/chat/*", middleware.PublicOrAuth(), proxyHandler(chatURL))
 	app.All("/ws", middleware.PublicOrAuth(), proxyHandler(chatURL))
+
+	app.All("/api/chatbot", middleware.PublicOrAuth(), proxyHandler(rasaURL))
+	app.All("/api/chatbot/*", middleware.PublicOrAuth(), proxyHandler(rasaURL))
+
+	app.All("/api/analytics/presence", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
+	app.All("/api/analytics/track", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
+	app.All("/api/admin/analytics", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
+	app.All("/api/admin/analytics/*", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
 }
 
 func proxyHandler(baseURL string) fiber.Handler {

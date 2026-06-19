@@ -6,13 +6,14 @@ import (
 	"fmt"
 
 	"github.com/caovanson/shopcaovanson/chat-service/internal/domain"
+	"github.com/caovanson/shopcaovanson/chat-service/internal/rasa"
 	"github.com/caovanson/shopcaovanson/chat-service/internal/repository"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
-	ErrRoomNotFound      = errors.New("room not found")
-	ErrNotParticipant    = errors.New("not a room participant")
+	ErrRoomNotFound       = errors.New("room not found")
+	ErrNotParticipant     = errors.New("not a room participant")
 	ErrInvalidParticipant = errors.New("invalid participant")
 )
 
@@ -51,6 +52,25 @@ func (s *ChatService) CreateRoom(ctx context.Context, userID, participantID stri
 	return room, nil
 }
 
+func (s *ChatService) GetOrCreateSupportRoom(ctx context.Context, userID string) (*domain.ChatRoom, error) {
+	existing, err := s.repo.FindSupportRoom(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return existing, nil
+	}
+
+	room := &domain.ChatRoom{
+		Participants: []string{userID, rasa.BotUserID},
+		RoomType:     domain.RoomTypeSupport,
+	}
+	if err := s.repo.CreateRoom(ctx, room); err != nil {
+		return nil, err
+	}
+	return room, nil
+}
+
 func (s *ChatService) GetMessages(ctx context.Context, userID, roomIDStr string, beforeCursor string, limit int) ([]domain.ChatMessage, error) {
 	roomID, err := primitive.ObjectIDFromHex(roomIDStr)
 	if err != nil {
@@ -81,6 +101,14 @@ func (s *ChatService) GetMessages(ctx context.Context, userID, roomIDStr string,
 }
 
 func (s *ChatService) SaveMessage(ctx context.Context, userID, roomIDStr, content string) (*domain.ChatMessage, error) {
+	return s.saveMessageAs(ctx, userID, roomIDStr, content)
+}
+
+func (s *ChatService) SaveBotMessage(ctx context.Context, roomIDStr, content string) (*domain.ChatMessage, error) {
+	return s.saveMessageAs(ctx, rasa.BotUserID, roomIDStr, content)
+}
+
+func (s *ChatService) saveMessageAs(ctx context.Context, senderID, roomIDStr, content string) (*domain.ChatMessage, error) {
 	roomID, err := primitive.ObjectIDFromHex(roomIDStr)
 	if err != nil {
 		return nil, ErrRoomNotFound
@@ -93,16 +121,17 @@ func (s *ChatService) SaveMessage(ctx context.Context, userID, roomIDStr, conten
 	if room == nil {
 		return nil, ErrRoomNotFound
 	}
-	if !contains(room.Participants, userID) {
+	if !contains(room.Participants, senderID) {
 		return nil, ErrNotParticipant
 	}
 
+	readBy := []string{senderID}
 	msg := &domain.ChatMessage{
 		RoomID:   roomID,
-		SenderID: userID,
+		SenderID: senderID,
 		Content:  content,
 		Type:     domain.MessageTypeText,
-		ReadBy:   []string{userID},
+		ReadBy:   readBy,
 	}
 	if err := s.repo.CreateMessage(ctx, msg); err != nil {
 		return nil, err

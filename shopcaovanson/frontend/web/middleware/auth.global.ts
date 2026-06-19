@@ -2,7 +2,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuth()
   await auth.ensureAuth()
 
-  const publicPaths = ['/auth/login', '/auth/register']
+  const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
   if (publicPaths.some((p) => to.path.startsWith(p))) {
     if (auth.isLoggedIn.value) {
       return navigateTo('/')
@@ -10,7 +10,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  const protectedPrefixes = ['/profile', '/cart', '/checkout', '/orders', '/admin']
+  const protectedPrefixes = ['/profile', '/checkout', '/orders', '/admin']
   const needsAuth = protectedPrefixes.some((p) => to.path.startsWith(p))
 
   if (needsAuth && !auth.isLoggedIn.value) {

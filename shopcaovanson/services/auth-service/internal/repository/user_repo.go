@@ -23,6 +23,9 @@ type UserRepository interface {
 	GetByVerificationToken(ctx context.Context, token string) (*domain.User, error)
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
 	SetVerificationToken(ctx context.Context, id uuid.UUID, token string, expiresAt time.Time) error
+	SetPasswordResetOTP(ctx context.Context, id uuid.UUID, otpHash string, expiresAt time.Time) error
+	ClearPasswordResetOTP(ctx context.Context, id uuid.UUID) error
+	UpdatePasswordHash(ctx context.Context, id uuid.UUID, passwordHash string) error
 	UpdateFullName(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error)
 	UpdateRole(ctx context.Context, id uuid.UUID, role string) (*domain.User, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, isActive bool) (*domain.User, error)
@@ -143,6 +146,51 @@ func (r *userRepository) SetVerificationToken(ctx context.Context, id uuid.UUID,
 	`, token, expiresAt, id)
 	if err != nil {
 		return fmt.Errorf("set verification token: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepository) SetPasswordResetOTP(ctx context.Context, id uuid.UUID, otpHash string, expiresAt time.Time) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE users SET password_reset_otp_hash = $1, password_reset_expires_at = $2, updated_at = NOW()
+		WHERE id = $3
+	`, otpHash, expiresAt, id)
+	if err != nil {
+		return fmt.Errorf("set password reset otp: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepository) ClearPasswordResetOTP(ctx context.Context, id uuid.UUID) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE users SET password_reset_otp_hash = NULL, password_reset_expires_at = NULL, updated_at = NOW()
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return fmt.Errorf("clear password reset otp: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE users SET password_hash = $1, password_reset_otp_hash = NULL, password_reset_expires_at = NULL, updated_at = NOW()
+		WHERE id = $2
+	`, passwordHash, id)
+	if err != nil {
+		return fmt.Errorf("update password hash: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {

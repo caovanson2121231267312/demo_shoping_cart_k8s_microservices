@@ -60,6 +60,12 @@
           <v-card-title><v-icon class="mr-2">mdi-ticket-percent</v-icon>Mã giảm giá</v-card-title>
         </v-card>
       </v-col>
+      <v-col v-if="authStore.can('manager')" cols="12" sm="6" md="4">
+        <v-card :to="'/admin/reports'" hover color="primary" variant="tonal">
+          <v-card-title><v-icon class="mr-2">mdi-chart-areaspline</v-icon>Báo cáo chi tiết</v-card-title>
+          <v-card-subtitle>Biểu đồ, Excel, user online</v-card-subtitle>
+        </v-card>
+      </v-col>
       <v-col v-if="admin.canViewUsers.value" cols="12" sm="6" md="4">
         <v-card :to="'/admin/users'" hover>
           <v-card-title><v-icon class="mr-2">mdi-account-group</v-icon>Người dùng</v-card-title>

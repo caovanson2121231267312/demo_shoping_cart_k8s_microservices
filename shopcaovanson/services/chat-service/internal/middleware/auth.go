@@ -93,6 +93,7 @@ func parseRSAPublicKey(pemStr string) (*rsa.PublicKey, error) {
 	if pemStr == "" {
 		return nil, errors.New("empty public key")
 	}
+	pemStr = strings.ReplaceAll(pemStr, "\\n", "\n")
 	block, _ := pem.Decode([]byte(pemStr))
 	if block == nil {
 		return nil, errors.New("failed to parse PEM block")

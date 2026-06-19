@@ -116,7 +116,7 @@ const discountPercent = computed(() => {
 const handleAddToCart = async () => {
   adding.value = true
   try {
-    await cart.addItem(props.product.id)
+    await cart.addItem(props.product)
     useSnackbar().show('Đã thêm vào giỏ hàng', 'success')
   } finally {
     adding.value = false
@@ -128,15 +128,15 @@ const onToggleWishlist = () => wishlist.toggle(props.product)
 
 <style scoped>
 .product-card {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .product-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-lg);
 }
 
 .product-card__image {

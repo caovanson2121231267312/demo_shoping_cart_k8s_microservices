@@ -1,7 +1,13 @@
 <template>
-  <v-container class="page-container py-6">
-    <h1 class="text-h4 font-weight-bold mb-6">Sản phẩm</h1>
+  <div>
+    <PageBanner
+      title="Sản phẩm"
+      subtitle="Khám phá hàng ngàn sản phẩm chất lượng với giá tốt nhất"
+      :breadcrumbs="[{ label: 'Sản phẩm' }]"
+      compact
+    />
 
+    <v-container class="page-container py-6">
     <v-row>
       <v-col cols="12" md="3">
         <ProductFilter
@@ -31,7 +37,8 @@
         </div>
       </v-col>
     </v-row>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

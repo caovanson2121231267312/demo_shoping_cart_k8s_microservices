@@ -16,6 +16,8 @@ type User struct {
 	EmailVerified         bool       `db:"email_verified" json:"email_verified"`
 	VerificationToken     *string    `db:"verification_token" json:"-"`
 	VerificationExpiresAt *time.Time `db:"verification_expires_at" json:"-"`
+	PasswordResetOTPHash  *string    `db:"password_reset_otp_hash" json:"-"`
+	PasswordResetExpiresAt *time.Time `db:"password_reset_expires_at" json:"-"`
 	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt             time.Time  `db:"updated_at" json:"updated_at"`
 }
@@ -60,6 +62,15 @@ type RegisterResponse struct {
 	Message           string `json:"message"`
 	Email             string `json:"email"`
 	RequiresVerify    bool   `json:"requires_verification"`
+}
+
+type ForgotPasswordResponse struct {
+	Message string `json:"message"`
+	Email   string `json:"email,omitempty"`
+}
+
+type ResetPasswordResponse struct {
+	Message string `json:"message"`
 }
 
 type UserListFilter struct {

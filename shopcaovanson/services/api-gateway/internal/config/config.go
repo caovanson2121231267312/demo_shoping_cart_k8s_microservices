@@ -16,7 +16,9 @@ type Config struct {
 	ProductServiceURL  string
 	OrderServiceURL    string
 	ChatServiceURL         string
+	RasaServiceURL         string
 	NotificationServiceURL string
+	AnalyticsServiceURL    string
 	CORSAllowedOrigins string
 	RateLimitPerMinute int
 }
@@ -42,7 +44,9 @@ func Load() (*Config, error) {
 		ProductServiceURL:  getEnv("PRODUCT_SERVICE_URL", "http://localhost:8082"),
 		OrderServiceURL:    getEnv("ORDER_SERVICE_URL", "http://localhost:8083"),
 		ChatServiceURL:         getEnv("CHAT_SERVICE_URL", "http://localhost:8084"),
+		RasaServiceURL:         getEnv("RASA_SERVICE_URL", "http://localhost:8090"),
 		NotificationServiceURL: getEnv("NOTIFICATION_SERVICE_URL", "http://localhost:8085"),
+		AnalyticsServiceURL:    getEnv("ANALYTICS_SERVICE_URL", "http://localhost:8086"),
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "https://shopcaovanson.xyz"),
 		RateLimitPerMinute: rateLimit,
 	}, nil

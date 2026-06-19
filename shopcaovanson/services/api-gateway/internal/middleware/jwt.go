@@ -115,13 +115,21 @@ func IsPublicRoute(method, path string) bool {
 		path == "/api/auth/login",
 		path == "/api/auth/refresh",
 		path == "/api/auth/verify-email",
-		path == "/api/auth/resend-verification":
+		path == "/api/auth/resend-verification",
+		path == "/api/auth/forgot-password",
+		path == "/api/auth/reset-password":
+		return true
+	case path == "/api/chatbot/message" && method == "POST":
 		return true
 	case path == "/api/orders/track" && method == "POST":
 		return true
 	case path == "/api/coupons/validate" && method == "POST":
 		return true
 	case strings.HasPrefix(path, "/api/products") && method == "GET":
+		return true
+	case path == "/api/products/reviews/summary" && method == "POST":
+		return true
+	case strings.HasPrefix(path, "/api/articles") && method == "GET":
 		return true
 	case path == "/api/categories" || strings.HasPrefix(path, "/api/categories/"):
 		return method == "GET"

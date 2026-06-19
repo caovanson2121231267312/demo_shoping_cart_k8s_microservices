@@ -1,11 +1,12 @@
 <template>
-  <v-container class="page-container py-6">
-    <h1 class="text-h4 font-weight-bold mb-2">
-      <v-icon color="error" class="mr-2">mdi-heart</v-icon>
-      Sản phẩm yêu thích
-    </h1>
-    <p class="text-body-2 text-grey mb-6">{{ wishlist.count.value }} sản phẩm đã lưu</p>
-
+  <div>
+    <PageBanner
+      title="Sản phẩm yêu thích"
+      :subtitle="`${wishlist.count.value} sản phẩm đã lưu`"
+      :breadcrumbs="[{ label: 'Yêu thích' }]"
+      compact
+    />
+    <v-container class="page-container py-6">
     <EmptyState
       v-if="!wishlist.items.value.length"
       icon="mdi-heart-outline"
@@ -24,7 +25,8 @@
     <div v-if="wishlist.items.value.length" class="text-center mt-6">
       <v-btn variant="outlined" color="error" @click="clearAll">Xóa tất cả</v-btn>
     </div>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -33,13 +35,14 @@ import type { ReviewSummary } from '~/composables/useReviewSummary'
 definePageMeta({ layout: 'default' })
 
 const wishlist = useWishlist()
-const { getSummary } = useReviewSummary()
+const { getSummariesBatch } = useReviewSummary()
 const summaries = ref<Record<string, ReviewSummary>>({})
 
 onMounted(async () => {
   useWishlistStore().hydrate()
-  for (const p of wishlist.items.value) {
-    summaries.value[p.id] = await getSummary(p.id)
+  const ids = wishlist.items.value.map((p) => p.id)
+  if (ids.length) {
+    summaries.value = await getSummariesBatch(ids)
   }
 })
 

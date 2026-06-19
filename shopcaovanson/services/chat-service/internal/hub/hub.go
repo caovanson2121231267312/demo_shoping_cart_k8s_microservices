@@ -9,14 +9,17 @@ import (
 	"time"
 
 	"github.com/caovanson/shopcaovanson/chat-service/internal/domain"
+	"github.com/caovanson/shopcaovanson/chat-service/internal/rasa"
 	"github.com/caovanson/shopcaovanson/chat-service/internal/service"
 	"github.com/gofiber/websocket/v2"
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Hub struct {
 	chatSvc     *service.ChatService
 	redis       *redis.Client
+	rasaClient  *rasa.Client
 	mu          sync.RWMutex
 	rooms       map[string]map[*websocket.Conn]string
 	subscribers map[string]context.CancelFunc
@@ -26,6 +29,7 @@ func NewHub(chatSvc *service.ChatService, redisClient *redis.Client) *Hub {
 	return &Hub{
 		chatSvc:     chatSvc,
 		redis:       redisClient,
+		rasaClient:  rasa.NewClient(),
 		rooms:       make(map[string]map[*websocket.Conn]string),
 		subscribers: make(map[string]context.CancelFunc),
 	}
@@ -80,19 +84,13 @@ func (h *Hub) HandleMessage(ctx context.Context, userID string, msg domain.WSCli
 		if err != nil {
 			return err
 		}
-		out := domain.WSServerMessage{
-			Type:      "message",
-			RoomID:    msg.RoomID,
-			SenderID:  saved.SenderID,
-			Content:   saved.Content,
-			CreatedAt: saved.CreatedAt.UTC().Format(time.RFC3339),
-		}
-		payload, err := json.Marshal(out)
-		if err != nil {
+		if err := h.publishMessage(ctx, msg.RoomID, saved); err != nil {
 			return err
 		}
-		channel := fmt.Sprintf("chat:%s", msg.RoomID)
-		return h.redis.Publish(ctx, channel, payload).Err()
+		if userID != rasa.BotUserID {
+			go h.maybeBotReply(context.Background(), userID, msg.RoomID, msg.Content)
+		}
+		return nil
 	case "typing":
 		if err := h.chatSvc.ValidateRoomAccess(ctx, userID, msg.RoomID); err != nil {
 			return err
@@ -111,6 +109,52 @@ func (h *Hub) HandleMessage(ctx context.Context, userID string, msg domain.WSCli
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
+}
+
+func (h *Hub) maybeBotReply(ctx context.Context, userID, roomID, content string) {
+	roomOID, err := primitive.ObjectIDFromHex(roomID)
+	if err != nil {
+		return
+	}
+	room, err := h.chatSvc.Repo().FindRoomByID(ctx, roomOID)
+	if err != nil || room == nil || room.RoomType != domain.RoomTypeSupport {
+		return
+	}
+
+	reply, err := h.rasaClient.GetReply(ctx, userID, content, map[string]interface{}{
+		"user_id": userID,
+		"room_id": roomID,
+	})
+	if err != nil {
+		log.Printf("rasa reply error: %v", err)
+		return
+	}
+	if reply == "" {
+		return
+	}
+
+	saved, err := h.chatSvc.SaveBotMessage(ctx, roomID, reply)
+	if err != nil {
+		log.Printf("save bot message error: %v", err)
+		return
+	}
+	_ = h.publishMessage(ctx, roomID, saved)
+}
+
+func (h *Hub) publishMessage(ctx context.Context, roomID string, saved *domain.ChatMessage) error {
+	out := domain.WSServerMessage{
+		Type:      "message",
+		RoomID:    roomID,
+		SenderID:  saved.SenderID,
+		Content:   saved.Content,
+		CreatedAt: saved.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	payload, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	channel := fmt.Sprintf("chat:%s", roomID)
+	return h.redis.Publish(ctx, channel, payload).Err()
 }
 
 func (h *Hub) listenRedis(ctx context.Context, roomID string) {

@@ -99,6 +99,20 @@ export const useAuth = () => {
     })
   }
 
+  const forgotPassword = async (email: string) => {
+    return await $fetch<{ message: string; email?: string }>(`${apiBase.value}/api/auth/forgot-password`, {
+      method: 'POST',
+      body: { email },
+    })
+  }
+
+  const resetPassword = async (email: string, otp: string, newPassword: string) => {
+    return await $fetch<{ message: string }>(`${apiBase.value}/api/auth/reset-password`, {
+      method: 'POST',
+      body: { email, otp, new_password: newPassword },
+    })
+  }
+
   const logout = async (callApi = true) => {
     if (callApi && authStore.accessToken) {
       try {
@@ -109,7 +123,7 @@ export const useAuth = () => {
     }
     authStore.clearTokens()
     authStore.setUser(null)
-    useCartStore().clear()
+    useCartStore().hydrate()
   }
 
   const getCurrentUser = async () => {
@@ -155,6 +169,7 @@ export const useAuth = () => {
     user: computed(() => authStore.user),
     isLoggedIn: computed(() => authStore.isLoggedIn),
     isAdmin: computed(() => authStore.isAdmin),
+    isStaff: computed(() => authStore.isStaff),
     initialized: computed(() => authStore.initialized),
     accessToken: computed(() => authStore.accessToken),
     apiFetch,
@@ -163,6 +178,8 @@ export const useAuth = () => {
     register,
     verifyEmail,
     resendVerification,
+    forgotPassword,
+    resetPassword,
     getCurrentUser,
     updateProfile,
     refreshAccessToken,

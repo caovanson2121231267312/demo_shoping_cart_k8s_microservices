@@ -16,7 +16,7 @@
         md="3"
       >
         <div class="animate-fade-in" :style="{ animationDelay: `${idx * 40}ms` }">
-          <ProductCard :product="product" :summary="summaries?.[product.id]" />
+          <ProductCard :product="product" :summary="mergedSummaries[product.id]" />
         </div>
       </v-col>
     </v-row>
@@ -31,24 +31,31 @@ const props = defineProps<{
   products: Product[]
   loading?: boolean
   summaries?: Record<string, ReviewSummary>
+  fetchSummaries?: boolean
 }>()
 
-const { getSummary } = useReviewSummary()
+const { getSummariesBatch } = useReviewSummary()
 const localSummaries = ref<Record<string, ReviewSummary>>({})
 
-const summaries = computed(() => ({ ...localSummaries.value, ...props.summaries }))
+const shouldFetchSummaries = computed(() => props.fetchSummaries !== false)
+
+const mergedSummaries = computed(() => ({ ...localSummaries.value, ...props.summaries }))
 
 watch(
   () => props.products,
   async (list) => {
-    if (!list?.length) return
-    await Promise.all(
-      list.slice(0, 24).map(async (p) => {
-        if (!summaries.value[p.id]) {
-          localSummaries.value[p.id] = await getSummary(p.id)
-        }
-      }),
-    )
+    if (!shouldFetchSummaries.value || !list?.length) {
+      return
+    }
+    const missing = list
+      .slice(0, 24)
+      .map((p) => p.id)
+      .filter((id) => !mergedSummaries.value[id])
+    if (!missing.length) {
+      return
+    }
+    const batch = await getSummariesBatch(missing)
+    localSummaries.value = { ...localSummaries.value, ...batch }
   },
   { immediate: true },
 )

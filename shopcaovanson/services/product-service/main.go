@@ -68,6 +68,9 @@ func main() {
 	reviewSvc := service.NewReviewService(reviewRepo, productRepo)
 	productHandler := handler.NewProductHandler(productSvc, categorySvc, reviewSvc)
 	categoryHandler := handler.NewCategoryHandler(categorySvc)
+	articleRepo := repository.NewArticleRepository(db)
+	articleSvc := service.NewArticleService(articleRepo)
+	articleHandler := handler.NewArticleHandler(articleSvc)
 
 	app := fiber.New(fiber.Config{
 		AppName: "product-service",
@@ -82,6 +85,7 @@ func main() {
 
 	productHandler.RegisterRoutes(app)
 	categoryHandler.RegisterAdminRoutes(app)
+	articleHandler.RegisterRoutes(app)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Port)

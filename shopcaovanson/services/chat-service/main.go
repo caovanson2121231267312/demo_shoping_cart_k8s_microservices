@@ -63,6 +63,7 @@ func main() {
 	api := app.Group("/api/chat", middleware.JWTMiddleware(cfg.JWTPublicKey))
 	api.Get("/rooms", chatHandler.ListRooms)
 	api.Post("/rooms", chatHandler.CreateRoom)
+	api.Post("/rooms/support", chatHandler.CreateSupportRoom)
 	api.Get("/rooms/:id/messages", chatHandler.GetMessages)
 
 	app.Use("/ws", chatHandler.WebSocketUpgrade)

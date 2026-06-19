@@ -1,6 +1,8 @@
-# Go
+# Go — không commit binary build
 services/*/tmp/
-services/*/*.exe
+**/*.exe
+**/*.exe~
+**/bin/
 
 # Python
 **/__pycache__/
@@ -23,6 +25,7 @@ k8s/**/secret*.yaml
 # Build artifacts
 **/dist/
 **/build/
+logs/
 
 # Cluster setup generated files
 k8s/cluster-setup/cloud-init/

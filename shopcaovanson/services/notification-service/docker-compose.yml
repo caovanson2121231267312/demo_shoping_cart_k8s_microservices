@@ -9,6 +9,7 @@ services:
       KAFKA_TOPIC_ORDER_CREATED: order.created
       KAFKA_TOPIC_USER_REGISTERED: user.registered
       KAFKA_TOPIC_USER_VERIFICATION: user.verification_requested
+      KAFKA_TOPIC_PASSWORD_RESET: user.password_reset_requested
       KAFKA_TOPIC_INVOICE: order.invoice.generate
       INVOICE_STORAGE_PATH: /app/data/invoices
       SMTP_HOST: ${SMTP_HOST:-mailhog}

@@ -1,7 +1,12 @@
 <template>
-  <v-container class="page-container py-6">
-    <h1 class="text-h4 font-weight-bold mb-6">Giỏ hàng</h1>
-
+  <div>
+    <PageBanner
+      title="Giỏ hàng"
+      :subtitle="`${cart.count.value} sản phẩm`"
+      :breadcrumbs="[{ label: 'Giỏ hàng' }]"
+      compact
+    />
+    <v-container class="page-container py-6">
     <LoadingSpinner v-if="cart.loading.value && !cart.items.value.length" />
     <EmptyState
       v-else-if="!cart.items.value.length"
@@ -50,7 +55,8 @@
       :loading="clearing"
       @confirm="handleClear"
     />
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

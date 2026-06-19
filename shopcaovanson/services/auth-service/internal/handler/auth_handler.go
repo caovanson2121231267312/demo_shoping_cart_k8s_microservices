@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shopcaovanson/auth-service/internal/middleware"
@@ -65,6 +66,38 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 		return mapAuthError(c, err)
 	}
 	return c.JSON(fiber.Map{"message": "Nếu email tồn tại, link xác nhận đã được gửi."})
+}
+
+func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	resp, err := h.svc.ForgotPassword(c.Context(), req.Email)
+	if err != nil {
+		return mapAuthError(c, err)
+	}
+	return c.JSON(resp)
+}
+
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	var req struct {
+		Email       string `json:"email"`
+		OTP         string `json:"otp"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	resp, err := h.svc.ResetPassword(c.Context(), req.Email, req.OTP, req.NewPassword)
+	if err != nil {
+		return mapAuthError(c, err)
+	}
+	return c.JSON(resp)
 }
 
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
@@ -167,14 +200,19 @@ func mapAuthError(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	case errors.Is(err, service.ErrEmailNotVerified):
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "email not verified", "code": "EMAIL_NOT_VERIFIED"})
+	case errors.Is(err, service.ErrAccountDisabled):
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "account is disabled", "code": "ACCOUNT_DISABLED"})
 	case errors.Is(err, service.ErrInvalidVerifyToken):
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid or expired verification token"})
+	case errors.Is(err, service.ErrInvalidResetOTP):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid or expired otp", "code": "INVALID_RESET_OTP"})
 	case errors.Is(err, repository.ErrUserNotFound):
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
 	default:
 		if err.Error() == "full_name is required" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
+		log.Printf("unmapped auth error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 }

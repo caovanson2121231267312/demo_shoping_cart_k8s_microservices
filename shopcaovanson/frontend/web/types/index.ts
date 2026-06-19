@@ -262,3 +262,87 @@ export interface RoleInfo {
   level: number
   description: string
 }
+
+export type AnalyticsPeriod = 'day' | 'week' | 'month' | 'quarter'
+
+export interface AnalyticsOverview {
+  period: AnalyticsPeriod
+  from: string
+  to: string
+  granularity: string
+  orders: {
+    total: number
+    revenue: number
+    pending: number
+    delivered: number
+    by_status: Record<string, number>
+  }
+  users: {
+    new_customers: number
+    total_customers: number
+    active_users: number
+  }
+  products: {
+    total_products: number
+    new_reviews: number
+    avg_rating: number
+    total_reviews: number
+  }
+}
+
+export interface AnalyticsSeriesPoint {
+  label: string
+  revenue?: number
+  orders?: number
+  count?: number
+  avg_rating?: number
+}
+
+export interface TopProductRow {
+  name: string
+  quantity_sold: number
+  revenue: number
+  order_count: number
+}
+
+export interface OnlineUser {
+  user_id: string
+  email: string
+  page: string
+  last_seen: number
+}
+
+export interface Article {
+  id: string
+  title: string
+  slug: string
+  excerpt?: string | null
+  content: string
+  cover_image?: string | null
+  category: string
+  tags: string[]
+  author_name: string
+  is_published: boolean
+  is_featured: boolean
+  view_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ArticleListResult {
+  items: Article[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+export const ARTICLE_CATEGORIES: Record<string, string> = {
+  'tin-tuc': 'Tin tức',
+  'huong-dan': 'Hướng dẫn mua sắm',
+  'khuyen-mai': 'Khuyến mãi',
+  'danh-gia': 'Đánh giá sản phẩm',
+  'xu-huong': 'Xu hướng',
+  'cong-nghe': 'Công nghệ',
+  'meo-vat': 'Mẹo vặt',
+}

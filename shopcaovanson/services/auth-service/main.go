@@ -98,6 +98,8 @@ func main() {
 	api.Post("/refresh", authHandler.Refresh)
 	api.Post("/verify-email", authHandler.VerifyEmail)
 	api.Post("/resend-verification", authHandler.ResendVerification)
+	api.Post("/forgot-password", authHandler.ForgotPassword)
+	api.Post("/reset-password", authHandler.ResetPassword)
 
 	protected := api.Group("", middleware.JWTAuth(privateKey))
 	protected.Post("/logout", authHandler.Logout)

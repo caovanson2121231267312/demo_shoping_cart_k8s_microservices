@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/shopcaovanson/seedcatalog"
 	_ "github.com/lib/pq"
 )
 
@@ -71,14 +72,14 @@ func main() {
 		if end > target {
 			end = target
 		}
-		if err := bulkInsertOrders(ctx, db, start, end, maxUsers, productIDs, rng); err != nil {
+		if err := bulkInsertOrders(ctx, db, start, end, maxUsers, productIDs, productCount, rng); err != nil {
 			log.Fatalf("bulk orders %d-%d: %v", start, end, err)
 		}
 		log.Printf("seeded orders %d-%d / %d", start, end, target)
 	}
 }
 
-func bulkInsertOrders(ctx context.Context, db *sqlx.DB, from, to, maxUsers int, productIDs []uuid.UUID, rng *rand.Rand) error {
+func bulkInsertOrders(ctx context.Context, db *sqlx.DB, from, to, maxUsers int, productIDs []uuid.UUID, productCount int, rng *rand.Rand) error {
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -111,23 +112,30 @@ func bulkInsertOrders(ctx context.Context, db *sqlx.DB, from, to, maxUsers int, 
 		itemCount := rng.Intn(3) + 1
 		var total float64
 		for j := 0; j < itemCount; j++ {
-			productID := productIDs[rng.Intn(len(productIDs))]
+			productN := (rng.Intn(productCount) + 1)
+			productID := productIDs[productN-1]
+			meta := seedcatalog.ProductMetaAt(productN)
 			qty := rng.Intn(3) + 1
-			unitPrice := float64(rng.Intn(5000000) + 100000)
+			unitPrice := float64(meta.Price)
+			if unitPrice < 100000 {
+				unitPrice = float64(rng.Intn(5000000) + 100000)
+			}
 			total += unitPrice * float64(qty)
 			itemID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("order-item-%d-%d", i, j)))
-			img := fmt.Sprintf("https://picsum.photos/seed/order-%d-%d/400/400", i, j)
+			img := fmt.Sprintf("https://picsum.photos/seed/%s/400/400", meta.Slug)
 			if _, err := itemStmt.ExecContext(ctx, itemID, orderID, productID,
-				fmt.Sprintf("Sản phẩm mẫu %d", j+1), img, unitPrice, qty); err != nil {
+				meta.Name, img, unitPrice, qty); err != nil {
 				return err
 			}
 		}
 
-		phone := fmt.Sprintf("09%08d", rng.Intn(100000000))
+		street, district, city := seedcatalog.ShippingAddress(i)
+		fullAddr := fmt.Sprintf("%s, %s, %s", street, district, city)
+		phone := fmt.Sprintf("09%08d", (i*7919)%100000000)
+		shipName := seedcatalog.VietnameseName(userN)
+
 		if _, err := orderStmt.ExecContext(ctx, orderID, orderNumber, userID, status, total,
-			fmt.Sprintf("Khách hàng %d", userN), phone,
-			fmt.Sprintf("%d Đường mẫu, Quận %d, TP.HCM", rng.Intn(200)+1, rng.Intn(12)+1),
-			now, now); err != nil {
+			shipName, phone, fullAddr, now, now); err != nil {
 			return err
 		}
 	}

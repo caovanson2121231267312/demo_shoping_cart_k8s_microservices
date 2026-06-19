@@ -45,11 +45,9 @@ run_local_seed() {
   done
 
   log "All local seed scripts completed."
-  log "Expected data:"
-  log "  - 50 users (1 admin: admin@shop.com / Admin@123)"
-  log "  - 10 categories, 200 products, 500 reviews"
-  log "  - 300 orders"
-  log "  - 20 chat rooms, ~400 messages"
+  log "Dev-scale data (override via SEED_* env vars)."
+  log "For load testing (3M users, 1M orders, 50M reviews):"
+  log "  powershell -File scripts/seed-scale.ps1 -Profile full"
 }
 
 check_kubectl() {

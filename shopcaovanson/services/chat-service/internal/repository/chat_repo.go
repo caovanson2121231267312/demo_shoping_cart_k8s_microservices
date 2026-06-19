@@ -22,6 +22,7 @@ type ChatRepository interface {
 	FindRoomsByUser(ctx context.Context, userID string) ([]domain.ChatRoom, error)
 	FindRoomByID(ctx context.Context, roomID primitive.ObjectID) (*domain.ChatRoom, error)
 	FindDirectRoom(ctx context.Context, userA, userB string) (*domain.ChatRoom, error)
+	FindSupportRoom(ctx context.Context, userID string) (*domain.ChatRoom, error)
 	CreateRoom(ctx context.Context, room *domain.ChatRoom) error
 	GetMessages(ctx context.Context, roomID primitive.ObjectID, before *primitive.ObjectID, limit int) ([]domain.ChatMessage, error)
 	CreateMessage(ctx context.Context, msg *domain.ChatMessage) error
@@ -79,6 +80,22 @@ func (r *mongoChatRepository) FindDirectRoom(ctx context.Context, userA, userB s
 	filter := bson.M{
 		"room_type":    domain.RoomTypeDirect,
 		"participants": bson.M{"$all": []string{userA, userB}, "$size": 2},
+	}
+	var room domain.ChatRoom
+	err := r.rooms().FindOne(ctx, filter).Decode(&room)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &room, nil
+}
+
+func (r *mongoChatRepository) FindSupportRoom(ctx context.Context, userID string) (*domain.ChatRoom, error) {
+	filter := bson.M{
+		"room_type":    domain.RoomTypeSupport,
+		"participants": userID,
 	}
 	var room domain.ChatRoom
 	err := r.rooms().FindOne(ctx, filter).Decode(&room)

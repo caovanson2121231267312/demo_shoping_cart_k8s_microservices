@@ -1,0 +1,8 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-dotenv==1.0.1
+psycopg[binary]>=3.2.10
+redis==5.2.1
+openpyxl==3.1.5
+python-multipart==0.0.17
+# Kafka (Linux/Docker): pip install confluent-kafka

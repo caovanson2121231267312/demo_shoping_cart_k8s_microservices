@@ -1,0 +1,43 @@
+version: "3.1"
+
+rules:
+  - rule: greet
+    steps:
+      - intent: greet
+      - action: utter_greet
+  - rule: goodbye
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye
+  - rule: warranty
+    steps:
+      - intent: ask_warranty
+      - action: utter_warranty
+  - rule: hours
+    steps:
+      - intent: ask_hours
+      - action: utter_hours
+  - rule: products
+    steps:
+      - intent: ask_products
+      - action: action_search_products
+  - rule: orders
+    steps:
+      - intent: ask_orders
+      - action: action_user_orders
+  - rule: track
+    steps:
+      - intent: track_order
+      - action: action_track_order
+  - rule: shipping
+    steps:
+      - intent: ask_shipping
+      - action: action_shipping_info
+  - rule: payment
+    steps:
+      - intent: ask_payment
+      - action: action_payment_info
+  - rule: fallback
+    steps:
+      - intent: nlu_fallback
+      - action: utter_fallback

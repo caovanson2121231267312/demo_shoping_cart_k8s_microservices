@@ -34,7 +34,7 @@ onMounted(async () => {
   try {
     await auth.verifyEmail(token)
     verified.value = true
-    await cart.fetchCart()
+    await cart.mergeLocalToServer()
     setTimeout(() => router.push('/'), 2000)
   } catch (e: unknown) {
     error.value = (e as { data?: { error?: string } })?.data?.error || 'Token không hợp lệ hoặc đã hết hạn.'

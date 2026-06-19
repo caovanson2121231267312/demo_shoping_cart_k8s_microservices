@@ -50,6 +50,15 @@ func (h *ChatHandler) CreateRoom(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": room})
 }
 
+func (h *ChatHandler) CreateSupportRoom(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	room, err := h.svc.GetOrCreateSupportRoom(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": room})
+}
+
 func (h *ChatHandler) GetMessages(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	roomID := c.Params("id")

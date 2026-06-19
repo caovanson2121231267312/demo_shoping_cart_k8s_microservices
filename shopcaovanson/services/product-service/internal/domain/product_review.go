@@ -24,3 +24,8 @@ type ReviewListResult struct {
 	Items []ProductReview `json:"items"`
 	Total int             `json:"total"`
 }
+
+type ReviewSummary struct {
+	Average float64 `json:"average"`
+	Total   int     `json:"total"`
+}

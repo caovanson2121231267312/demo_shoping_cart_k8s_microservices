@@ -72,4 +72,12 @@ export DATABASE_URL=postgres://auth:authpass@localhost:5432/authdb?sslmode=disab
 go run scripts/fake_data.go
 ```
 
-Kết quả: 50 users (1 admin `admin@shop.com` / `Admin@123` + 49 customers), tên tiếng Việt, idempotent (chạy lại không tạo duplicate).
+Mặc định: 50 customers + 4 staff. Scale lớn qua biến môi trường:
+
+```bash
+SEED_USERS=3000000 SEED_BATCH_SIZE=10000 SEED_BCRYPT_COST=10 go run scripts/fake_data.go
+```
+
+Hoặc: `powershell -File scripts/seed-scale.ps1 -Profile full`
+
+Tài khoản: admin `admin@shop.com` / `Admin@123`, customer `user{N}@shop.com` / `Customer@123`.

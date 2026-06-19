@@ -1,7 +1,12 @@
 <template>
-  <v-container class="page-container py-6">
-    <h1 class="text-h4 font-weight-bold mb-6">Đơn hàng của tôi</h1>
-
+  <div>
+    <PageBanner
+      title="Đơn hàng của tôi"
+      subtitle="Theo dõi và quản lý đơn hàng"
+      :breadcrumbs="[{ label: 'Đơn hàng' }]"
+      compact
+    />
+    <v-container class="page-container py-6">
     <LoadingSpinner v-if="loading" />
     <EmptyState
       v-else-if="!orders.length"
@@ -46,7 +51,8 @@
     <div v-if="totalPages > 1" class="d-flex justify-center mt-6">
       <v-pagination v-model="page" :length="totalPages" @update:model-value="loadOrders" />
     </div>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -1,3 +1,5 @@
+import { categoryAvatarBg, categoryBg } from '~/utils/theme'
+
 const iconMap: Record<string, string> = {
   electronics: 'mdi-cellphone',
   fashion: 'mdi-tshirt-crew',
@@ -16,11 +18,9 @@ export function categoryIcon(slug: string): string {
   return iconMap[root] || iconMap[slug] || 'mdi-tag-outline'
 }
 
-export const categoryColors = [
-  '#E3F2FD', '#FCE4EC', '#E8F5E9', '#FFF3E0', '#F3E5F5',
-  '#E0F7FA', '#FFFDE7', '#EFEBE9', '#ECEFF1', '#F1F8E9',
-]
-
+/** @deprecated dùng categoryBg() từ utils/theme */
 export function categoryColor(index: number): string {
-  return categoryColors[index % categoryColors.length]
+  return categoryBg(index)
 }
+
+export { categoryBg, categoryAvatarBg }

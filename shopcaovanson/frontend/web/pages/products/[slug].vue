@@ -250,7 +250,7 @@ const handleAddToCart = async () => {
   }
   adding.value = true
   try {
-    await cart.addItem(product.value.id, quantity.value)
+    await cart.addItem(product.value, quantity.value)
     useSnackbar().show('Đã thêm vào giỏ hàng', 'success')
   } finally {
     adding.value = false

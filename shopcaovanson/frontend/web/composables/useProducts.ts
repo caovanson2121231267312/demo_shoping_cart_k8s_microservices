@@ -53,6 +53,17 @@ export const useProducts = () => {
     })
   }
 
+  const fetchReviewSummariesBatch = async (productIds: string[]) => {
+    const res = await publicFetch<{ data: Record<string, { average: number; total: number }> }>(
+      '/api/products/reviews/summary',
+      {
+        method: 'POST',
+        body: { product_ids: productIds },
+      },
+    )
+    return res.data || {}
+  }
+
   const createReview = async (productId: string, input: CreateReviewInput) => {
     return await apiFetch(`/api/products/${productId}/reviews`, {
       method: 'POST',
@@ -97,6 +108,7 @@ export const useProducts = () => {
     updateCategory,
     deleteCategory,
     fetchReviews,
+    fetchReviewSummariesBatch,
     createReview,
     createProduct,
     updateProduct,

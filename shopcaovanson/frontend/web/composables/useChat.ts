@@ -1,5 +1,6 @@
 import { useDebounceFn } from '@vueuse/core'
-import type { ChatMessage, ChatRoom, MessageListResult, WSClientMessage, WSServerMessage } from '~/types'
+import type { ChatMessage, ChatRoom, WSClientMessage, WSServerMessage } from '~/types'
+import { BOT_USER_ID } from '~/utils/chat'
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000]
 
@@ -108,7 +109,8 @@ export const useChat = () => {
   }
 
   const fetchRooms = async () => {
-    const rooms = await apiFetch<ChatRoom[]>('/api/chat/rooms')
+    const res = await apiFetch<{ data: ChatRoom[] }>('/api/chat/rooms')
+    const rooms = res.data || []
     chatStore.setRooms(rooms)
     return rooms
   }
@@ -118,20 +120,31 @@ export const useChat = () => {
     if (before) {
       query.before = before
     }
-    const result = await apiFetch<MessageListResult>(`/api/chat/rooms/${roomId}/messages`, { query })
+    const res = await apiFetch<{ data: ChatMessage[] }>(`/api/chat/rooms/${roomId}/messages`, { query })
+    const items = res.data || []
     if (before) {
-      chatStore.prependMessages(roomId, result.items)
+      chatStore.prependMessages(roomId, items)
     } else {
-      chatStore.setMessages(roomId, result.items)
+      chatStore.setMessages(roomId, items)
     }
-    return result
+    return { items, total: items.length }
   }
 
   const createRoom = async (participantId: string) => {
-    const room = await apiFetch<ChatRoom>('/api/chat/rooms', {
+    const res = await apiFetch<{ data: ChatRoom }>('/api/chat/rooms', {
       method: 'POST',
       body: { participant_id: participantId },
     })
+    const room = res.data
+    chatStore.setRooms([room, ...chatStore.rooms.filter((r) => r.id !== room.id)])
+    return room
+  }
+
+  const createSupportRoom = async () => {
+    const res = await apiFetch<{ data: ChatRoom }>('/api/chat/rooms/support', {
+      method: 'POST',
+    })
+    const room = res.data
     chatStore.setRooms([room, ...chatStore.rooms.filter((r) => r.id !== room.id)])
     return room
   }
@@ -163,7 +176,10 @@ export const useChat = () => {
     if (rooms.length === 0) {
       rooms = await fetchRooms()
     }
-    const supportRoom = rooms.find((r) => r.room_type === 'support') || rooms[0]
+    let supportRoom = rooms.find((r) => r.room_type === 'support')
+    if (!supportRoom) {
+      supportRoom = await createSupportRoom()
+    }
     if (supportRoom) {
       joinRoom(supportRoom.id)
       if (!chatStore.messages[supportRoom.id]) {
@@ -176,8 +192,6 @@ export const useChat = () => {
 
   const openChat = async () => {
     chatStore.setPanelOpen(true)
-    connect()
-    await ensureSupportRoom()
   }
 
   const closeChat = () => {
@@ -212,6 +226,7 @@ export const useChat = () => {
     fetchRooms,
     fetchMessages,
     createRoom,
+    createSupportRoom,
     joinRoom,
     sendMessage,
     sendTyping,
