@@ -80,26 +80,21 @@ func main() {
 }
 
 func bulkInsertOrders(ctx context.Context, db *sqlx.DB, from, to, maxUsers int, productIDs []uuid.UUID, productCount int, rng *rand.Rand) error {
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
+	type orderRow struct {
+		id, userID uuid.UUID
+		orderNumber, status, shipName, phone, addr string
+		total      float64
+		created    time.Time
 	}
-	defer tx.Rollback()
+	type itemRow struct {
+		id, orderID, productID uuid.UUID
+		name, img              string
+		unitPrice              float64
+		qty                    int
+	}
 
-	orderStmt, err := tx.PrepareContext(ctx, pq.CopyIn(
-		"orders", "id", "order_number", "user_id", "status", "total_amount",
-		"shipping_name", "shipping_phone", "shipping_address", "created_at", "updated_at",
-	))
-	if err != nil {
-		return err
-	}
-	itemStmt, err := tx.PrepareContext(ctx, pq.CopyIn(
-		"order_items", "id", "order_id", "product_id", "product_name_snapshot",
-		"product_image_snapshot", "unit_price", "quantity",
-	))
-	if err != nil {
-		return err
-	}
+	orders := make([]orderRow, 0, to-from+1)
+	items := make([]itemRow, 0, (to-from+1)*2)
 
 	for i := from; i <= to; i++ {
 		orderID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("fake-order-%d", i)))
@@ -123,28 +118,54 @@ func bulkInsertOrders(ctx context.Context, db *sqlx.DB, from, to, maxUsers int, 
 			total += unitPrice * float64(qty)
 			itemID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("order-item-%d-%d", i, j)))
 			img := fmt.Sprintf("https://picsum.photos/seed/%s/400/400", meta.Slug)
-			if _, err := itemStmt.ExecContext(ctx, itemID, orderID, productID,
-				meta.Name, img, unitPrice, qty); err != nil {
-				return err
-			}
+			items = append(items, itemRow{itemID, orderID, productID, meta.Name, img, unitPrice, qty})
 		}
 
 		street, district, city := seedcatalog.ShippingAddress(i)
 		fullAddr := fmt.Sprintf("%s, %s, %s", street, district, city)
 		phone := fmt.Sprintf("09%08d", (i*7919)%100000000)
 		shipName := seedcatalog.VietnameseName(userN)
+		orders = append(orders, orderRow{orderID, userID, orderNumber, status, shipName, phone, fullAddr, total, now})
+	}
 
-		if _, err := orderStmt.ExecContext(ctx, orderID, orderNumber, userID, status, total,
-			shipName, phone, fullAddr, now, now); err != nil {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	orderStmt, err := tx.PrepareContext(ctx, pq.CopyIn(
+		"orders", "id", "order_number", "user_id", "status", "subtotal_amount", "discount_amount", "total_amount",
+		"shipping_name", "shipping_phone", "shipping_address", "created_at", "updated_at",
+	))
+	if err != nil {
+		return err
+	}
+	for _, o := range orders {
+		if _, err := orderStmt.ExecContext(ctx, o.id, o.orderNumber, o.userID, o.status, o.total, 0, o.total,
+			o.shipName, o.phone, o.addr, o.created, o.created); err != nil {
 			return err
 		}
 	}
-
 	if _, err := orderStmt.ExecContext(ctx); err != nil {
 		return err
 	}
 	if err := orderStmt.Close(); err != nil {
 		return err
+	}
+
+	itemStmt, err := tx.PrepareContext(ctx, pq.CopyIn(
+		"order_items", "id", "order_id", "product_id", "product_name_snapshot",
+		"product_image_snapshot", "unit_price", "quantity",
+	))
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		if _, err := itemStmt.ExecContext(ctx, it.id, it.orderID, it.productID,
+			it.name, it.img, it.unitPrice, it.qty); err != nil {
+			return err
+		}
 	}
 	if _, err := itemStmt.ExecContext(ctx); err != nil {
 		return err

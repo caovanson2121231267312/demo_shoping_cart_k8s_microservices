@@ -233,6 +233,16 @@ func buildArticleWhere(filter domain.ArticleListFilter) (string, []interface{}) 
 		args = append(args, "%"+filter.Search+"%")
 		idx++
 	}
+	if filter.CreatedFrom != nil {
+		clauses = append(clauses, fmt.Sprintf("created_at >= $%d", idx))
+		args = append(args, *filter.CreatedFrom)
+		idx++
+	}
+	if filter.CreatedTo != nil {
+		clauses = append(clauses, fmt.Sprintf("created_at < $%d", idx))
+		args = append(args, filter.CreatedTo.Add(24*time.Hour))
+		idx++
+	}
 
 	if len(clauses) == 0 {
 		return "", args

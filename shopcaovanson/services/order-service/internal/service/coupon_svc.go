@@ -163,6 +163,6 @@ func (s *CouponService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *CouponService) List(ctx context.Context, page, limit int, search string) (*domain.CouponListResult, error) {
-	return s.repo.List(ctx, page, limit, search)
+func (s *CouponService) List(ctx context.Context, filter domain.CouponListFilter) (*domain.CouponListResult, error) {
+	return s.repo.List(ctx, filter)
 }

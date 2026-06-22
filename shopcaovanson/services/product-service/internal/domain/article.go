@@ -24,12 +24,14 @@ type Article struct {
 }
 
 type ArticleListFilter struct {
-	Page      int
-	Limit     int
-	Category  string
-	Search    string
-	Featured  *bool
-	Published *bool
+	Page        int
+	Limit       int
+	Category    string
+	Search      string
+	Featured    *bool
+	Published   *bool
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
 }
 
 type ArticleListResult struct {

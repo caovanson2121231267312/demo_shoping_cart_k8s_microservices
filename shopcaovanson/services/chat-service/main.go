@@ -51,6 +51,7 @@ func main() {
 	chatSvc := service.NewChatService(repo)
 	chatHub := hub.NewHub(chatSvc, redisClient)
 	chatHandler := handler.NewChatHandler(chatSvc, chatHub, cfg.JWTPublicKey)
+	uploadHandler := handler.NewUploadHandler(cfg)
 
 	app := fiber.New(fiber.Config{AppName: "chat-service"})
 	app.Use(recover.New())
@@ -64,7 +65,13 @@ func main() {
 	api.Get("/rooms", chatHandler.ListRooms)
 	api.Post("/rooms", chatHandler.CreateRoom)
 	api.Post("/rooms/support", chatHandler.CreateSupportRoom)
+	api.Post("/upload", uploadHandler.Upload)
+	api.Get("/media/:filename", uploadHandler.ServeMedia)
 	api.Get("/rooms/:id/messages", chatHandler.GetMessages)
+
+	admin := api.Group("/admin", middleware.RequireStaff())
+	admin.Get("/support-rooms", chatHandler.ListSupportRooms)
+	admin.Post("/support-rooms", chatHandler.CreateSupportRoomForCustomer)
 
 	app.Use("/ws", chatHandler.WebSocketUpgrade)
 	app.Get("/ws", websocket.New(chatHandler.WebSocket))

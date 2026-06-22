@@ -91,6 +91,7 @@
 <script setup lang="ts">
 import type { Product } from '~/types'
 import type { ReviewSummary } from '~/composables/useReviewSummary'
+import { parseCartError, useCart } from '~/composables/useCart'
 
 const props = defineProps<{
   product: Product
@@ -118,6 +119,8 @@ const handleAddToCart = async () => {
   try {
     await cart.addItem(props.product)
     useSnackbar().show('Đã thêm vào giỏ hàng', 'success')
+  } catch (err) {
+    useSnackbar().show(parseCartError(err), 'error')
   } finally {
     adding.value = false
   }

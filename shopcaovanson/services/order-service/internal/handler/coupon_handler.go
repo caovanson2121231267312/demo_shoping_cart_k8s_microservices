@@ -46,7 +46,15 @@ func (h *CouponHandler) Validate(c *fiber.Ctx) error {
 func (h *CouponHandler) List(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
-	result, err := h.svc.List(c.Context(), page, limit, c.Query("search"))
+	from, to := parseCreatedRange(c)
+	filter := domain.CouponListFilter{
+		Page:        page,
+		Limit:       limit,
+		Search:      c.Query("search"),
+		CreatedFrom: from,
+		CreatedTo:   to,
+	}
+	result, err := h.svc.List(c.Context(), filter)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

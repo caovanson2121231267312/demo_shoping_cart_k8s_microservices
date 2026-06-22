@@ -75,24 +75,40 @@ func (h *Hub) Unregister(conn *websocket.Conn, roomID string) {
 	}
 }
 
-func (h *Hub) HandleMessage(ctx context.Context, userID string, msg domain.WSClientMessage) error {
+func (h *Hub) HandleMessage(ctx context.Context, userID, userRole string, msg domain.WSClientMessage) error {
 	switch msg.Type {
 	case "join":
-		return h.chatSvc.ValidateRoomAccess(ctx, userID, msg.RoomID)
+		return h.chatSvc.ValidateRoomAccess(ctx, userID, userRole, msg.RoomID)
 	case "message":
-		saved, err := h.chatSvc.SaveMessage(ctx, userID, msg.RoomID, msg.Content)
+		if err := h.chatSvc.ValidateRoomAccess(ctx, userID, userRole, msg.RoomID); err != nil {
+			return err
+		}
+		msgType := msg.MsgType
+		if msgType == "" {
+			msgType = domain.MessageTypeText
+		}
+		saved, err := h.chatSvc.SaveMessage(ctx, userID, msg.RoomID, msg.Content, msgType)
 		if err != nil {
 			return err
 		}
 		if err := h.publishMessage(ctx, msg.RoomID, saved); err != nil {
 			return err
 		}
-		if userID != rasa.BotUserID {
+		if msgType == domain.MessageTypeText && userID != rasa.BotUserID && h.roomHasBotParticipant(ctx, msg.RoomID) {
 			go h.maybeBotReply(context.Background(), userID, msg.RoomID, msg.Content)
 		}
 		return nil
+	case "reaction":
+		if err := h.chatSvc.ValidateRoomAccess(ctx, userID, userRole, msg.RoomID); err != nil {
+			return err
+		}
+		updated, err := h.chatSvc.ToggleReaction(ctx, userID, userRole, msg.RoomID, msg.MessageID, msg.Emoji)
+		if err != nil {
+			return err
+		}
+		return h.publishReaction(ctx, msg.RoomID, updated)
 	case "typing":
-		if err := h.chatSvc.ValidateRoomAccess(ctx, userID, msg.RoomID); err != nil {
+		if err := h.chatSvc.ValidateRoomAccess(ctx, userID, userRole, msg.RoomID); err != nil {
 			return err
 		}
 		out := domain.WSServerMessage{
@@ -109,6 +125,23 @@ func (h *Hub) HandleMessage(ctx context.Context, userID string, msg domain.WSCli
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
+}
+
+func (h *Hub) roomHasBotParticipant(ctx context.Context, roomID string) bool {
+	roomOID, err := primitive.ObjectIDFromHex(roomID)
+	if err != nil {
+		return false
+	}
+	room, err := h.chatSvc.Repo().FindRoomByID(ctx, roomOID)
+	if err != nil || room == nil {
+		return false
+	}
+	for _, p := range room.Participants {
+		if p == rasa.BotUserID {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Hub) maybeBotReply(ctx context.Context, userID, roomID, content string) {
@@ -145,9 +178,27 @@ func (h *Hub) publishMessage(ctx context.Context, roomID string, saved *domain.C
 	out := domain.WSServerMessage{
 		Type:      "message",
 		RoomID:    roomID,
+		MessageID: saved.ID.Hex(),
 		SenderID:  saved.SenderID,
 		Content:   saved.Content,
+		MsgType:   saved.Type,
+		Reactions: saved.Reactions,
 		CreatedAt: saved.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	payload, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	channel := fmt.Sprintf("chat:%s", roomID)
+	return h.redis.Publish(ctx, channel, payload).Err()
+}
+
+func (h *Hub) publishReaction(ctx context.Context, roomID string, msg *domain.ChatMessage) error {
+	out := domain.WSServerMessage{
+		Type:      "reaction",
+		RoomID:    roomID,
+		MessageID: msg.ID.Hex(),
+		Reactions: msg.Reactions,
 	}
 	payload, err := json.Marshal(out)
 	if err != nil {

@@ -31,13 +31,16 @@ type ProductDetail struct {
 }
 
 type ProductListFilter struct {
-	Page       int
-	Limit      int
-	Category   string
-	Search     string
-	MinPrice   *float64
-	MaxPrice   *float64
-	Sort       string
+	Page            int
+	Limit           int
+	Category        string
+	Search          string
+	MinPrice        *float64
+	MaxPrice        *float64
+	Sort            string
+	IncludeInactive bool
+	CreatedFrom     *time.Time
+	CreatedTo       *time.Time
 }
 
 type ProductListResult struct {

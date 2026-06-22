@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/caovanson/shopcaovanson/order-service/internal/domain"
 	"github.com/google/uuid"
@@ -85,6 +86,16 @@ func (r *orderRepo) Search(ctx context.Context, filter domain.OrderSearchFilter)
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		where = append(where, fmt.Sprintf("(order_number ILIKE $%d OR shipping_name ILIKE $%d OR shipping_phone ILIKE $%d)", idx, idx, idx))
 		args = append(args, "%"+search+"%")
+		idx++
+	}
+	if filter.CreatedFrom != nil {
+		where = append(where, fmt.Sprintf("created_at >= $%d", idx))
+		args = append(args, *filter.CreatedFrom)
+		idx++
+	}
+	if filter.CreatedTo != nil {
+		where = append(where, fmt.Sprintf("created_at < $%d", idx))
+		args = append(args, filter.CreatedTo.Add(24*time.Hour))
 		idx++
 	}
 

@@ -1,29 +1,60 @@
 <template>
-  <v-container class="page-container py-6">
-    <div class="d-flex align-center justify-space-between mb-6">
-      <h1 class="text-h4 font-weight-bold">Mã giảm giá</h1>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm mã</v-btn>
-    </div>
+  <div>
+    <AdminPageHeader title="Mã giảm giá" subtitle="Quản lý voucher và khuyến mãi">
+      <template #actions>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm mã</v-btn>
+      </template>
+    </AdminPageHeader>
 
-    <LoadingSpinner v-if="loading" />
+    <AdminFilterBar>
+      <AdminDateRangeFilter v-model:from="dateFilter.createdFrom" v-model:to="dateFilter.createdTo" />
+      <v-btn color="primary" prepend-icon="mdi-filter-outline" @click="onFilter">Lọc</v-btn>
+      <v-btn v-if="dateFilter.hasDateFilter" variant="text" @click="clearFilters">Xóa lọc</v-btn>
+    </AdminFilterBar>
 
-    <v-card v-else>
-      <v-data-table :headers="headers" :items="coupons" :items-per-page="10">
-        <template #item.type="{ item }">
+    <AdminDataTable
+      server
+      v-model:page="page"
+      v-model:items-per-page="limit"
+      :headers="headers"
+      :items="coupons"
+      :total-items="total"
+      :count="total"
+      :loading="loading"
+      title="Danh sách mã giảm giá"
+      @update:options="load"
+    >
+      <template #item.code="{ item }">
+        <span class="admin-table__mono">{{ item.code }}</span>
+      </template>
+      <template #item.type="{ item }">
+        <v-chip size="small" variant="tonal" :color="item.type === 'percent' ? 'info' : 'primary'">
           {{ item.type === 'percent' ? 'Phần trăm' : 'Cố định' }}
-        </template>
-        <template #item.value="{ item }">
+        </v-chip>
+      </template>
+      <template #item.value="{ item }">
+        <span class="admin-table__money">
           {{ item.type === 'percent' ? `${item.value}%` : formatVND(item.value) }}
-        </template>
-        <template #item.is_active="{ item }">
-          <v-chip :color="item.is_active ? 'success' : 'grey'" size="small">{{ item.is_active ? 'Bật' : 'Tắt' }}</v-chip>
-        </template>
-        <template #item.actions="{ item }">
-          <v-btn size="small" variant="text" @click="openEdit(item)">Sửa</v-btn>
-          <v-btn size="small" variant="text" color="error" @click="remove(item.id)">Xóa</v-btn>
-        </template>
-      </v-data-table>
-    </v-card>
+        </span>
+      </template>
+      <template #item.used_count="{ item }">
+        {{ item.used_count }}
+      </template>
+      <template #item.created_at="{ item }">
+        {{ formatDate(item.created_at) }}
+      </template>
+      <template #item.is_active="{ item }">
+        <v-chip :color="item.is_active ? 'success' : 'grey'" size="small" variant="tonal">
+          {{ item.is_active ? 'Bật' : 'Tắt' }}
+        </v-chip>
+      </template>
+      <template #item.actions="{ item }">
+        <div class="admin-table-actions">
+          <v-btn size="small" variant="tonal" color="primary" @click="openEdit(item)">Sửa</v-btn>
+          <v-btn size="small" variant="tonal" color="error" @click="remove(item.id)">Xóa</v-btn>
+        </div>
+      </template>
+    </AdminDataTable>
 
     <v-dialog v-model="dialog" max-width="520">
       <v-card>
@@ -48,7 +79,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -58,8 +89,11 @@ definePageMeta({ layout: 'admin' })
 
 const admin = useAdmin()
 const { formatVND } = useFormat()
+const dateFilter = useAdminDateFilter()
+const snackbar = useSnackbar()
+const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
 
-const loading = ref(true)
+const loading = ref(false)
 const saving = ref(false)
 const dialog = ref(false)
 const editing = ref(false)
@@ -76,22 +110,40 @@ const form = reactive({
 
 const headers = [
   { title: 'Mã', key: 'code' },
-  { title: 'Loại', key: 'type' },
-  { title: 'Giá trị', key: 'value' },
-  { title: 'Đã dùng', key: 'used_count' },
-  { title: 'TT', key: 'is_active' },
-  { title: '', key: 'actions', sortable: false },
+  { title: 'Loại', key: 'type', sortable: false },
+  { title: 'Giá trị', key: 'value', align: 'end' as const },
+  { title: 'Đã dùng', key: 'used_count', align: 'center' as const },
+  { title: 'Ngày tạo', key: 'created_at' },
+  { title: 'Trạng thái', key: 'is_active', sortable: false },
+  { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' as const, width: 140 },
 ]
 
 const load = async () => {
   loading.value = true
   try {
-    const res = await admin.fetchCoupons({ limit: 100 })
+    const res = await admin.fetchCoupons(dateFilter.withDateQuery({
+      page: page.value,
+      limit: limit.value,
+    }))
     coupons.value = res.items
+    applyMeta(res)
   } finally {
     loading.value = false
   }
 }
+
+function onFilter() {
+  resetPage()
+  load()
+}
+
+const clearFilters = () => {
+  dateFilter.resetDates()
+  resetPage()
+  load()
+}
+
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN')
 
 const openCreate = () => {
   editing.value = false
@@ -130,7 +182,9 @@ const save = async () => {
     }
     dialog.value = false
     await load()
-    useSnackbar().show('Đã lưu mã giảm giá', 'success')
+    snackbar.show('Đã lưu mã giảm giá', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể lưu mã giảm giá', 'error')
   } finally {
     saving.value = false
   }
@@ -138,10 +192,12 @@ const save = async () => {
 
 const remove = async (id: string) => {
   if (!confirm('Xóa mã giảm giá này?')) return
-  await admin.deleteCoupon(id)
-  await load()
-  useSnackbar().show('Đã xóa mã giảm giá', 'success')
+  try {
+    await admin.deleteCoupon(id)
+    await load()
+    snackbar.show('Đã xóa mã giảm giá', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể xóa mã giảm giá', 'error')
+  }
 }
-
-onMounted(load)
 </script>

@@ -1,11 +1,12 @@
 <template>
-  <v-container class="page-container py-6">
-    <div class="d-flex align-center justify-space-between mb-6 flex-wrap ga-3">
-      <h1 class="text-h4 font-weight-bold">Quản lý bài viết</h1>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm bài viết</v-btn>
-    </div>
+  <div>
+    <AdminPageHeader title="Quản lý bài viết" subtitle="Blog, tin tức và nội dung SEO">
+      <template #actions>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm bài viết</v-btn>
+      </template>
+    </AdminPageHeader>
 
-    <div class="d-flex flex-wrap ga-3 mb-4">
+    <AdminFilterBar>
       <v-select
         v-model="filterCategory"
         :items="categoryItems"
@@ -13,9 +14,8 @@
         density="compact"
         hide-details
         variant="outlined"
-        style="max-width:200px"
         clearable
-        @update:model-value="load"
+        @update:model-value="onFilterCategory"
       />
       <v-text-field
         v-model="filterSearch"
@@ -24,44 +24,59 @@
         label="Tìm kiếm"
         prepend-inner-icon="mdi-magnify"
         variant="outlined"
-        style="max-width:260px"
-        @keyup.enter="load"
+        @keyup.enter="onFilter"
       />
-      <v-btn variant="outlined" @click="load">Lọc</v-btn>
-    </div>
+      <AdminDateRangeFilter v-model:from="dateFilter.createdFrom" v-model:to="dateFilter.createdTo" />
+      <v-btn variant="tonal" color="primary" prepend-icon="mdi-filter-outline" @click="onFilter">Lọc</v-btn>
+      <v-btn v-if="dateFilter.hasDateFilter" variant="text" @click="clearFilters">Xóa lọc</v-btn>
+    </AdminFilterBar>
 
-    <LoadingSpinner v-if="loading" />
-
-    <v-card v-else>
-      <v-data-table :headers="headers" :items="articles" :items-per-page="10">
-        <template #item.title="{ item }">
-          <div class="font-weight-medium">{{ item.title }}</div>
-          <div class="text-caption text-grey">/{{ item.slug }}</div>
-        </template>
-        <template #item.category="{ item }">
+    <AdminDataTable
+      server
+      v-model:page="page"
+      v-model:items-per-page="limit"
+      :headers="headers"
+      :items="articles"
+      :total-items="total"
+      :count="total"
+      :loading="loading"
+      title="Danh sách bài viết"
+      @update:options="load"
+    >
+      <template #item.title="{ item }">
+        <div>
+          <div class="admin-table__cell-title">{{ item.title }}</div>
+          <div class="admin-table__cell-sub">/{{ item.slug }}</div>
+        </div>
+      </template>
+      <template #item.category="{ item }">
+        <v-chip size="small" variant="tonal" color="info">
           {{ ARTICLE_CATEGORIES[item.category] || item.category }}
-        </template>
-        <template #item.is_published="{ item }">
-          <v-chip :color="item.is_published ? 'success' : 'grey'" size="small">
-            {{ item.is_published ? 'Đã xuất bản' : 'Nháp' }}
-          </v-chip>
-        </template>
-        <template #item.is_featured="{ item }">
-          <v-icon v-if="item.is_featured" color="warning" size="small">mdi-star</v-icon>
-        </template>
-        <template #item.view_count="{ item }">
-          {{ item.view_count }}
-        </template>
-        <template #item.created_at="{ item }">
-          {{ formatDate(item.created_at) }}
-        </template>
-        <template #item.actions="{ item }">
-          <v-btn size="small" variant="text" :to="`/blog/${item.slug}`" target="_blank">Xem</v-btn>
-          <v-btn size="small" variant="text" @click="openEdit(item)">Sửa</v-btn>
-          <v-btn size="small" variant="text" color="error" @click="remove(item.id)">Xóa</v-btn>
-        </template>
-      </v-data-table>
-    </v-card>
+        </v-chip>
+      </template>
+      <template #item.is_published="{ item }">
+        <v-chip :color="item.is_published ? 'success' : 'grey'" size="small" variant="tonal">
+          {{ item.is_published ? 'Đã xuất bản' : 'Nháp' }}
+        </v-chip>
+      </template>
+      <template #item.is_featured="{ item }">
+        <v-icon v-if="item.is_featured" color="warning" size="small">mdi-star</v-icon>
+        <span v-else class="admin-table__cell-sub">—</span>
+      </template>
+      <template #item.view_count="{ item }">
+        <span class="admin-table__money">{{ item.view_count.toLocaleString('vi-VN') }}</span>
+      </template>
+      <template #item.created_at="{ item }">
+        {{ formatDate(item.created_at) }}
+      </template>
+      <template #item.actions="{ item }">
+        <div class="admin-table-actions">
+          <v-btn size="small" variant="text" icon="mdi-open-in-new" :to="`/blog/${item.slug}`" target="_blank" />
+          <v-btn size="small" variant="tonal" color="primary" @click="openEdit(item)">Sửa</v-btn>
+          <v-btn size="small" variant="tonal" color="error" @click="remove(item.id)">Xóa</v-btn>
+        </div>
+      </template>
+    </AdminDataTable>
 
     <v-dialog v-model="dialog" max-width="900" scrollable persistent>
       <v-card>
@@ -123,7 +138,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -134,8 +149,10 @@ definePageMeta({ layout: 'admin' })
 
 const { adminFetchArticles, createArticle, updateArticle, deleteArticle } = useArticles()
 const snackbar = useSnackbar()
+const dateFilter = useAdminDateFilter()
+const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
 
-const loading = ref(true)
+const loading = ref(false)
 const saving = ref(false)
 const dialog = ref(false)
 const editing = ref(false)
@@ -161,12 +178,12 @@ const categoryItems = Object.entries(ARTICLE_CATEGORIES).map(([value, title]) =>
 
 const headers = [
   { title: 'Tiêu đề', key: 'title', sortable: false },
-  { title: 'Danh mục', key: 'category' },
-  { title: 'Lượt xem', key: 'view_count' },
-  { title: 'Xuất bản', key: 'is_published' },
-  { title: 'Nổi bật', key: 'is_featured' },
+  { title: 'Danh mục', key: 'category', sortable: false },
+  { title: 'Lượt xem', key: 'view_count', align: 'end' as const },
+  { title: 'Xuất bản', key: 'is_published', sortable: false },
+  { title: 'Nổi bật', key: 'is_featured', sortable: false, align: 'center' as const },
   { title: 'Ngày tạo', key: 'created_at' },
-  { title: '', key: 'actions', sortable: false },
+  { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' as const, width: 160 },
 ]
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN')
@@ -187,14 +204,36 @@ const resetForm = () => {
 const load = async () => {
   loading.value = true
   try {
-    const query: Record<string, string | number> = { limit: 100 }
+    const query = dateFilter.withDateQuery({
+      page: page.value,
+      limit: limit.value,
+    })
     if (filterCategory.value) query.category = filterCategory.value
     if (filterSearch.value.trim()) query.search = filterSearch.value.trim()
     const res = await adminFetchArticles(query)
     articles.value = res.items
+    applyMeta(res)
   } finally {
     loading.value = false
   }
+}
+
+function onFilter() {
+  resetPage()
+  load()
+}
+
+function onFilterCategory() {
+  resetPage()
+  load()
+}
+
+const clearFilters = () => {
+  filterCategory.value = null
+  filterSearch.value = ''
+  dateFilter.resetDates()
+  resetPage()
+  load()
 }
 
 const openCreate = () => {
@@ -254,6 +293,4 @@ const remove = async (id: string) => {
     snackbar.show('Không thể xóa bài viết', 'error')
   }
 }
-
-onMounted(load)
 </script>

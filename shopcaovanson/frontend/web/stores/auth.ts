@@ -37,6 +37,12 @@ export const useAuthStore = defineStore('auth', () => {
     clearRefreshTimer()
   }
 
+  function resetSession() {
+    clearTokens()
+    user.value = null
+    initialized.value = false
+  }
+
   function setUser(value: User | null) {
     user.value = value
   }
@@ -110,6 +116,7 @@ export const useAuthStore = defineStore('auth', () => {
     can,
     setTokens,
     clearTokens,
+    resetSession,
     setUser,
     getRefreshToken,
     scheduleTokenRefresh,

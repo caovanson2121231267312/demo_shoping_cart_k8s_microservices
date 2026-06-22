@@ -13,9 +13,9 @@ import (
 )
 
 type ChatHandler struct {
-	svc        *service.ChatService
-	hub        *hub.Hub
-	jwtPubKey  string
+	svc       *service.ChatService
+	hub       *hub.Hub
+	jwtPubKey string
 }
 
 func NewChatHandler(svc *service.ChatService, h *hub.Hub, jwtPubKey string) *ChatHandler {
@@ -25,6 +25,14 @@ func NewChatHandler(svc *service.ChatService, h *hub.Hub, jwtPubKey string) *Cha
 func (h *ChatHandler) ListRooms(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	rooms, err := h.svc.ListRooms(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": rooms})
+}
+
+func (h *ChatHandler) ListSupportRooms(c *fiber.Ctx) error {
+	rooms, err := h.svc.ListSupportRoomsForStaff(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -59,13 +67,31 @@ func (h *ChatHandler) CreateSupportRoom(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": room})
 }
 
+func (h *ChatHandler) CreateSupportRoomForCustomer(c *fiber.Ctx) error {
+	var req domain.AdminSupportRoomRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	room, err := h.svc.GetOrCreateSupportRoomForCustomer(c.Context(), req.CustomerID)
+	if err != nil {
+		switch err {
+		case service.ErrInvalidParticipant:
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+	}
+	return c.JSON(fiber.Map{"data": room})
+}
+
 func (h *ChatHandler) GetMessages(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
+	userRole := middleware.GetUserRole(c)
 	roomID := c.Params("id")
 	before := c.Query("before")
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 
-	messages, err := h.svc.GetMessages(c.Context(), userID, roomID, before, limit)
+	messages, err := h.svc.GetMessages(c.Context(), userID, userRole, roomID, before, limit)
 	if err != nil {
 		switch err {
 		case service.ErrRoomNotFound, service.ErrNotParticipant:
@@ -93,6 +119,7 @@ func (h *ChatHandler) WebSocket(c *websocket.Conn) {
 		return
 	}
 	userID := claims.Subject
+	userRole := claims.Role
 
 	var activeRoom string
 
@@ -114,14 +141,14 @@ func (h *ChatHandler) WebSocket(c *websocket.Conn) {
 			if activeRoom != "" {
 				h.hub.Unregister(c, activeRoom)
 			}
-			if err := h.svc.ValidateRoomAccess(context.Background(), userID, msg.RoomID); err != nil {
+			if err := h.svc.ValidateRoomAccess(context.Background(), userID, userRole, msg.RoomID); err != nil {
 				_ = c.WriteJSON(fiber.Map{"error": err.Error()})
 				continue
 			}
 			activeRoom = msg.RoomID
 			h.hub.Register(c, userID, activeRoom)
 		default:
-			if err := h.hub.HandleMessage(context.Background(), userID, msg); err != nil {
+			if err := h.hub.HandleMessage(context.Background(), userID, userRole, msg); err != nil {
 				_ = c.WriteJSON(fiber.Map{"error": err.Error()})
 			}
 		}

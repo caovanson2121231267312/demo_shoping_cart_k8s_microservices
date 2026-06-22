@@ -1,25 +1,46 @@
 <template>
-  <v-container class="page-container py-6">
-    <div class="d-flex align-center justify-space-between mb-6">
-      <h1 class="text-h4 font-weight-bold">Quản lý danh mục</h1>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm danh mục</v-btn>
-    </div>
+  <div>
+    <AdminPageHeader title="Quản lý danh mục" subtitle="Cấu trúc ngành hàng và phân cấp">
+      <template #actions>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm danh mục</v-btn>
+      </template>
+    </AdminPageHeader>
 
     <LoadingSpinner v-if="loading" />
 
-    <v-row v-else>
-      <v-col v-for="cat in flatCategories" :key="cat.id" cols="12" sm="6" md="4">
-        <v-card>
-          <v-img v-if="cat.image_url" :src="cat.image_url" height="140" cover />
-          <v-card-title>{{ cat.name }}</v-card-title>
-          <v-card-subtitle>{{ cat.slug }}</v-card-subtitle>
-          <v-card-actions>
-            <v-btn size="small" variant="text" @click="openEdit(cat)">Sửa</v-btn>
-            <v-btn size="small" color="error" variant="text" @click="remove(cat.id)">Xóa</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+    <AdminDataTable
+      v-else
+      :headers="headers"
+      :items="flatCategories"
+      :items-per-page="15"
+      :count="flatCategories.length"
+      title="Danh sách danh mục"
+    >
+      <template #item.name="{ item }">
+        <div class="admin-table__avatar-cell">
+          <v-avatar v-if="item.image_url" size="40" rounded="lg">
+            <v-img :src="item.image_url" cover />
+          </v-avatar>
+          <v-avatar v-else size="40" rounded="lg" color="primary" variant="tonal">
+            <v-icon size="20">mdi-shape-outline</v-icon>
+          </v-avatar>
+          <div>
+            <div class="admin-table__cell-title">{{ item.displayName }}</div>
+            <div class="admin-table__cell-sub">{{ item.slug }}</div>
+          </div>
+        </div>
+      </template>
+      <template #item.parent="{ item }">
+        <span v-if="item.parentName" class="admin-table__cell-sub">{{ item.parentName }}</span>
+        <v-chip v-else size="small" variant="tonal" color="primary">Gốc</v-chip>
+      </template>
+      <template #item.actions="{ item }">
+        <div class="admin-table-actions">
+          <v-btn size="small" variant="tonal" color="primary" @click="openEdit(item.raw)">Sửa</v-btn>
+          <v-btn size="small" variant="tonal" color="error" @click="remove(item.raw.id)">Xóa</v-btn>
+        </div>
+      </template>
+    </AdminDataTable>
 
     <v-dialog v-model="dialog" max-width="480">
       <v-card class="pa-4">
@@ -43,7 +64,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -52,25 +73,57 @@ import type { Category } from '~/types'
 definePageMeta({ layout: 'admin' })
 
 const { fetchCategories, createCategory, updateCategory, deleteCategory } = useProducts()
+const snackbar = useSnackbar()
 
 const categories = ref<Category[]>([])
-const loading = ref(true)
+const loading = ref(false)
 const dialog = ref(false)
 const saving = ref(false)
 const editing = ref<Category | null>(null)
 const form = reactive({ name: '', slug: '', image_url: '', parent_id: null as string | null })
 
-const flatCategories = computed(() => {
-  const out: Category[] = []
+type CategoryRow = Category & {
+  displayName: string
+  parentName: string | null
+  raw: Category
+}
+
+const parentMap = computed(() => {
+  const map = new Map<string, string>()
+  const walk = (items: Category[]) => {
+    for (const c of items) {
+      map.set(c.id, c.name)
+      if (c.children?.length) walk(c.children)
+    }
+  }
+  walk(categories.value)
+  return map
+})
+
+const flatCategories = computed<CategoryRow[]>(() => {
+  const out: CategoryRow[] = []
   const walk = (items: Category[], depth = 0) => {
     for (const c of items) {
-      out.push({ ...c, name: `${'— '.repeat(depth)}${c.name}` })
+      const cleanName = c.name.replace(/^—+\s*/, '')
+      const raw = { ...c, name: cleanName }
+      out.push({
+        ...c,
+        displayName: `${'— '.repeat(depth)}${cleanName}`,
+        parentName: c.parent_id ? parentMap.value.get(c.parent_id) ?? null : null,
+        raw,
+      })
       if (c.children?.length) walk(c.children, depth + 1)
     }
   }
   walk(categories.value)
   return out
 })
+
+const headers = [
+  { title: 'Danh mục', key: 'name', sortable: false },
+  { title: 'Danh mục cha', key: 'parent', sortable: false },
+  { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' as const, width: 160 },
+]
 
 const parentOptions = computed(() =>
   categories.value.filter((c) => !c.parent_id).map((c) => ({ id: c.id, name: c.name })),
@@ -118,6 +171,9 @@ async function save() {
     }
     dialog.value = false
     await load()
+    snackbar.show(editing.value ? 'Đã cập nhật danh mục' : 'Đã thêm danh mục', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể lưu danh mục', 'error')
   } finally {
     saving.value = false
   }
@@ -125,8 +181,13 @@ async function save() {
 
 async function remove(id: string) {
   if (!confirm('Xóa danh mục này?')) return
-  await deleteCategory(id)
-  await load()
+  try {
+    await deleteCategory(id)
+    await load()
+    snackbar.show('Đã xóa danh mục', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể xóa danh mục', 'error')
+  }
 }
 
 onMounted(load)

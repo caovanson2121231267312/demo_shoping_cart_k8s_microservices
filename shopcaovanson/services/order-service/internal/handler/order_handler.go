@@ -157,11 +157,14 @@ func (h *OrderHandler) CancelOrder(c *fiber.Ctx) error {
 }
 
 func (h *OrderHandler) ListAllOrders(c *fiber.Ctx) error {
+	from, to := parseCreatedRange(c)
 	filter := domain.OrderSearchFilter{
-		Page:   queryInt(c, "page", 1),
-		Limit:  queryInt(c, "limit", 20),
-		Status: c.Query("status"),
-		Search: c.Query("search"),
+		Page:        queryInt(c, "page", 1),
+		Limit:       queryInt(c, "limit", 20),
+		Status:      c.Query("status"),
+		Search:      c.Query("search"),
+		CreatedFrom: from,
+		CreatedTo:   to,
 	}
 	result, err := h.orderSvc.SearchOrders(c.Context(), filter)
 	if err != nil {
@@ -171,6 +174,7 @@ func (h *OrderHandler) ListAllOrders(c *fiber.Ctx) error {
 }
 
 func (h *OrderHandler) SearchOrders(c *fiber.Ctx) error {
+	from, to := parseCreatedRange(c)
 	filter := domain.OrderSearchFilter{
 		Page:          queryInt(c, "page", 1),
 		Limit:         queryInt(c, "limit", 20),
@@ -179,6 +183,8 @@ func (h *OrderHandler) SearchOrders(c *fiber.Ctx) error {
 		OrderNumber:   c.Query("order_number"),
 		ShippingPhone: c.Query("shipping_phone"),
 		UserID:        c.Query("user_id"),
+		CreatedFrom:   from,
+		CreatedTo:     to,
 	}
 	result, err := h.orderSvc.SearchOrders(c.Context(), filter)
 	if err != nil {

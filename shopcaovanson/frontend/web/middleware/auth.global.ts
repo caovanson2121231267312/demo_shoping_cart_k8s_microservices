@@ -5,7 +5,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
   if (publicPaths.some((p) => to.path.startsWith(p))) {
     if (auth.isLoggedIn.value) {
-      return navigateTo('/')
+      const target = resolveLoginRedirect(to.query.redirect, '/')
+      return navigateTo(target)
     }
     return
   }
@@ -14,7 +15,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const needsAuth = protectedPrefixes.some((p) => to.path.startsWith(p))
 
   if (needsAuth && !auth.isLoggedIn.value) {
-    return navigateTo('/auth/login')
+    return navigateTo({
+      path: '/auth/login',
+      query: loginRedirectQuery(to.fullPath),
+    })
   }
 
   if (to.path.startsWith('/admin') && !auth.isStaff.value) {

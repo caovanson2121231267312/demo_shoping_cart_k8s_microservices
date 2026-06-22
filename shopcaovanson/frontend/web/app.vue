@@ -10,11 +10,19 @@
 <script setup lang="ts">
 const auth = useAuth()
 const cart = useCart()
+const { isLoggedIn } = auth
 
 onMounted(async () => {
   useCartStore().hydrate()
   await auth.ensureAuth()
-  if (auth.isLoggedIn.value) {
+  if (isLoggedIn.value) {
+    await cart.mergeLocalToServer()
+  }
+})
+
+watch(isLoggedIn, async (loggedIn) => {
+  if (loggedIn) {
+    useCartStore().hydrate()
     await cart.mergeLocalToServer()
   }
 })

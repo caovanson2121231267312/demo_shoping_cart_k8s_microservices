@@ -1,48 +1,76 @@
 <template>
-  <v-container class="page-container py-6">
-    <div class="d-flex align-center justify-space-between mb-6">
-      <h1 class="text-h4 font-weight-bold">Quản lý sản phẩm</h1>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm sản phẩm</v-btn>
-    </div>
+  <div>
+    <AdminPageHeader title="Quản lý sản phẩm" subtitle="Danh sách sản phẩm, giá và tồn kho">
+      <template #actions>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm sản phẩm</v-btn>
+      </template>
+    </AdminPageHeader>
 
-    <LoadingSpinner v-if="loading" />
+    <AdminFilterBar>
+      <AdminDateRangeFilter v-model:from="dateFilter.createdFrom" v-model:to="dateFilter.createdTo" />
+      <v-btn color="primary" prepend-icon="mdi-filter-outline" @click="onFilter">Lọc</v-btn>
+      <v-btn v-if="dateFilter.hasDateFilter" variant="text" @click="clearFilters">Xóa lọc</v-btn>
+    </AdminFilterBar>
 
-    <v-card v-else>
-      <v-data-table
-        :headers="headers"
-        :items="products"
-        :items-per-page="10"
-        class="elevation-0"
-      >
-        <template #item.name="{ item }">
-          <div class="d-flex align-center ga-2">
-            <v-avatar size="40" rounded>
-              <v-img :src="getProductImage(item)" />
-            </v-avatar>
-            <span>{{ item.name }}</span>
+    <AdminDataTable
+      server
+      v-model:page="page"
+      v-model:items-per-page="limit"
+      :headers="headers"
+      :items="products"
+      :total-items="total"
+      :count="total"
+      :loading="loading"
+      title="Danh sách sản phẩm"
+      @update:options="loadData"
+    >      <template #item.name="{ item }">
+        <div class="admin-table__avatar-cell">
+          <v-avatar size="44" rounded="lg">
+            <v-img :src="getProductImage(item)" cover />
+          </v-avatar>
+          <div>
+            <div class="admin-table__cell-title">{{ item.name }}</div>
+            <div class="admin-table__cell-sub">{{ item.slug }}</div>
           </div>
-        </template>
-        <template #item.price="{ item }">
-          {{ formatVND(item.price) }}
-        </template>
-        <template #item.sale_price="{ item }">
-          {{ item.sale_price ? formatVND(item.sale_price) : '—' }}
-        </template>
-        <template #item.is_active="{ item }">
-          <v-chip :color="item.is_active ? 'success' : 'grey'" size="small">
-            {{ item.is_active ? 'Hiển thị' : 'Ẩn' }}
-          </v-chip>
-        </template>
-        <template #item.actions="{ item }">
-          <v-btn icon size="small" variant="text" @click="openEdit(item)">
-            <v-icon>mdi-pencil</v-icon>
+        </div>
+      </template>
+      <template #item.price="{ item }">
+        <span class="admin-table__money">{{ formatVND(item.price) }}</span>
+      </template>
+      <template #item.sale_price="{ item }">
+        <span v-if="item.sale_price" class="admin-table__money admin-table__money--sale">
+          {{ formatVND(item.sale_price) }}
+        </span>
+        <span v-else class="admin-table__cell-sub">—</span>
+      </template>
+      <template #item.stock="{ item }">
+        <v-chip
+          :color="item.stock > 10 ? 'success' : item.stock > 0 ? 'warning' : 'error'"
+          size="small"
+          variant="tonal"
+        >
+          {{ item.stock }}
+        </v-chip>
+      </template>
+      <template #item.created_at="{ item }">
+        {{ formatDate(item.created_at) }}
+      </template>
+      <template #item.is_active="{ item }">
+        <v-chip :color="item.is_active ? 'success' : 'grey'" size="small" variant="tonal">
+          {{ item.is_active ? 'Hiển thị' : 'Ẩn' }}
+        </v-chip>
+      </template>
+      <template #item.actions="{ item }">
+        <div class="admin-table-actions">
+          <v-btn icon size="small" variant="text" color="primary" @click="openEdit(item)">
+            <v-icon>mdi-pencil-outline</v-icon>
           </v-btn>
           <v-btn icon size="small" variant="text" color="error" @click="confirmDelete(item)">
-            <v-icon>mdi-delete</v-icon>
+            <v-icon>mdi-delete-outline</v-icon>
           </v-btn>
-        </template>
-      </v-data-table>
-    </v-card>
+        </div>
+      </template>
+    </AdminDataTable>
 
     <v-dialog v-model="dialog" max-width="600" persistent>
       <v-card>
@@ -89,7 +117,7 @@
       :loading="deleting"
       @confirm="handleDelete"
     />
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -99,10 +127,13 @@ definePageMeta({ layout: 'admin' })
 
 const { fetchProducts, fetchCategories, createProduct, updateProduct, deleteProduct } = useProducts()
 const { formatVND } = useFormat()
+const dateFilter = useAdminDateFilter()
+const snackbar = useSnackbar()
+const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
 
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
-const loading = ref(true)
+const loading = ref(false)
 const dialog = ref(false)
 const deleteDialog = ref(false)
 const editing = ref(false)
@@ -127,12 +158,13 @@ const form = reactive({
 })
 
 const headers = [
-  { title: 'Sản phẩm', key: 'name' },
-  { title: 'Giá', key: 'price' },
-  { title: 'KM', key: 'sale_price' },
-  { title: 'Tồn kho', key: 'stock' },
-  { title: 'Trạng thái', key: 'is_active' },
-  { title: '', key: 'actions', sortable: false },
+  { title: 'Sản phẩm', key: 'name', sortable: false },
+  { title: 'Giá', key: 'price', align: 'end' as const },
+  { title: 'Khuyến mãi', key: 'sale_price', align: 'end' as const },
+  { title: 'Tồn kho', key: 'stock', align: 'center' as const },
+  { title: 'Ngày tạo', key: 'created_at' },
+  { title: 'Trạng thái', key: 'is_active', sortable: false },
+  { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' as const, width: 100 },
 ]
 
 const flatCategories = computed(() => {
@@ -150,15 +182,40 @@ const loadData = async () => {
   loading.value = true
   try {
     const [prodResult, cats] = await Promise.all([
-      fetchProducts({ limit: 100 }),
-      fetchCategories(),
+      fetchProducts({
+        page: page.value,
+        limit: limit.value,
+        include_inactive: true,
+        ...dateFilter.queryParams.value,
+      }),
+      categories.value.length ? Promise.resolve(categories.value) : fetchCategories(),
     ])
     products.value = prodResult.items
-    categories.value = cats
+    applyMeta(prodResult)
+    if (Array.isArray(cats) && !categories.value.length) {
+      categories.value = cats
+    }
   } finally {
     loading.value = false
   }
 }
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN')
+
+const clearFilters = () => {
+  dateFilter.resetDates()
+  resetPage()
+  loadData()
+}
+
+function onFilter() {
+  resetPage()
+  loadData()
+}
+
+onMounted(async () => {
+  categories.value = await fetchCategories()
+})
 
 const resetForm = () => {
   form.name = ''
@@ -205,8 +262,12 @@ const saveProduct = async () => {
     } else {
       await createProduct(payload)
     }
+    const wasEditing = editing.value
     dialog.value = false
     await loadData()
+    snackbar.show(wasEditing ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể lưu sản phẩm', 'error')
   } finally {
     saving.value = false
   }
@@ -226,10 +287,11 @@ const handleDelete = async () => {
     await deleteProduct(deleteTarget.value.id)
     deleteDialog.value = false
     await loadData()
+    snackbar.show('Đã xóa sản phẩm', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể xóa sản phẩm', 'error')
   } finally {
     deleting.value = false
   }
 }
-
-onMounted(loadData)
 </script>

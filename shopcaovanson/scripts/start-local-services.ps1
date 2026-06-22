@@ -1,16 +1,60 @@
 # shopcaovanson - Start Go microservices locally (infra must already be running)
 # Usage:
-#   .\scripts\start-local-services.ps1           # chay nen, ghi log vao logs/
-#   .\scripts\start-local-services.ps1 -Debug    # mo terminal rieng tung service (de debug)
+#   .\scripts\start-local-services.ps1              # mo terminal rieng tung service (mac dinh)
+#   .\scripts\start-local-services.ps1 -Background  # chay nen, ghi log vao logs/
+#   .\scripts\start-local-services.ps1 -Wsl         # bat buoc chay Go trong WSL
+#   .\scripts\start-local-services.ps1 -Windows     # bat buoc chay Go tren Windows
 param(
-    [switch]$Debug
+    [switch]$Background,
+    [switch]$Wsl,
+    [switch]$Windows
 )
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $LogDir = Join-Path $Root "logs"
-if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir | Out-Null
+$GoServiceLauncher = Join-Path $PSScriptRoot "run-go-service.ps1"
+$GoMigrateLauncher = Join-Path $PSScriptRoot "run-go-migrate.ps1"
+foreach ($d in @($LogDir)) {
+    if (-not (Test-Path $d)) {
+        New-Item -ItemType Directory -Path $d | Out-Null
+    }
+}
+
+function Test-WslGoAvailable {
+    if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) { return $false }
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        $null = & wsl go version 2>$null
+        return $LASTEXITCODE -eq 0
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+}
+
+$UseWsl = $false
+if ($Windows -and $Wsl) {
+    throw "Khong the dung dong thoi -Wsl va -Windows"
+}
+if ($Wsl) {
+    if (-not (Test-WslGoAvailable)) {
+        throw "Wsl duoc yeu cau nhung chua co Go trong WSL. Cai: wsl sudo apt install -y golang-go"
+    }
+    $UseWsl = $true
+} elseif (-not $Windows) {
+    $UseWsl = Test-WslGoAvailable
+}
+
+if ($UseWsl) {
+    Write-Host "Go services: chay trong WSL (tranh Windows App Control)" -ForegroundColor Cyan
+} else {
+    Write-Host "Go services: chay tren Windows (go run)" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "CANH BAO: Windows Smart App Control co the chan .exe tu Go." -ForegroundColor Yellow
+    Write-Host "  Khuyen nghi: wsl sudo apt install -y golang-go  roi chay lai script" -ForegroundColor Yellow
+    Write-Host "  Hoac tat Smart App Control trong Windows Security" -ForegroundColor Yellow
+    Write-Host ""
 }
 
 function Load-EnvFile($path) {
@@ -66,7 +110,7 @@ function Stop-PortListener($Port) {
 
 function Start-ServiceProcess($name, $dir, $runCommand) {
     $logFile = Join-Path $LogDir "$name.log"
-    if ($Debug) {
+    if (-not $Background) {
         $inner = "Set-Location '$dir'; Write-Host '[$name] Ctrl+C de dung' -ForegroundColor Cyan; $runCommand"
         Start-Process powershell -ArgumentList @("-NoExit", "-NoProfile", "-Command", $inner) -WindowStyle Normal | Out-Null
         Write-Host "  + terminal: $name" -ForegroundColor DarkGray
@@ -87,19 +131,10 @@ Set-Location '$dir'
 }
 
 function Start-GoService($dir, $name) {
-    $exe = Join-Path $dir "$name.exe"
-    Push-Location $dir
+    $wslArg = if ($UseWsl) { "-UseWsl" } else { "" }
+    $runCommand = "& '$GoServiceLauncher' -Name '$name' -Dir '$dir' $wslArg"
     try {
-        $buildOut = & go build -o $exe . 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "  FAIL build $name`: $buildOut" -ForegroundColor Red
-            return $false
-        }
-    } finally {
-        Pop-Location
-    }
-    try {
-        return Start-ServiceProcess $name $dir "& '$exe'"
+        return Start-ServiceProcess $name $dir $runCommand
     } catch {
         Write-Host "  FAIL start $name`: $_" -ForegroundColor Red
         return $false
@@ -114,6 +149,25 @@ function Start-PythonService($dir, $name, $port) {
         Write-Host "  FAIL start $name`: $_" -ForegroundColor Red
         return $false
     }
+}
+
+function Start-FrontendDev() {
+    $frontendDir = Join-Path $Root "frontend\web"
+    if (-not (Test-Path (Join-Path $frontendDir "package.json"))) { return }
+
+    $port = 3000
+    if (Test-PortOpen $port) {
+        Write-Host "  skip frontend (port $port dang dung)" -ForegroundColor DarkGray
+        return
+    }
+
+    $inner = @"
+Set-Location '$frontendDir'
+Write-Host '[frontend] npm run dev - http://localhost:3000' -ForegroundColor Cyan
+npm run dev
+"@
+    Start-Process powershell -ArgumentList @("-NoExit", "-NoProfile", "-Command", $inner) -WindowStyle Normal | Out-Null
+    Write-Host "  + terminal: frontend (http://localhost:3000)" -ForegroundColor DarkGray
 }
 
 function Test-PortOpen($Port) {
@@ -154,9 +208,14 @@ function Run-GoMigration($dir, $name) {
     Ensure-EnvFile $dir
     Load-EnvFile (Join-Path $dir ".env")
     if (-not $env:DATABASE_URL) { return }
-    Push-Location $dir
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
-        $out = & go run cmd/migrate/main.go up 2>&1
+        if ($UseWsl) {
+            $out = & powershell -NoProfile -File $GoMigrateLauncher -Dir $dir -UseWsl 2>&1
+        } else {
+            $out = & powershell -NoProfile -File $GoMigrateLauncher -Dir $dir 2>&1
+        }
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  WARN migration $name`: $out" -ForegroundColor Yellow
         } else {
@@ -165,7 +224,7 @@ function Run-GoMigration($dir, $name) {
     } catch {
         Write-Host "  WARN migration $name`: $_" -ForegroundColor Yellow
     } finally {
-        Pop-Location
+        $ErrorActionPreference = $prevEap
     }
 }
 
@@ -255,42 +314,62 @@ foreach ($svc in $services) {
 Write-Host ""
 if ($allOk) {
     Write-Host "All services ready." -ForegroundColor Green
+    if (-not $Background) {
+        Write-Host ""
+        Write-Host "Starting frontend..." -ForegroundColor Cyan
+        Start-FrontendDev
+    }
     Write-Host "  API Gateway:  http://localhost:8080" -ForegroundColor White
     Write-Host "  Auth:         http://localhost:8081" -ForegroundColor White
     Write-Host "  Product:      http://localhost:8082" -ForegroundColor White
     Write-Host "  Chatbot:      http://localhost:8090" -ForegroundColor White
     Write-Host "  Email (SMTP): notification-service :8085 - xem Mailtrap inbox" -ForegroundColor White
     Write-Host "  Login test:   admin@shop.com / Admin@123" -ForegroundColor White
-    if ($Debug) {
-        Write-Host "  Debug:        moi service mot cua so PowerShell rieng" -ForegroundColor White
+    if (-not $Background) {
+        Write-Host "  Frontend:     http://localhost:3000" -ForegroundColor White
+    }
+    if (-not $Background) {
+        Write-Host "  Terminals:    moi service mot cua so PowerShell rieng" -ForegroundColor White
     } else {
         Write-Host "  Logs:         $LogDir" -ForegroundColor White
         Write-Host "  Xem log:      Get-Content logs\product-service.log -Wait" -ForegroundColor DarkGray
-        Write-Host "  Debug mode:   .\scripts\start-local-services.ps1 -Debug" -ForegroundColor DarkGray
+        Write-Host "  Terminal mode: .\scripts\start-local-services.ps1" -ForegroundColor DarkGray
     }
 } else {
     Write-Host "Mot so service chua len: $($failed -join ', ')" -ForegroundColor Yellow
-    if (-not $Debug) {
+    if ($Background) {
         Write-Host "Xem log service loi:" -ForegroundColor Yellow
         foreach ($name in $failed) {
             Write-Host "  Get-Content logs\$name.log -Tail 40" -ForegroundColor White
         }
-        Write-Host "Hoac chay -Debug de mo terminal tung service:" -ForegroundColor Yellow
-        Write-Host '  .\scripts\start-local-services.ps1 -Debug' -ForegroundColor White
+        Write-Host "Hoac chay khong -Background de mo terminal tung service:" -ForegroundColor Yellow
+        Write-Host '  .\scripts\start-local-services.ps1' -ForegroundColor White
     }
     if ($failed -contains "auth-service") {
         Write-Host ""
         Write-Host "Login 500 (connection refused :8081) = auth-service chua chay." -ForegroundColor Red
         Write-Host "Chay thu trong terminal rieng de xem loi:" -ForegroundColor Yellow
-        Write-Host '  cd services\auth-service; go run main.go' -ForegroundColor White
+        if ($UseWsl) {
+            Write-Host '  .\scripts\run-go-service.ps1 -Name auth-service -Dir services\auth-service -UseWsl' -ForegroundColor White
+        } else {
+            Write-Host '  .\scripts\run-go-service.ps1 -Name auth-service -Dir services\auth-service' -ForegroundColor White
+            Write-Host '  Hoac cai Go trong WSL roi chay lai script (tu dong dung WSL)' -ForegroundColor DarkGray
+        }
         Write-Host ""
         Write-Host "Neu thieu bang DB, chay migration:" -ForegroundColor Yellow
         Write-Host '  cd services\auth-service; go run cmd/migrate/main.go up' -ForegroundColor White
         Write-Host '  go run scripts/fake_data.go' -ForegroundColor White
     } else {
-        Write-Host "Kiem tra cua so service (minimized) hoac chay thu service bi loi." -ForegroundColor Yellow
-        if ($failed -contains "product-service") {
-            Write-Host '  cd services\product-service; go build -o product-service.exe .; .\product-service.exe' -ForegroundColor White
+        Write-Host "Kiem tra cua so service hoac chay thu service bi loi." -ForegroundColor Yellow
+        foreach ($svcName in @('product-service', 'api-gateway', 'order-service', 'chat-service')) {
+            if ($failed -contains $svcName) {
+                $w = if ($UseWsl) { ' -UseWsl' } else { '' }
+                Write-Host "  .\scripts\run-go-service.ps1 -Name $svcName -Dir services\$svcName$w" -ForegroundColor White
+            }
         }
+        Write-Host ""
+        Write-Host "Neu gap 'Application Control policy has blocked':" -ForegroundColor Yellow
+        Write-Host "  Cai Go trong WSL: wsl sudo apt install -y golang-go" -ForegroundColor White
+        Write-Host "  Sau do chay lai: .\scripts\start-local-services.ps1" -ForegroundColor White
     }
 }

@@ -8,11 +8,13 @@ import (
 )
 
 type Config struct {
-	Port         string
-	MongoURI     string
-	MongoDB      string
-	RedisURL     string
-	JWTPublicKey string
+	Port            string
+	MongoURI        string
+	MongoDB         string
+	RedisURL        string
+	JWTPublicKey    string
+	UploadDir       string
+	MaxUploadBytes  int64
 }
 
 func Load() *Config {
@@ -38,12 +40,21 @@ func Load() *Config {
 		redisURL = "redis://localhost:6379/0"
 	}
 
+	uploadDir := os.Getenv("CHAT_UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "uploads/chat"
+	}
+
+	maxUpload := int64(GetEnvInt("CHAT_MAX_UPLOAD_MB", 5)) * 1024 * 1024
+
 	return &Config{
-		Port:         port,
-		MongoURI:     mongoURI,
-		MongoDB:      mongoDB,
-		RedisURL:     redisURL,
-		JWTPublicKey: os.Getenv("JWT_PUBLIC_KEY"),
+		Port:           port,
+		MongoURI:       mongoURI,
+		MongoDB:        mongoDB,
+		RedisURL:       redisURL,
+		JWTPublicKey:   os.Getenv("JWT_PUBLIC_KEY"),
+		UploadDir:      uploadDir,
+		MaxUploadBytes: maxUpload,
 	}
 }
 

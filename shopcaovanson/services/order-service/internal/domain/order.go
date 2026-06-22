@@ -96,6 +96,8 @@ type OrderSearchFilter struct {
 	OrderNumber   string
 	ShippingPhone string
 	UserID        string
+	CreatedFrom   *time.Time
+	CreatedTo     *time.Time
 }
 
 type OrderStats struct {

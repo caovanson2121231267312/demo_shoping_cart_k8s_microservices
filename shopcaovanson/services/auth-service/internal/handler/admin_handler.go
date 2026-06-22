@@ -45,11 +45,14 @@ func (h *AdminHandler) ListRoles(c *fiber.Ctx) error {
 func (h *AdminHandler) ListUsers(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	from, to := parseCreatedRange(c)
 	filter := domain.UserListFilter{
-		Page:   page,
-		Limit:  limit,
-		Search: c.Query("search"),
-		Role:   c.Query("role"),
+		Page:        page,
+		Limit:       limit,
+		Search:      c.Query("search"),
+		Role:        c.Query("role"),
+		CreatedFrom: from,
+		CreatedTo:   to,
 	}
 	result, err := h.adminSvc.ListUsers(c.Context(), filter)
 	if err != nil {

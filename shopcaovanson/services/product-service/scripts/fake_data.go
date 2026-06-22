@@ -101,12 +101,17 @@ func seedCategories(ctx context.Context, repo repository.CategoryRepository, db 
 	if err != nil {
 		return err
 	}
-	if count >= len(categoryDefs) && !refresh {
-		log.Printf("categories already seeded (%d)", count)
+	var subCount int
+	if err := db.GetContext(ctx, &subCount, `SELECT COUNT(*) FROM categories WHERE parent_id IS NOT NULL`); err != nil {
+		return err
+	}
+	expectedSubs := len(categoryDefs) * 5
+	if count >= len(categoryDefs)+expectedSubs && subCount >= expectedSubs && !refresh {
+		log.Printf("categories already seeded (%d roots, %d subs)", len(categoryDefs), subCount)
 		return nil
 	}
 
-	if count < len(categoryDefs) {
+	if count < len(categoryDefs)+expectedSubs {
 		for _, def := range categoryDefs {
 			img := fmt.Sprintf("https://picsum.photos/seed/category-%s/400/400", def.Slug)
 			c := &domain.Category{
@@ -116,7 +121,9 @@ func seedCategories(ctx context.Context, repo repository.CategoryRepository, db 
 				ImageURL: &img,
 			}
 			if err := repo.Create(ctx, c); err != nil {
-				return err
+				if !strings.Contains(err.Error(), "duplicate") && !strings.Contains(err.Error(), "unique") {
+					return err
+				}
 			}
 			subs := seedcatalog.SubcategoryNames[def.Slug]
 			for s := 1; s <= 5; s++ {
@@ -135,7 +142,9 @@ func seedCategories(ctx context.Context, repo repository.CategoryRepository, db 
 					ImageURL: &subImg,
 				}
 				if err := repo.Create(ctx, sub); err != nil {
-					return err
+					if !strings.Contains(err.Error(), "duplicate") && !strings.Contains(err.Error(), "unique") {
+						return err
+					}
 				}
 			}
 		}

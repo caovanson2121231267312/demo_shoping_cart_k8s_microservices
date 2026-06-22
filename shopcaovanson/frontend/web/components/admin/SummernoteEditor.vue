@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
 
 <style>
 .summernote-editor .note-editor {
-  border-radius: 8px;
+  border-radius: var(--admin-radius-xs);
   border-color: rgba(0, 0, 0, 0.12);
 }
 </style>

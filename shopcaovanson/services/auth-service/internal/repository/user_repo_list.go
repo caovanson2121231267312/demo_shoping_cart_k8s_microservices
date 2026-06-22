@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopcaovanson/auth-service/internal/domain"
@@ -70,6 +71,16 @@ func (r *userRepository) List(ctx context.Context, filter domain.UserListFilter)
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		where = append(where, fmt.Sprintf("(email ILIKE $%d OR full_name ILIKE $%d)", idx, idx))
 		args = append(args, "%"+search+"%")
+		idx++
+	}
+	if filter.CreatedFrom != nil {
+		where = append(where, fmt.Sprintf("created_at >= $%d", idx))
+		args = append(args, *filter.CreatedFrom)
+		idx++
+	}
+	if filter.CreatedTo != nil {
+		where = append(where, fmt.Sprintf("created_at < $%d", idx))
+		args = append(args, filter.CreatedTo.Add(24*time.Hour))
 		idx++
 	}
 

@@ -1,10 +1,10 @@
 # Reset infra volumes + migrations + fake data (from scratch)
 # Usage:
 #   .\scripts\reset-and-seed.ps1              # dev profile (50 users, 200 products, ...)
-#   .\scripts\reset-and-seed.ps1 -Profile full  # full scale (hours)
+#   .\scripts\reset-and-seed.ps1 -Profile stress  # 1M users, 2K products, 50M orders
 
 param(
-    [ValidateSet("dev", "full")]
+    [ValidateSet("dev", "full", "stress")]
     [string]$Profile = "dev",
     [switch]$SkipReset
 )

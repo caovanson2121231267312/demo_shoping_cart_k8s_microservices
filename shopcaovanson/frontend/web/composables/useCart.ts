@@ -1,11 +1,35 @@
 import type { Cart, CartItem, Product } from '~/types'
+import { storeToRefs } from 'pinia'
 import { getProductImage } from '~/composables/useFormat'
+
+const CART_MERGE_PENDING_KEY = 'shop_cart_merge_pending'
+
+export function parseCartError(err: unknown): string {
+  const data = (err as { data?: { error?: string } })?.data
+  const msg = data?.error || (err as Error)?.message || ''
+  if (msg.includes('insufficient stock')) {
+    return 'Sản phẩm không đủ số lượng trong kho'
+  }
+  if (msg.includes('product is not active')) {
+    return 'Sản phẩm không còn bán'
+  }
+  return msg || 'Không thể cập nhật giỏ hàng'
+}
 
 export const useCart = () => {
   const cartStore = useCartStore()
+  const { items, count, total, loading } = storeToRefs(cartStore)
   const { apiFetch, isLoggedIn } = useAuth()
   const { formatVND } = useFormat()
   const { getEffectivePrice } = useProducts()
+
+  const formattedTotal = computed(() => formatVND(total.value))
+
+  const markGuestCartPending = () => {
+    if (import.meta.client) {
+      sessionStorage.setItem(CART_MERGE_PENDING_KEY, '1')
+    }
+  }
 
   const toCartItem = (product: Product, quantity: number): CartItem => ({
     product_id: product.id,
@@ -45,20 +69,29 @@ export const useCart = () => {
       return
     }
 
-    const localItems = [...cartStore.items]
-    if (!localItems.length) {
-      await fetchCart()
-      return
-    }
+    const shouldMerge =
+      import.meta.client &&
+      sessionStorage.getItem(CART_MERGE_PENDING_KEY) === '1' &&
+      cartStore.items.length > 0
 
     cartStore.setLoading(true)
     try {
-      for (const item of localItems) {
-        await syncItemToServer(item)
+      if (shouldMerge) {
+        const localItems = [...cartStore.items]
+        for (const item of localItems) {
+          await syncItemToServer(item)
+        }
+        sessionStorage.removeItem(CART_MERGE_PENDING_KEY)
       }
-      await fetchCart()
+      const cart = await apiFetch<Cart>('/api/cart')
+      cartStore.setItems(cart.items || [])
     } catch {
-      cartStore.hydrate()
+      try {
+        const cart = await apiFetch<Cart>('/api/cart')
+        cartStore.setItems(cart.items || [])
+      } catch {
+        cartStore.hydrate()
+      }
     } finally {
       cartStore.setLoading(false)
     }
@@ -69,6 +102,7 @@ export const useCart = () => {
     cartStore.upsertItem(item)
 
     if (!isLoggedIn.value) {
+      markGuestCartPending()
       return
     }
 
@@ -79,17 +113,18 @@ export const useCart = () => {
         body: { product_id: product.id, quantity },
       })
       cartStore.setItems(cart.items || [])
-    } catch {
-      cartStore.hydrate()
+    } catch (err) {
+      await fetchCart()
+      throw err
     } finally {
       cartStore.setLoading(false)
     }
   }
 
   const updateItem = async (productId: string, quantity: number) => {
-    cartStore.updateQuantity(productId, quantity)
-
     if (!isLoggedIn.value) {
+      cartStore.updateQuantity(productId, quantity)
+      markGuestCartPending()
       return
     }
 
@@ -100,17 +135,18 @@ export const useCart = () => {
         body: { quantity },
       })
       cartStore.setItems(cart.items || [])
-    } catch {
-      cartStore.hydrate()
+    } catch (err) {
+      await fetchCart()
+      throw err
     } finally {
       cartStore.setLoading(false)
     }
   }
 
   const removeItem = async (productId: string) => {
-    cartStore.removeItem(productId)
-
     if (!isLoggedIn.value) {
+      cartStore.removeItem(productId)
+      markGuestCartPending()
       return
     }
 
@@ -120,23 +156,27 @@ export const useCart = () => {
         method: 'DELETE',
       })
       cartStore.setItems(cart.items || [])
-    } catch {
-      cartStore.hydrate()
+    } catch (err) {
+      await fetchCart()
+      throw err
     } finally {
       cartStore.setLoading(false)
     }
   }
 
   const clearCart = async () => {
-    cartStore.clear()
-
     if (!isLoggedIn.value) {
+      cartStore.clear()
+      if (import.meta.client) {
+        sessionStorage.removeItem(CART_MERGE_PENDING_KEY)
+      }
       return
     }
 
     cartStore.setLoading(true)
     try {
       await apiFetch('/api/cart', { method: 'DELETE' })
+      cartStore.clear()
     } catch {
       // keep local cleared state
     } finally {
@@ -145,11 +185,11 @@ export const useCart = () => {
   }
 
   return {
-    items: computed(() => cartStore.items),
-    count: computed(() => cartStore.count),
-    total: computed(() => cartStore.total),
-    loading: computed(() => cartStore.loading),
-    formattedTotal: computed(() => formatVND(cartStore.total)),
+    items,
+    count,
+    total,
+    loading,
+    formattedTotal,
     fetchCart,
     mergeLocalToServer,
     addItem,

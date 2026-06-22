@@ -1,85 +1,92 @@
 <template>
-  <div class="admin-chart">
-    <div v-if="!series.length" class="admin-chart__empty text-caption text-muted text-center py-8">
-      Chưa có dữ liệu
+  <div class="admin-chart-wrap">
+    <div v-if="!series.length" class="admin-chart-wrap__empty">
+      <v-icon size="40" color="grey-lighten-1">mdi-chart-bar</v-icon>
+      <span>Chưa có dữ liệu</span>
     </div>
-    <canvas v-else ref="canvasRef" class="admin-chart__canvas" />
+    <Bar v-else :data="chartData" :options="chartOptions" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { Bar } from 'vue-chartjs'
+import type { ChartData, ChartOptions } from 'chart.js'
 import type { AnalyticsSeriesPoint } from '~/types'
+import { baseCartesianOptions, ensureChartJs, hexToRgba, readAdminChartColors } from '~/utils/adminChart'
 
 const props = defineProps<{
   series: AnalyticsSeriesPoint[]
   valueKey: 'revenue' | 'orders' | 'count' | 'avg_rating'
   color?: string
+  label?: string
   formatValue?: (v: number) => string
 }>()
 
-const canvasRef = ref<HTMLCanvasElement | null>(null)
+ensureChartJs()
 
-const draw = () => {
-  const canvas = canvasRef.value
-  if (!canvas || !props.series.length) return
+const chartColor = computed(() => props.color || readAdminChartColors().primary)
 
-  const dpr = window.devicePixelRatio || 1
-  const width = canvas.clientWidth || 600
-  const height = 220
-  canvas.width = width * dpr
-  canvas.height = height * dpr
+const chartData = computed<ChartData<'bar'>>(() => ({
+  labels: props.series.map((p) => p.label),
+  datasets: [
+    {
+      label: props.label || datasetLabel.value,
+      data: props.series.map((p) => Number(p[props.valueKey] ?? 0)),
+      backgroundColor: hexToRgba(chartColor.value, 0.85),
+      hoverBackgroundColor: chartColor.value,
+      borderRadius: 8,
+      borderSkipped: false,
+      maxBarThickness: 48,
+    },
+  ],
+}))
 
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  ctx.scale(dpr, dpr)
-
-  const values = props.series.map((p) => Number(p[props.valueKey] ?? 0))
-  const max = Math.max(...values, 1)
-  const barColor = props.color || '#1565c0'
-  const pad = { l: 8, r: 8, t: 16, b: 36 }
-  const chartW = width - pad.l - pad.r
-  const chartH = height - pad.t - pad.b
-  const gap = 4
-  const barW = Math.max(4, (chartW - gap * (values.length - 1)) / values.length)
-
-  ctx.clearRect(0, 0, width, height)
-
-  values.forEach((v, i) => {
-    const h = (v / max) * chartH
-    const x = pad.l + i * (barW + gap)
-    const y = pad.t + chartH - h
-    ctx.fillStyle = barColor
-    ctx.beginPath()
-    ctx.roundRect(x, y, barW, h, 3)
-    ctx.fill()
-
-    if (values.length <= 14) {
-      ctx.fillStyle = '#757575'
-      ctx.font = '10px Segoe UI, sans-serif'
-      ctx.textAlign = 'center'
-      const label = props.series[i]?.label ?? ''
-      ctx.fillText(label.length > 8 ? `${label.slice(0, 7)}…` : label, x + barW / 2, height - 8)
-    }
-  })
-}
-
-watch(() => props.series, () => nextTick(draw), { deep: true })
-onMounted(() => {
-  draw()
-  window.addEventListener('resize', draw)
+const datasetLabel = computed(() => {
+  const map: Record<string, string> = {
+    revenue: 'Doanh thu',
+    orders: 'Đơn hàng',
+    count: 'Số lượng',
+    avg_rating: 'Đánh giá TB',
+  }
+  return map[props.valueKey] ?? 'Giá trị'
 })
-onUnmounted(() => window.removeEventListener('resize', draw))
+
+const chartOptions = computed<ChartOptions<'bar'>>(() => {
+  const base = baseCartesianOptions()
+  const formatter = props.formatValue ?? ((v: number) => String(v))
+  return {
+    ...base,
+    plugins: {
+      ...base.plugins,
+      legend: { display: !!props.label, ...base.plugins?.legend },
+      tooltip: {
+        ...base.plugins?.tooltip,
+        callbacks: {
+          label: (ctx) => `${ctx.dataset.label}: ${formatter(Number(ctx.parsed.y))}`,
+        },
+      },
+    },
+  }
+})
 </script>
 
 <style scoped>
-.admin-chart__canvas {
+.admin-chart-wrap {
+  position: relative;
+  height: 280px;
   width: 100%;
-  height: 220px;
-  display: block;
 }
 
-.admin-chart__empty {
-  background: var(--color-surface-muted, #f5f5f5);
-  border-radius: 8px;
+.admin-chart-wrap__empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--admin-text-muted, #94a3b8);
+  font-size: 13px;
+  background: rgba(148, 163, 184, 0.06);
+  border-radius: var(--admin-radius-sm);
 }
 </style>

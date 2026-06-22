@@ -176,7 +176,7 @@ const auth = useAuth()
 
 const cart = useCart()
 
-const router = useRouter()
+const route = useRoute()
 
 const remembered = useRememberedLogin()
 
@@ -286,7 +286,9 @@ const handleLogin = async () => {
 
     await cart.mergeLocalToServer()
 
-    await router.push('/')
+    const target = resolveLoginRedirect(route.query.redirect, '/')
+
+    await navigateTo(target, { replace: true })
 
   } catch (e: unknown) {
 

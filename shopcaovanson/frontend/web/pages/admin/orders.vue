@@ -1,65 +1,82 @@
 <template>
-  <v-container class="page-container py-6">
-    <h1 class="text-h4 font-weight-bold mb-6">Quản lý đơn hàng</h1>
+  <div>
+    <AdminPageHeader title="Quản lý đơn hàng" subtitle="Theo dõi và cập nhật trạng thái đơn hàng">
+      <template #actions>
+        <v-btn
+          color="success"
+          variant="flat"
+          prepend-icon="mdi-microsoft-excel"
+          class="text-none"
+          :loading="exporting"
+          @click="onExportExcel"
+        >
+          Xuất Excel
+        </v-btn>
+      </template>
+    </AdminPageHeader>
 
-    <v-card class="mb-4 pa-4">
-      <v-row dense>
-        <v-col cols="12" md="3">
-          <v-text-field
-            v-model="searchQuery"
-            label="Mã đơn / SĐT / tên"
-            density="compact"
-            variant="outlined"
-            hide-details
-            clearable
-            @keyup.enter="loadOrders"
-          />
-        </v-col>
-        <v-col cols="12" md="3">
-          <v-select
-            v-model="statusFilter"
-            :items="statusOptions"
-            label="Trạng thái"
-            clearable
-            density="compact"
-            variant="outlined"
-            hide-details
-          />
-        </v-col>
-        <v-col cols="12" md="2">
-          <v-btn color="primary" @click="loadOrders">Tìm</v-btn>
-        </v-col>
-      </v-row>
-    </v-card>
+    <AdminFilterBar>
+      <v-text-field
+        v-model="searchQuery"
+        label="Mã đơn / SĐT / tên"
+        density="compact"
+        variant="outlined"
+        hide-details
+        clearable
+        prepend-inner-icon="mdi-magnify"
+        @keyup.enter="loadOrders"
+      />
+      <v-select
+        v-model="statusFilter"
+        :items="statusOptions"
+        label="Trạng thái"
+        clearable
+        density="compact"
+        variant="outlined"
+        hide-details
+      />
+      <AdminDateRangeFilter v-model:from="dateFilter.createdFrom" v-model:to="dateFilter.createdTo" />
+      <v-btn color="primary" prepend-icon="mdi-magnify" @click="onSearch">Tìm kiếm</v-btn>
+      <v-btn v-if="dateFilter.hasDateFilter" variant="text" @click="clearFilters">Xóa lọc</v-btn>
+    </AdminFilterBar>
 
-    <LoadingSpinner v-if="loading" />
-
-    <v-card v-else>
-      <v-data-table
-        :headers="headers"
-        :items="orders"
-        :items-per-page="10"
-        class="elevation-0"
-      >
-        <template #item.order_number="{ item }">
-          <span class="text-caption font-weight-medium">{{ item.order_number || item.id.slice(0, 8) }}</span>
-        </template>
-        <template #item.id="{ item }">
-          <span class="text-caption">{{ item.id.slice(0, 8) }}...</span>
-        </template>
-        <template #item.created_at="{ item }">
-          {{ formatDate(item.created_at) }}
-        </template>
-        <template #item.status="{ item }">
-          <v-chip :color="statusColor(item.status)" size="small" variant="flat">
-            {{ statusLabel(item.status) }}
-          </v-chip>
-        </template>
-        <template #item.total_amount="{ item }">
-          {{ formatVND(item.total_amount) }}
-        </template>
-        <template #item.actions="{ item }">
-          <v-btn size="small" variant="text" :to="`/admin/orders/${item.id}`">Chi tiết</v-btn>
+    <AdminDataTable
+      server
+      v-model:page="page"
+      v-model:items-per-page="limit"
+      :headers="headers"
+      :items="orders"
+      :total-items="total"
+      :count="total"
+      :loading="loading"
+      title="Danh sách đơn hàng"
+      @update:options="loadOrders"
+    >
+      <template #item.order_number="{ item }">
+        <span class="admin-table__mono">{{ item.order_number || item.id.slice(0, 8) }}</span>
+      </template>
+      <template #item.shipping_name="{ item }">
+        <div>
+          <div class="admin-table__cell-title">{{ item.shipping_name }}</div>
+          <div v-if="item.shipping_phone" class="admin-table__cell-sub">{{ item.shipping_phone }}</div>
+        </div>
+      </template>
+      <template #item.created_at="{ item }">
+        {{ formatDate(item.created_at) }}
+      </template>
+      <template #item.status="{ item }">
+        <v-chip :color="statusColor(item.status)" size="small" variant="tonal">
+          {{ statusLabel(item.status) }}
+        </v-chip>
+      </template>
+      <template #item.total_amount="{ item }">
+        <span class="admin-table__money">{{ formatVND(item.total_amount) }}</span>
+      </template>
+      <template #item.actions="{ item }">
+        <div class="admin-table-actions">
+          <v-btn size="small" variant="tonal" color="primary" :to="`/admin/orders/${item.id}`">
+            Chi tiết
+          </v-btn>
           <v-menu v-if="admin.canManageOrders.value">
             <template #activator="{ props }">
               <v-btn v-bind="props" size="small" variant="outlined" color="primary">
@@ -75,10 +92,10 @@
               />
             </v-list>
           </v-menu>
-        </template>
-      </v-data-table>
-    </v-card>
-  </v-container>
+        </div>
+      </template>
+    </AdminDataTable>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -86,14 +103,17 @@ import type { Order } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-const { searchAdminOrders, updateOrderStatus } = useOrders()
+const { searchAdminOrders, updateOrderStatus, exportOrdersExcel } = useOrders()
 const admin = useAdmin()
+const dateFilter = useAdminDateFilter()
+const snackbar = useSnackbar()
+const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
 
 const orders = ref<Order[]>([])
-const loading = ref(true)
+const loading = ref(false)
+const exporting = ref(false)
 const statusFilter = ref<string | null>(null)
 const searchQuery = ref('')
-const page = ref(1)
 
 const statusOptions = [
   { title: 'Chờ xử lý', value: 'pending' },
@@ -105,11 +125,11 @@ const statusOptions = [
 
 const headers = [
   { title: 'Mã đơn', key: 'order_number' },
-  { title: 'Khách hàng', key: 'shipping_name' },
+  { title: 'Khách hàng', key: 'shipping_name', sortable: false },
   { title: 'Ngày đặt', key: 'created_at' },
-  { title: 'Trạng thái', key: 'status' },
-  { title: 'Tổng tiền', key: 'total_amount' },
-  { title: '', key: 'actions', sortable: false },
+  { title: 'Trạng thái', key: 'status', sortable: false },
+  { title: 'Tổng tiền', key: 'total_amount', align: 'end' as const },
+  { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' as const, width: 180 },
 ]
 
 const statusLabel = (status: string) => {
@@ -150,20 +170,57 @@ const availableStatuses = (current: string) => {
 const loadOrders = async () => {
   loading.value = true
   try {
-    const query: Record<string, string | number> = { limit: 50, page: page.value }
+    const query = dateFilter.withDateQuery({
+      limit: limit.value,
+      page: page.value,
+    })
     if (statusFilter.value) query.status = statusFilter.value
     if (searchQuery.value) query.search = searchQuery.value
     const result = await searchAdminOrders(query)
     orders.value = result.items
+    applyMeta(result)
   } finally {
     loading.value = false
   }
 }
 
-const updateStatus = async (orderId: string, status: string) => {
-  await updateOrderStatus(orderId, status)
-  await loadOrders()
+function onSearch() {
+  resetPage()
+  loadOrders()
 }
 
-onMounted(loadOrders)
+const clearFilters = () => {
+  searchQuery.value = ''
+  statusFilter.value = null
+  dateFilter.resetDates()
+  resetPage()
+  loadOrders()
+}
+
+const updateStatus = async (orderId: string, status: string) => {
+  try {
+    await updateOrderStatus(orderId, status)
+    await loadOrders()
+    snackbar.show('Đã cập nhật trạng thái đơn hàng', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Không thể cập nhật đơn hàng', 'error')
+  }
+}
+
+const onExportExcel = async () => {
+  exporting.value = true
+  try {
+    const filters: Record<string, string> = {}
+    if (statusFilter.value) filters.status = statusFilter.value
+    if (searchQuery.value?.trim()) filters.search = searchQuery.value.trim()
+    if (dateFilter.createdFrom.value) filters.created_from = dateFilter.createdFrom.value
+    if (dateFilter.createdTo.value) filters.created_to = dateFilter.createdTo.value
+    await exportOrdersExcel(filters)
+    snackbar.show('Đã xuất file Excel đơn hàng', 'success')
+  } catch (e: unknown) {
+    snackbar.show(e instanceof Error ? e.message : 'Xuất Excel thất bại', 'error')
+  } finally {
+    exporting.value = false
+  }
+}
 </script>

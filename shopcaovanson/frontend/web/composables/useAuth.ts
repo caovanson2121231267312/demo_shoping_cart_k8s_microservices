@@ -1,3 +1,4 @@
+import { storeToRefs } from 'pinia'
 import type { FetchOptions } from 'ofetch'
 import type { RefreshResponse, TokenPair, User } from '~/types'
 
@@ -5,6 +6,8 @@ let initPromise: Promise<void> | null = null
 
 export const useAuth = () => {
   const authStore = useAuthStore()
+  const { user, accessToken, initialized, isLoggedIn, isAdmin, isStaff, userRole } =
+    storeToRefs(authStore)
   const config = useRuntimeConfig()
   const router = useRouter()
 
@@ -31,7 +34,11 @@ export const useAuth = () => {
       })
     } catch (error: unknown) {
       const status = (error as { statusCode?: number })?.statusCode
-      if (status === 401 && !path.includes('/api/auth/refresh') && !path.includes('/api/auth/login')) {
+      const isAuthEndpoint =
+        path.includes('/api/auth/refresh') ||
+        path.includes('/api/auth/login') ||
+        path.includes('/api/auth/logout')
+      if (status === 401 && !isAuthEndpoint) {
         const refreshed = await refreshAccessToken()
         if (refreshed) {
           return await $fetch<T>(url, {
@@ -74,6 +81,7 @@ export const useAuth = () => {
     })
     authStore.setTokens(data.access_token, data.refresh_token)
     await getCurrentUser()
+    authStore.markInitialized()
   }
 
   const register = async (fullName: string, email: string, password: string) => {
@@ -90,6 +98,7 @@ export const useAuth = () => {
     })
     authStore.setTokens(data.access_token, data.refresh_token)
     await getCurrentUser()
+    authStore.markInitialized()
   }
 
   const resendVerification = async (email: string) => {
@@ -114,16 +123,33 @@ export const useAuth = () => {
   }
 
   const logout = async (callApi = true) => {
-    if (callApi && authStore.accessToken) {
-      try {
-        await apiFetch('/api/auth/logout', { method: 'POST' })
-      } catch {
-        // ignore logout errors
-      }
-    }
-    authStore.clearTokens()
-    authStore.setUser(null)
+    const refreshToken = authStore.getRefreshToken()
+    const accessToken = authStore.accessToken
+
+    authStore.resetSession()
+    initPromise = null
+
+    const chatStore = useChatStore()
+    chatStore.setPanelOpen(false)
+    chatStore.setRooms([])
+    chatStore.setActiveRoom(null)
+    chatStore.resetUnread()
+
     useCartStore().hydrate()
+
+    if (!callApi || (!accessToken && !refreshToken)) {
+      return
+    }
+
+    try {
+      await $fetch(`${apiBase.value}/api/auth/logout`, {
+        method: 'POST',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        body: { refresh_token: refreshToken || '' },
+      })
+    } catch {
+      // best-effort revoke on server
+    }
   }
 
   const getCurrentUser = async () => {
@@ -166,12 +192,14 @@ export const useAuth = () => {
   }
 
   return {
-    user: computed(() => authStore.user),
-    isLoggedIn: computed(() => authStore.isLoggedIn),
-    isAdmin: computed(() => authStore.isAdmin),
-    isStaff: computed(() => authStore.isStaff),
-    initialized: computed(() => authStore.initialized),
-    accessToken: computed(() => authStore.accessToken),
+    user,
+    accessToken,
+    initialized,
+    isLoggedIn,
+    isAdmin,
+    isStaff,
+    userRole,
+    can: authStore.can.bind(authStore),
     apiFetch,
     login,
     logout,

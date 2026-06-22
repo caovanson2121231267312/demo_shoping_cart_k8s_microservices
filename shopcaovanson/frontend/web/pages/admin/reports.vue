@@ -1,11 +1,7 @@
 <template>
-  <v-container class="page-container py-6">
-    <div class="d-flex align-center justify-space-between flex-wrap ga-3 mb-6">
-      <div>
-        <h1 class="text-h4 font-weight-bold">Báo cáo & Thống kê</h1>
-        <p class="text-body-2 text-muted mb-0">Doanh thu, sản phẩm, review, user online — Kafka + Analytics Service</p>
-      </div>
-      <div class="d-flex flex-wrap ga-2 align-center">
+  <div>
+    <AdminPageHeader title="Báo cáo & Thống kê" subtitle="Doanh thu, sản phẩm, review, user online — Kafka + Analytics Service">
+      <template #actions>
         <v-btn-toggle v-model="period" mandatory color="primary" density="compact" rounded="lg">
           <v-btn value="day" class="text-none">Ngày</v-btn>
           <v-btn value="week" class="text-none">Tuần</v-btn>
@@ -18,138 +14,151 @@
         <v-btn variant="outlined" prepend-icon="mdi-refresh" class="text-none" :loading="loading" @click="loadAll">
           Làm mới
         </v-btn>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <LoadingSpinner v-if="loading && !overview" />
 
     <template v-else>
-      <!-- KPI -->
-      <v-row class="mb-4">
+      <v-row class="mb-2">
         <v-col cols="6" md="3">
-          <v-card class="kpi-card" color="primary" variant="tonal">
-            <v-card-text>
-              <div class="text-overline">Doanh thu</div>
-              <div class="text-h6 font-weight-bold">{{ formatVND(overview?.orders.revenue ?? 0) }}</div>
-            </v-card-text>
-          </v-card>
+          <AdminStatCard
+            label="Doanh thu"
+            :value="formatVND(overview?.orders.revenue ?? 0)"
+            icon="mdi-cash-multiple"
+            color="var(--admin-primary)"
+            :subtitle="`${overview?.orders.total ?? 0} đơn hàng`"
+          />
         </v-col>
         <v-col cols="6" md="3">
-          <v-card class="kpi-card" color="info" variant="tonal">
-            <v-card-text>
-              <div class="text-overline">Đơn hàng</div>
-              <div class="text-h5 font-weight-bold">{{ overview?.orders.total ?? 0 }}</div>
-            </v-card-text>
-          </v-card>
+          <AdminStatCard
+            label="Đơn hàng"
+            :value="overview?.orders.total ?? 0"
+            icon="mdi-clipboard-check-outline"
+            color="var(--admin-accent)"
+            :subtitle="`${overview?.orders.delivered ?? 0} đã giao`"
+          />
         </v-col>
         <v-col cols="6" md="3">
-          <v-card class="kpi-card" color="success" variant="tonal">
-            <v-card-text>
-              <div class="text-overline">Review mới</div>
-              <div class="text-h5 font-weight-bold">{{ overview?.products.new_reviews ?? 0 }}</div>
-              <div class="text-caption">TB {{ (overview?.products.avg_rating ?? 0).toFixed(1) }} ★</div>
-            </v-card-text>
-          </v-card>
+          <AdminStatCard
+            label="Review mới"
+            :value="overview?.products.new_reviews ?? 0"
+            icon="mdi-star-outline"
+            color="#059669"
+            :subtitle="`TB ${(overview?.products.avg_rating ?? 0).toFixed(1)} ★`"
+          />
         </v-col>
         <v-col cols="6" md="3">
-          <v-card class="kpi-card" color="secondary" variant="tonal">
-            <v-card-text>
-              <div class="text-overline d-flex align-center ga-1">
-                Online
-                <v-chip size="x-small" color="success" variant="flat">{{ onlineCount }}</v-chip>
-              </div>
-              <div class="text-h5 font-weight-bold">{{ overview?.users.new_customers ?? 0 }}</div>
-              <div class="text-caption">khách mới trong kỳ</div>
-            </v-card-text>
-          </v-card>
+          <AdminStatCard
+            label="Khách mới"
+            :value="overview?.users.new_customers ?? 0"
+            icon="mdi-account-plus-outline"
+            color="#f57c00"
+            :subtitle="`${onlineCount} online ngay`"
+          />
         </v-col>
       </v-row>
 
-      <!-- Charts row 1 -->
       <v-row>
         <v-col cols="12" lg="8">
-          <v-card rounded="lg" class="pa-4">
-            <div class="text-subtitle-1 font-weight-bold mb-3">Doanh thu & Đơn hàng</div>
-            <AdminBarChart :series="revenueSeries" value-key="revenue" color="#1565c0" />
+          <v-card rounded="lg" class="admin-chart-card pa-4">
+            <div class="admin-chart-card__head">
+              <div>
+                <div class="admin-chart-card__title">Doanh thu & Đơn hàng</div>
+                <div class="admin-chart-card__sub">Biểu đồ kết hợp theo {{ periodLabel }}</div>
+              </div>
+              <v-chip size="small" color="primary" variant="tonal">Chart.js</v-chip>
+            </div>
+            <AdminComboChart :series="revenueSeries" :format-revenue="formatVND" />
           </v-card>
         </v-col>
         <v-col cols="12" lg="4">
-          <v-card rounded="lg" class="pa-4 h-100">
-            <div class="text-subtitle-1 font-weight-bold mb-3">Trạng thái đơn</div>
-            <div v-for="(count, status) in overview?.orders.by_status" :key="status" class="d-flex justify-space-between py-2 border-b">
-              <span class="text-capitalize">{{ statusLabel(status) }}</span>
-              <strong>{{ count }}</strong>
+          <v-card rounded="lg" class="admin-chart-card pa-4 h-100">
+            <div class="admin-chart-card__head mb-2">
+              <div>
+                <div class="admin-chart-card__title">Trạng thái đơn</div>
+                <div class="admin-chart-card__sub">Phân bổ theo trạng thái</div>
+              </div>
             </div>
+            <AdminDoughnutChart :items="overview?.orders.by_status ?? {}" />
           </v-card>
         </v-col>
       </v-row>
 
-      <!-- Charts row 2 -->
       <v-row class="mt-2">
         <v-col cols="12" md="6">
-          <v-card rounded="lg" class="pa-4">
-            <div class="text-subtitle-1 font-weight-bold mb-3">Khách đăng ký mới</div>
-            <AdminBarChart :series="usersSeries" value-key="count" color="#2e7d32" />
+          <v-card rounded="lg" class="admin-chart-card pa-4">
+            <div class="admin-chart-card__head mb-2">
+              <div>
+                <div class="admin-chart-card__title">Khách đăng ký mới</div>
+                <div class="admin-chart-card__sub">Xu hướng tăng trưởng user</div>
+              </div>
+            </div>
+            <AdminLineChart :series="usersSeries" value-key="count" color="#059669" label="Khách mới" />
           </v-card>
         </v-col>
         <v-col cols="12" md="6">
-          <v-card rounded="lg" class="pa-4">
-            <div class="text-subtitle-1 font-weight-bold mb-3">Review & Đánh giá</div>
-            <AdminBarChart :series="reviewsSeries" value-key="count" color="#f57c00" />
+          <v-card rounded="lg" class="admin-chart-card pa-4">
+            <div class="admin-chart-card__head mb-2">
+              <div>
+                <div class="admin-chart-card__title">Review & Đánh giá</div>
+                <div class="admin-chart-card__sub">Số review theo thời gian</div>
+              </div>
+            </div>
+            <AdminBarChart :series="reviewsSeries" value-key="count" color="#f57c00" label="Review" />
           </v-card>
         </v-col>
       </v-row>
 
-      <!-- Top products + Online users -->
       <v-row class="mt-2">
         <v-col cols="12" lg="7">
-          <v-card rounded="lg" class="pa-4">
-            <div class="text-subtitle-1 font-weight-bold mb-3">Top sản phẩm bán chạy</div>
-            <v-table density="compact">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Sản phẩm</th>
-                  <th class="text-right">SL</th>
-                  <th class="text-right">Doanh thu</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, i) in topProducts" :key="item.name">
-                  <td>{{ i + 1 }}</td>
-                  <td class="text-truncate" style="max-width:280px">{{ item.name }}</td>
-                  <td class="text-right">{{ item.quantity_sold }}</td>
-                  <td class="text-right">{{ formatVND(item.revenue) }}</td>
-                </tr>
-              </tbody>
-            </v-table>
+          <v-card rounded="lg" class="admin-chart-card pa-4">
+            <div class="admin-chart-card__head mb-2">
+              <div>
+                <div class="admin-chart-card__title">Top sản phẩm bán chạy</div>
+                <div class="admin-chart-card__sub">Theo doanh thu trong kỳ</div>
+              </div>
+            </div>
+            <AdminHorizontalBarChart
+              :items="topProductBars"
+              :format-value="formatVND"
+            />
           </v-card>
         </v-col>
         <v-col cols="12" lg="5">
-          <v-card rounded="lg" class="pa-4">
+          <v-card rounded="lg" class="admin-chart-card pa-4 h-100">
             <div class="d-flex align-center justify-space-between mb-3">
-              <div class="text-subtitle-1 font-weight-bold">User đang online</div>
+              <div>
+                <div class="admin-chart-card__title">User đang online</div>
+                <div class="admin-chart-card__sub">Heartbeat 90 giây</div>
+              </div>
               <v-chip color="success" size="small" variant="flat">{{ onlineCount }} người</v-chip>
             </div>
-            <div v-if="!onlineUsers.length" class="text-caption text-muted py-4 text-center">
-              Không có user online (heartbeat 90s)
+            <div v-if="!onlineUsers.length" class="admin-chart-wrap__empty-inline">
+              <v-icon size="36" color="grey-lighten-1">mdi-account-off-outline</v-icon>
+              <span>Không có user online</span>
             </div>
             <v-list v-else density="compact" class="pa-0">
-              <v-list-item v-for="u in onlineUsers" :key="u.user_id" class="px-0">
+              <v-list-item v-for="u in onlineUsers" :key="u.user_id" class="px-0 online-user-item">
                 <template #prepend>
-                  <v-avatar color="primary" size="32">
+                  <v-avatar color="primary" size="36">
                     <v-icon size="18" color="white">mdi-account</v-icon>
                   </v-avatar>
                 </template>
-                <v-list-item-title class="text-body-2">{{ u.email || u.user_id.slice(0, 8) }}</v-list-item-title>
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                  {{ u.email || u.user_id.slice(0, 8) }}
+                </v-list-item-title>
                 <v-list-item-subtitle class="text-caption">{{ u.page }}</v-list-item-subtitle>
+                <template #append>
+                  <v-icon size="8" color="success">mdi-circle</v-icon>
+                </template>
               </v-list-item>
             </v-list>
           </v-card>
         </v-col>
       </v-row>
     </template>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -174,13 +183,20 @@ const onlineCount = ref(0)
 
 let onlineTimer: ReturnType<typeof setInterval>
 
-const statusLabel = (s: string) => ({
-  pending: 'Chờ xử lý',
-  confirmed: 'Đã xác nhận',
-  shipping: 'Đang giao',
-  delivered: 'Đã giao',
-  cancelled: 'Đã hủy',
-}[s] ?? s)
+const periodLabel = computed(() => ({
+  day: 'ngày',
+  week: 'tuần',
+  month: 'tháng',
+  quarter: 'quý',
+}[period.value]))
+
+const topProductBars = computed(() =>
+  topProducts.value.slice(0, 8).map((p) => ({
+    label: p.name.length > 28 ? `${p.name.slice(0, 27)}…` : p.name,
+    value: p.revenue,
+    subLabel: `${p.quantity_sold} sp`,
+  })),
+)
 
 const loadAll = async () => {
   loading.value = true
@@ -235,11 +251,47 @@ onUnmounted(() => clearInterval(onlineTimer))
 </script>
 
 <style scoped>
-.kpi-card {
-  height: 100%;
+.admin-chart-card {
+  border: 1px solid var(--admin-border, rgba(0, 0, 0, 0.06));
 }
 
-.border-b {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+.admin-chart-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.admin-chart-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--admin-text, #0f172a);
+}
+
+.admin-chart-card__sub {
+  font-size: 12px;
+  color: var(--admin-text-muted, #64748b);
+  margin-top: 2px;
+}
+
+.admin-chart-wrap__empty-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--admin-text-muted, #94a3b8);
+  font-size: 13px;
+}
+
+.online-user-item {
+  border-radius: var(--admin-radius-xs);
+  margin-bottom: 4px;
+}
+
+.online-user-item:hover {
+  background: rgba(148, 163, 184, 0.08);
 }
 </style>

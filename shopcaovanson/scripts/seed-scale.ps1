@@ -1,29 +1,33 @@
 # Seed large-scale fake data for load / performance testing
 #
-# Full scale (user request):
+# Stress test (1M users, 2K products, 50M orders):
+#   .\scripts\seed-scale.ps1 -Profile stress
+#
+# Full scale:
 #   .\scripts\seed-scale.ps1 -Profile full
 #
 # Custom:
-#   .\scripts\seed-scale.ps1 -Users 3000000 -Products 1000 -Orders 1000000 -Reviews 50000000
+#   .\scripts\seed-scale.ps1 -Users 1000000 -Products 2000 -Orders 50000000 -Reviews 0
 #
 # Dev / quick test:
 #   .\scripts\seed-scale.ps1 -Profile dev
 
 param(
-    [ValidateSet("dev", "full", "custom")]
+    [ValidateSet("dev", "full", "stress", "custom")]
     [string]$Profile = "custom",
 
-    [int]$Users = 3000000,
-    [int]$Products = 1000,
-    [int]$Orders = 1000000,
-    [int]$Reviews = 50000000,
+    [int]$Users = 1000000,
+    [int]$Products = 2000,
+    [int]$Orders = 50000000,
+    [int]$Reviews = 0,
     [int]$BatchSize = 10000,
     [int]$BcryptCost = 10,
 
     [switch]$SkipReviews,
     [switch]$SkipOrders,
     [switch]$SkipUsers,
-    [switch]$SkipProducts
+    [switch]$SkipProducts,
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +40,14 @@ switch ($Profile) {
         $Orders = 300
         $Reviews = 2000
         $BatchSize = 5000
+    }
+    "stress" {
+        $Users = 1000000
+        $Products = 2000
+        $Orders = 50000000
+        $Reviews = 0
+        $BatchSize = 20000
+        $SkipReviews = $true
     }
     "full" {
         $Users = 3000000
@@ -53,6 +65,23 @@ function Load-Env($path) {
             [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim().Trim('"'), 'Process')
         }
     }
+}
+
+function Invoke-GoSeed($workDir, [string[]]$scripts) {
+    $binDir = Join-Path $root ".local\bin"
+    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+    $svcName = Split-Path $workDir -Leaf
+    $exe = Join-Path $binDir "$svcName-seed.exe"
+    Push-Location $workDir
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & go build -o $exe @scripts
+    if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
+    & $exe 2>&1 | ForEach-Object { Write-Host $_ }
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    Pop-Location
+    if ($code -ne 0) { exit $code }
 }
 
 function Test-InfraPort($port, $label) {
@@ -76,17 +105,26 @@ Write-Host "  Reviews:  $Reviews"
 Write-Host "  Batch:    $BatchSize"
 Write-Host ""
 
-if ($Profile -eq "full") {
-    Write-Host "CANH BAO: Full scale can nhieu gio va ~15-25GB disk (Postgres)." -ForegroundColor Yellow
-    Write-Host "  - 3M users:     ~30-60 phut (bcrypt cost=$BcryptCost)"
-    Write-Host "  - 1K products:  ~2-5 phut"
-    Write-Host "  - 50M reviews:  ~2-6 gio (COPY batch)"
-    Write-Host "  - 1M orders:    ~20-60 phut"
+if ($Profile -eq "full" -or $Profile -eq "stress") {
+    Write-Host 'CANH BAO: Scale lon - can nhieu gio va hang chuc GB disk (Postgres).' -ForegroundColor Yellow
+    if ($Profile -eq "stress") {
+        Write-Host "  - 1M users:     ~20-40 phut (bcrypt cost=$BcryptCost)"
+        Write-Host "  - 2K products:  ~5-10 phut"
+        Write-Host "  - 50M orders:   ~10-30+ gio (tuy o cung)"
+        Write-Host "  - Reviews:      bo qua (de nhanh hon)"
+    } else {
+        Write-Host "  - 3M users:     ~30-60 phut (bcrypt cost=$BcryptCost)"
+        Write-Host "  - 1K products:  ~2-5 phut"
+        Write-Host "  - 50M reviews:  ~2-6 gio (COPY batch)"
+        Write-Host "  - 1M orders:    ~20-60 phut"
+    }
     Write-Host ""
-    $confirm = Read-Host "Tiep tuc? (y/N)"
-    if ($confirm -notmatch '^[yY]') {
-        Write-Host "Da huy." -ForegroundColor DarkGray
-        exit 0
+    if (-not $Force) {
+        $confirm = Read-Host "Tiep tuc? (y/N)"
+        if ($confirm -notmatch '^[yY]') {
+            Write-Host "Da huy." -ForegroundColor DarkGray
+            exit 0
+        }
     }
 }
 
@@ -99,7 +137,7 @@ $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
 if (-not $SkipUsers) {
     Write-Host ""
-    Write-Host "[1/3] Auth — $Users users" -ForegroundColor Cyan
+    Write-Host "[1/3] Auth - $Users users" -ForegroundColor Cyan
     Load-Env "$root\services\auth-service\.env"
     if (-not $env:DATABASE_URL) {
         $env:DATABASE_URL = "postgres://auth:authpass@localhost:5432/authdb?sslmode=disable"
@@ -107,15 +145,12 @@ if (-not $SkipUsers) {
     $env:SEED_USERS = "$Users"
     $env:SEED_BATCH_SIZE = "$BatchSize"
     $env:SEED_BCRYPT_COST = "$BcryptCost"
-    Push-Location "$root\services\auth-service"
-    go run scripts/fake_data.go
-    if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
-    Pop-Location
+    Invoke-GoSeed "$root\services\auth-service" "scripts/fake_data.go"
 }
 
 if (-not $SkipProducts -or -not $SkipReviews) {
     Write-Host ""
-    Write-Host "[2/3] Product — $Products products, $Reviews reviews" -ForegroundColor Cyan
+    Write-Host "[2/3] Product - $Products products, $Reviews reviews" -ForegroundColor Cyan
     Load-Env "$root\services\product-service\.env"
     $env:SEED_PRODUCTS = "$Products"
     $env:SEED_ARTICLES = "120"
@@ -126,37 +161,32 @@ if (-not $SkipProducts -or -not $SkipReviews) {
     } else {
         $env:SEED_REVIEWS = "$Reviews"
     }
-    if ($Profile -eq "full") {
+    if ($Profile -eq "full" -or $Profile -eq "stress") {
         $env:SEED_SKIP_MONGO_DETAILS = "false"
-        $env:SEED_REFRESH_TEXT = "true"
+        $env:SEED_REFRESH_TEXT = if ($Profile -eq "stress") { "false" } else { "true" }
         $env:SEED_ES_INDEX = "true"
     } elseif ($Profile -eq "dev") {
         $env:SEED_REFRESH_TEXT = "true"
         $env:SEED_ES_INDEX = "true"
     }
-    Push-Location "$root\services\product-service"
-    go run scripts/fake_data.go
-    if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
-    Pop-Location
+    Invoke-GoSeed "$root\services\product-service" @("scripts/fake_data.go", "scripts/es_bulk.go")
 }
 
 if (-not $SkipOrders) {
     Write-Host ""
-    Write-Host "[3/3] Order — $Orders orders" -ForegroundColor Cyan
+    Write-Host "[3/3] Order - $Orders orders" -ForegroundColor Cyan
     Load-Env "$root\services\order-service\.env"
     $env:SEED_ORDERS = "$Orders"
     $env:SEED_USERS = "$Users"
     $env:SEED_PRODUCTS = "$Products"
     $env:SEED_BATCH_SIZE = "$BatchSize"
-    Push-Location "$root\services\order-service"
-    go run scripts/fake_data.go
-    if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
-    Pop-Location
+    Invoke-GoSeed "$root\services\order-service" "scripts/fake_data.go"
 }
 
 $sw.Stop()
+$elapsedMin = [math]::Round($sw.Elapsed.TotalMinutes, 1)
 Write-Host ""
-Write-Host "=== Seed complete ($([math]::Round($sw.Elapsed.TotalMinutes, 1)) min) ===" -ForegroundColor Green
+Write-Host "=== Seed complete ($elapsedMin min) ===" -ForegroundColor Green
 Write-Host "  Login: admin@shop.com / Admin@123"
 Write-Host "  Customers: user1@shop.com .. user${Users}@shop.com / Customer@123"
 Write-Host ""

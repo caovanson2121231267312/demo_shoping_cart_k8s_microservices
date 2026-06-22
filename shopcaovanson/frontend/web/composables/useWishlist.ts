@@ -1,7 +1,9 @@
 import type { Product } from '~/types'
+import { storeToRefs } from 'pinia'
 
 export const useWishlist = () => {
   const store = useWishlistStore()
+  const { items, count } = storeToRefs(store)
   const snackbar = useSnackbar()
 
   onMounted(() => store.hydrate())
@@ -16,8 +18,8 @@ export const useWishlist = () => {
   }
 
   return {
-    items: computed(() => store.items),
-    count: computed(() => store.count),
+    items,
+    count,
     isFavorite: (id: string) => store.isFavorite(id),
     toggle,
     remove: store.remove,

@@ -18,7 +18,7 @@
       </NuxtLink>
     </div>
 
-    <div v-if="!auth.isLoggedIn" class="mobile-sidebar__auth px-4 py-3">
+    <div v-if="!isLoggedIn" class="mobile-sidebar__auth px-4 py-3">
       <v-btn block color="primary" to="/auth/login" class="text-none mb-2" @click="close">
         Đăng nhập
       </v-btn>
@@ -43,7 +43,7 @@
       <v-list-item prepend-icon="mdi-truck-fast-outline" title="Tra cứu đơn" to="/orders/track" @click="close" />
       <v-list-item prepend-icon="mdi-account-outline" title="Hồ sơ" to="/profile" @click="close" />
       <v-list-item
-        v-if="auth.isStaff"
+        v-if="isStaff"
         prepend-icon="mdi-view-dashboard-outline"
         title="Quản trị"
         to="/admin"
@@ -64,7 +64,7 @@
       </template>
     </v-list>
 
-    <template v-if="auth.isLoggedIn" #append>
+    <template v-if="isLoggedIn" #append>
       <div class="pa-4">
         <v-btn block variant="tonal" color="error" prepend-icon="mdi-logout" class="text-none" @click="handleLogout">
           Đăng xuất
@@ -82,6 +82,7 @@ const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const auth = useAuth()
+const { isLoggedIn, isStaff } = auth
 const categories = ref<Category[]>([])
 const { fetchCategories } = useProducts()
 
@@ -99,6 +100,7 @@ const handleLogout = async () => {
   close()
   await auth.logout()
   await navigateTo('/')
+  await auth.ensureAuth()
 }
 </script>
 

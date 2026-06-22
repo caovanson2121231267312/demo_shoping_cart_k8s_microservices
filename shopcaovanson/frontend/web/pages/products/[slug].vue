@@ -178,6 +178,7 @@
 <script setup lang="ts">
 import type { Product, ProductReview } from '~/types'
 import type { ReviewSummary } from '~/composables/useReviewSummary'
+import { parseCartError } from '~/composables/useCart'
 
 definePageMeta({ layout: 'default' })
 
@@ -252,6 +253,8 @@ const handleAddToCart = async () => {
   try {
     await cart.addItem(product.value, quantity.value)
     useSnackbar().show('Đã thêm vào giỏ hàng', 'success')
+  } catch (err) {
+    useSnackbar().show(parseCartError(err), 'error')
   } finally {
     adding.value = false
   }

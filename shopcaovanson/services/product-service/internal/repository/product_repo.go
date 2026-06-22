@@ -340,9 +340,13 @@ func rowsToProducts(rows []productRow) []domain.Product {
 }
 
 func buildProductWhere(filter domain.ProductListFilter, esIDs []string) (string, []interface{}) {
-	clauses := []string{"p.is_active = TRUE"}
+	clauses := []string{}
 	args := []interface{}{}
 	idx := 1
+
+	if !filter.IncludeInactive {
+		clauses = append(clauses, "p.is_active = TRUE")
+	}
 
 	if filter.Category != "" {
 		clauses = append(clauses, fmt.Sprintf("(c.slug = $%d OR c.id::text = $%d)", idx, idx))
@@ -364,6 +368,16 @@ func buildProductWhere(filter domain.ProductListFilter, esIDs []string) (string,
 		args = append(args, "%"+filter.Search+"%")
 		idx++
 	}
+	if filter.CreatedFrom != nil {
+		clauses = append(clauses, fmt.Sprintf("p.created_at >= $%d", idx))
+		args = append(args, *filter.CreatedFrom)
+		idx++
+	}
+	if filter.CreatedTo != nil {
+		clauses = append(clauses, fmt.Sprintf("p.created_at < $%d", idx))
+		args = append(args, filter.CreatedTo.Add(24*time.Hour))
+		idx++
+	}
 	if len(esIDs) > 0 {
 		placeholders := make([]string, len(esIDs))
 		for i, id := range esIDs {
@@ -374,6 +388,9 @@ func buildProductWhere(filter domain.ProductListFilter, esIDs []string) (string,
 		clauses = append(clauses, fmt.Sprintf("p.id::text IN (%s)", strings.Join(placeholders, ",")))
 	}
 
+	if len(clauses) == 0 {
+		return "", args
+	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 

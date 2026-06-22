@@ -74,10 +74,12 @@ type ResetPasswordResponse struct {
 }
 
 type UserListFilter struct {
-	Page   int
-	Limit  int
-	Search string
-	Role   string
+	Page        int
+	Limit       int
+	Search      string
+	Role        string
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
 }
 
 type UserListResult struct {

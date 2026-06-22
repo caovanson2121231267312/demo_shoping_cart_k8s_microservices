@@ -18,7 +18,7 @@ type CouponRepository interface {
 	GetByCode(ctx context.Context, code string) (*domain.Coupon, error)
 	Update(ctx context.Context, id uuid.UUID, input domain.UpdateCouponInput) (*domain.Coupon, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	List(ctx context.Context, page, limit int, search string) (*domain.CouponListResult, error)
+	List(ctx context.Context, filter domain.CouponListFilter) (*domain.CouponListResult, error)
 	IncrementUsedCount(ctx context.Context, id uuid.UUID) error
 }
 
@@ -128,7 +128,9 @@ func (r *couponRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *couponRepo) List(ctx context.Context, page, limit int, search string) (*domain.CouponListResult, error) {
+func (r *couponRepo) List(ctx context.Context, filter domain.CouponListFilter) (*domain.CouponListResult, error) {
+	page := filter.Page
+	limit := filter.Limit
 	if page < 1 {
 		page = 1
 	}
@@ -138,9 +140,19 @@ func (r *couponRepo) List(ctx context.Context, page, limit int, search string) (
 	where := "1=1"
 	args := []interface{}{}
 	idx := 1
-	if s := strings.TrimSpace(search); s != "" {
+	if s := strings.TrimSpace(filter.Search); s != "" {
 		where += fmt.Sprintf(" AND code ILIKE $%d", idx)
 		args = append(args, "%"+s+"%")
+		idx++
+	}
+	if filter.CreatedFrom != nil {
+		where += fmt.Sprintf(" AND created_at >= $%d", idx)
+		args = append(args, *filter.CreatedFrom)
+		idx++
+	}
+	if filter.CreatedTo != nil {
+		where += fmt.Sprintf(" AND created_at < $%d", idx)
+		args = append(args, filter.CreatedTo.Add(24*time.Hour))
 		idx++
 	}
 

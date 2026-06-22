@@ -13,12 +13,12 @@
         Online
       </v-chip>
       <v-chip
-        v-else-if="activeTab === 'admin' && auth.isLoggedIn.value"
+        v-else-if="activeTab === 'admin' && auth.isLoggedIn.value && !chat.connected.value"
         size="x-small"
         color="warning"
         variant="flat"
       >
-        Offline
+        Đang kết nối...
       </v-chip>
       <v-chip v-else size="x-small" color="info" variant="flat">AI</v-chip>
     </div>
@@ -90,6 +90,8 @@
               :key="msg.id"
               :message="msg"
               :current-user-id="auth.user.value?.id"
+              show-reactions
+              @react="onReact(msg.id, $event)"
             />
             <div v-if="typingText" class="text-caption text-grey pa-2">{{ typingText }}</div>
           </template>
@@ -100,32 +102,45 @@
     <v-divider />
 
     <div v-if="showInput" class="pa-3">
-      <v-text-field
+      <ChatComposer
+        v-if="activeTab === 'admin' && auth.isLoggedIn.value"
         v-model="input"
-        :placeholder="inputPlaceholder"
-        density="compact"
-        variant="outlined"
-        hide-details
+        :room-id="chat.activeRoomId.value"
         :disabled="inputDisabled"
-        @keyup.enter="send"
-        @input="onTyping"
-      >
-        <template #append-inner>
-          <v-btn
-            icon
-            size="small"
-            color="primary"
-            variant="text"
-            :disabled="!input.trim() || inputDisabled"
-            @click="send"
-          >
-            <v-icon>mdi-send</v-icon>
-          </v-btn>
-        </template>
-      </v-text-field>
-      <div class="text-caption text-medium-emphasis mt-2">
-        {{ footerHint }}
-      </div>
+        :uploading="uploadingImage"
+        :placeholder="inputPlaceholder"
+        :hint="footerHint"
+        @send="send"
+        @typing="onTyping"
+        @send-image="onSendImage"
+      />
+      <template v-else>
+        <v-text-field
+          v-model="input"
+          :placeholder="inputPlaceholder"
+          density="compact"
+          variant="outlined"
+          hide-details
+          :disabled="inputDisabled"
+          @keyup.enter="send"
+        >
+          <template #append-inner>
+            <v-btn
+              icon
+              size="small"
+              color="primary"
+              variant="text"
+              :disabled="!input.trim() || inputDisabled"
+              @click="send"
+            >
+              <v-icon>mdi-send</v-icon>
+            </v-btn>
+          </template>
+        </v-text-field>
+        <div class="text-caption text-medium-emphasis mt-2">
+          {{ footerHint }}
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -141,6 +156,7 @@ const chatbot = useChatbot()
 const activeTab = ref<ChatTab>('bot')
 const input = ref('')
 const loading = ref(false)
+const uploadingImage = ref(false)
 const messagesEl = ref<HTMLElement | null>(null)
 
 const botMessages = computed(() => chatbot.messages.value)
@@ -277,6 +293,31 @@ const send = async () => {
     return
   }
   chat.sendMessage(roomId, text)
+  scrollToBottom()
+}
+
+const onSendImage = async (file: File) => {
+  const roomId = chat.activeRoomId.value
+  if (!roomId) {
+    return
+  }
+  uploadingImage.value = true
+  try {
+    await chat.sendImageMessage(roomId, file)
+    scrollToBottom()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
+const onReact = (messageId: string, emoji: string) => {
+  const roomId = chat.activeRoomId.value
+  if (!roomId) {
+    return
+  }
+  chat.toggleReaction(roomId, messageId, emoji)
 }
 
 const onTyping = () => {

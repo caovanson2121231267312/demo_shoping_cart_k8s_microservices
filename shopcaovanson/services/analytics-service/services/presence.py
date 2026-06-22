@@ -15,11 +15,12 @@ class PresenceService:
         self.redis = redis.from_url(url, decode_responses=True)
         self.ttl = int(os.getenv("ONLINE_TTL_SECONDS", "90"))
 
-    def heartbeat(self, user_id: str, email: str = "", page: str = "/") -> None:
+    def heartbeat(self, user_id: str, email: str = "", page: str = "/", role: str = "customer") -> None:
         payload = json.dumps({
             "user_id": user_id,
             "email": email,
             "page": page,
+            "role": role,
             "ts": int(time.time()),
         })
         self.redis.hset(ONLINE_KEY, user_id, payload)
@@ -38,6 +39,7 @@ class PresenceService:
                     "user_id": uid,
                     "email": data.get("email", ""),
                     "page": data.get("page", "/"),
+                    "role": data.get("role", "customer"),
                     "last_seen": data.get("ts", now),
                 })
             else:

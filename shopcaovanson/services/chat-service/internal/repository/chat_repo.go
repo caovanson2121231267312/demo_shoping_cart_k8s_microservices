@@ -20,11 +20,15 @@ const (
 
 type ChatRepository interface {
 	FindRoomsByUser(ctx context.Context, userID string) ([]domain.ChatRoom, error)
+	FindAllSupportRooms(ctx context.Context) ([]domain.ChatRoom, error)
 	FindRoomByID(ctx context.Context, roomID primitive.ObjectID) (*domain.ChatRoom, error)
 	FindDirectRoom(ctx context.Context, userA, userB string) (*domain.ChatRoom, error)
 	FindSupportRoom(ctx context.Context, userID string) (*domain.ChatRoom, error)
 	CreateRoom(ctx context.Context, room *domain.ChatRoom) error
+	UpdateParticipants(ctx context.Context, roomID primitive.ObjectID, participants []string) error
 	GetMessages(ctx context.Context, roomID primitive.ObjectID, before *primitive.ObjectID, limit int) ([]domain.ChatMessage, error)
+	FindMessageByID(ctx context.Context, messageID primitive.ObjectID) (*domain.ChatMessage, error)
+	UpdateMessageReactions(ctx context.Context, messageID primitive.ObjectID, reactions map[string][]string) error
 	CreateMessage(ctx context.Context, msg *domain.ChatMessage) error
 	CountRooms(ctx context.Context) (int64, error)
 	CountMessages(ctx context.Context) (int64, error)
@@ -108,6 +112,29 @@ func (r *mongoChatRepository) FindSupportRoom(ctx context.Context, userID string
 	return &room, nil
 }
 
+func (r *mongoChatRepository) FindAllSupportRooms(ctx context.Context) ([]domain.ChatRoom, error) {
+	filter := bson.M{"room_type": domain.RoomTypeSupport}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.rooms().Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var rooms []domain.ChatRoom
+	if err := cursor.All(ctx, &rooms); err != nil {
+		return nil, err
+	}
+	return rooms, nil
+}
+
+func (r *mongoChatRepository) UpdateParticipants(ctx context.Context, roomID primitive.ObjectID, participants []string) error {
+	_, err := r.rooms().UpdateOne(ctx, bson.M{"_id": roomID}, bson.M{
+		"$set": bson.M{"participants": participants},
+	})
+	return err
+}
+
 func (r *mongoChatRepository) CreateRoom(ctx context.Context, room *domain.ChatRoom) error {
 	if room.CreatedAt.IsZero() {
 		room.CreatedAt = time.Now().UTC()
@@ -145,6 +172,25 @@ func (r *mongoChatRepository) GetMessages(ctx context.Context, roomID primitive.
 		return nil, err
 	}
 	return messages, nil
+}
+
+func (r *mongoChatRepository) FindMessageByID(ctx context.Context, messageID primitive.ObjectID) (*domain.ChatMessage, error) {
+	var msg domain.ChatMessage
+	err := r.messages().FindOne(ctx, bson.M{"_id": messageID}).Decode(&msg)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (r *mongoChatRepository) UpdateMessageReactions(ctx context.Context, messageID primitive.ObjectID, reactions map[string][]string) error {
+	_, err := r.messages().UpdateOne(ctx, bson.M{"_id": messageID}, bson.M{
+		"$set": bson.M{"reactions": reactions},
+	})
+	return err
 }
 
 func (r *mongoChatRepository) CreateMessage(ctx context.Context, msg *domain.ChatMessage) error {

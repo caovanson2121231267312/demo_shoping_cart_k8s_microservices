@@ -108,10 +108,13 @@ func (h *ArticleHandler) DeleteArticle(c *fiber.Ctx) error {
 func parseArticleFilter(c *fiber.Ctx) domain.ArticleListFilter {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "12"))
+	from, to := parseCreatedRange(c)
 	filter := domain.ArticleListFilter{
 		Page: page, Limit: limit,
-		Category: c.Query("category"),
-		Search:   strings.TrimSpace(c.Query("search")),
+		Category:    c.Query("category"),
+		Search:      strings.TrimSpace(c.Query("search")),
+		CreatedFrom: from,
+		CreatedTo:   to,
 	}
 	if c.Query("featured") == "true" {
 		t := true

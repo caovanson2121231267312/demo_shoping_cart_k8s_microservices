@@ -203,12 +203,16 @@ func (h *ProductHandler) CreateReview(c *fiber.Ctx) error {
 func parseProductFilter(c *fiber.Ctx) domain.ProductListFilter {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	from, to := parseCreatedRange(c)
 	filter := domain.ProductListFilter{
-		Page:     page,
-		Limit:    limit,
-		Category: c.Query("category"),
-		Search:   c.Query("search"),
-		Sort:     c.Query("sort"),
+		Page:            page,
+		Limit:           limit,
+		Category:        c.Query("category"),
+		Search:          c.Query("search"),
+		Sort:            c.Query("sort"),
+		IncludeInactive: c.Query("include_inactive") == "true",
+		CreatedFrom:     from,
+		CreatedTo:       to,
 	}
 	if v := c.Query("min_price"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {

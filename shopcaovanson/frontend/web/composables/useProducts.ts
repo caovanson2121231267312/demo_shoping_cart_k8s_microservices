@@ -26,6 +26,9 @@ export const useProducts = () => {
     if (filters.min_price !== undefined) query.min_price = filters.min_price
     if (filters.max_price !== undefined) query.max_price = filters.max_price
     if (filters.sort) query.sort = filters.sort
+    if (filters.include_inactive) query.include_inactive = 'true'
+    if (filters.created_from) query.created_from = filters.created_from
+    if (filters.created_to) query.created_to = filters.created_to
 
     return await publicFetch<ProductListResult>('/api/products', { query })
   }

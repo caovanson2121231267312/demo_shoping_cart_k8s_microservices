@@ -67,3 +67,11 @@ type CouponListResult struct {
 	Limit      int      `json:"limit"`
 	TotalPages int      `json:"total_pages"`
 }
+
+type CouponListFilter struct {
+	Page        int
+	Limit       int
+	Search      string
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+}

@@ -153,6 +153,7 @@ export interface ChatMessage {
   sender_id: string
   content: string
   type: string
+  reactions?: Record<string, string[]>
   read_by?: string[]
   created_at: string
 }
@@ -163,17 +164,24 @@ export interface MessageListResult {
 }
 
 export interface WSClientMessage {
-  type: 'join' | 'message' | 'typing'
+  type: 'join' | 'message' | 'typing' | 'reaction'
   room_id: string
   content?: string
+  msg_type?: 'text' | 'image'
+  message_id?: string
+  emoji?: string
 }
 
 export interface WSServerMessage {
-  type: 'message' | 'user_joined' | 'typing'
+  type: 'message' | 'user_joined' | 'typing' | 'reaction'
   room_id?: string
+  message_id?: string
   sender_id?: string
   user_id?: string
   content?: string
+  msg_type?: string
+  emoji?: string
+  reactions?: Record<string, string[]>
   created_at?: string
 }
 
@@ -190,6 +198,9 @@ export interface ProductFilters {
   min_price?: number
   max_price?: number
   sort?: 'price_asc' | 'price_desc' | 'newest'
+  include_inactive?: boolean
+  created_from?: string
+  created_to?: string
 }
 
 export interface CheckoutInput {
@@ -310,6 +321,11 @@ export interface OnlineUser {
   email: string
   page: string
   last_seen: number
+  role?: string
+}
+
+export interface SupportChatRoom extends ChatRoom {
+  customer_id: string
 }
 
 export interface Article {

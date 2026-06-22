@@ -32,9 +32,37 @@ export const useChatStore = defineStore('chat', () => {
   function addMessage(roomId: string, message: ChatMessage) {
     const list = messages.value[roomId] || []
     const exists = list.some((m) => m.id === message.id)
-    if (!exists) {
-      messages.value[roomId] = [...list, message]
+    if (exists) {
+      return
     }
+    const localIdx = list.findIndex(
+      (m) =>
+        m.id.startsWith('local-') &&
+        m.sender_id === message.sender_id &&
+        m.content === message.content &&
+        m.type === message.type,
+    )
+    if (localIdx >= 0) {
+      const next = [...list]
+      next[localIdx] = message
+      messages.value[roomId] = next
+      return
+    }
+    messages.value[roomId] = [...list, message]
+  }
+
+  function updateMessageReactions(roomId: string, messageId: string, reactions: Record<string, string[]>) {
+    const list = messages.value[roomId]
+    if (!list) {
+      return
+    }
+    const idx = list.findIndex((m) => m.id === messageId)
+    if (idx < 0) {
+      return
+    }
+    const next = [...list]
+    next[idx] = { ...next[idx], reactions: { ...reactions } }
+    messages.value[roomId] = next
   }
 
   function setMessages(roomId: string, list: ChatMessage[]) {
@@ -87,6 +115,7 @@ export const useChatStore = defineStore('chat', () => {
     setActiveRoom,
     setConnected,
     addMessage,
+    updateMessageReactions,
     setMessages,
     prependMessages,
     setTyping,

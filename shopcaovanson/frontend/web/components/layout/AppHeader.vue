@@ -35,23 +35,34 @@
         </a>
 
         <NuxtLink to="/wishlist" class="store-header__action d-none d-sm-flex">
-          <v-badge :content="wishlist.count" :model-value="wishlist.count > 0" color="error" floating>
+          <v-badge
+            :content="wishlistCount"
+            :model-value="wishlistCount > 0"
+            color="error"
+            location="top end"
+            offset-x="2"
+            offset-y="2"
+          >
             <v-icon size="26">mdi-heart-outline</v-icon>
           </v-badge>
           <span class="store-header__action-label">Yêu thích</span>
         </NuxtLink>
 
         <button type="button" class="store-header__action store-header__action--cart" @click="cartDrawerOpen = true">
-          <v-badge :content="cart.count" :model-value="cart.count > 0" color="error" floating>
+          <v-badge
+            :content="cartCount"
+            :model-value="cartCount > 0"
+            color="error"
+            location="top end"
+            offset-x="2"
+            offset-y="2"
+          >
             <v-icon size="26">mdi-cart-outline</v-icon>
           </v-badge>
           <span class="store-header__action-label d-none d-sm-inline">Giỏ hàng</span>
-          <span v-if="cart.count > 0" class="store-header__cart-total d-none d-lg-block">
-            {{ cart.formattedTotal }}
-          </span>
         </button>
 
-        <template v-if="auth.isLoggedIn">
+        <template v-if="isLoggedIn">
           <v-menu location="bottom end" offset="8">
             <template #activator="{ props: menuProps }">
               <button type="button" class="store-header__action store-header__action--account" v-bind="menuProps">
@@ -68,8 +79,8 @@
                     <span class="text-white text-body-2 font-weight-bold">{{ initials }}</span>
                   </v-avatar>
                 </template>
-                <v-list-item-title class="font-weight-bold">{{ auth.user?.full_name }}</v-list-item-title>
-                <v-list-item-subtitle class="text-truncate">{{ auth.user?.email }}</v-list-item-subtitle>
+                <v-list-item-title class="font-weight-bold">{{ user?.full_name }}</v-list-item-title>
+                <v-list-item-subtitle class="text-truncate">{{ user?.email }}</v-list-item-subtitle>
               </v-list-item>
               <v-divider class="my-1" />
               <v-list-item to="/profile" prepend-icon="mdi-account-outline" title="Hồ sơ của tôi" />
@@ -77,7 +88,7 @@
               <v-list-item to="/orders/track" prepend-icon="mdi-truck-fast-outline" title="Tra cứu đơn hàng" />
               <v-list-item to="/wishlist" prepend-icon="mdi-heart-outline" title="Sản phẩm yêu thích" />
               <v-list-item
-                v-if="auth.isStaff"
+                v-if="isStaff"
                 to="/admin"
                 prepend-icon="mdi-view-dashboard-outline"
                 title="Quản trị hệ thống"
@@ -112,22 +123,32 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
+
 defineEmits<{ 'toggle-sidebar': [] }>()
 
 const auth = useAuth()
-const cart = useCart()
-const wishlist = useWishlist()
+const cartStore = useCartStore()
+const wishlistStore = useWishlistStore()
+const { items: cartItems } = storeToRefs(cartStore)
+const { items: wishlistItems } = storeToRefs(wishlistStore)
 const router = useRouter()
+const { isLoggedIn, user, isStaff } = auth
 const cartDrawerOpen = useState('cartDrawerOpen', () => false)
 const searchQuery = ref('')
 
+const cartCount = computed(() =>
+  cartItems.value.reduce((sum, item) => sum + item.quantity, 0),
+)
+const wishlistCount = computed(() => wishlistItems.value.length)
+
 onMounted(() => {
-  useWishlistStore().hydrate()
-  useCartStore().hydrate()
+  wishlistStore.hydrate()
+  cartStore.hydrate()
 })
 
 const initials = computed(() => {
-  const name = auth.user.value?.full_name || ''
+  const name = user.value?.full_name || ''
   return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || '?'
 })
 
@@ -141,6 +162,7 @@ const onSearch = (query: string) => {
 const handleLogout = async () => {
   await auth.logout()
   await navigateTo('/')
+  await auth.ensureAuth()
 }
 </script>
 
@@ -236,6 +258,7 @@ const handleLogout = async () => {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .store-header__hotline {
@@ -293,6 +316,7 @@ const handleLogout = async () => {
   border-radius: var(--radius-sm);
   transition: background 0.2s, color 0.2s;
   position: relative;
+  overflow: visible;
 }
 
 .store-header__action:hover {
@@ -308,17 +332,6 @@ const handleLogout = async () => {
 
 .store-header__action--cart {
   position: relative;
-}
-
-.store-header__cart-total {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--color-sale);
-  white-space: nowrap;
 }
 
 .store-header__mobile-search {

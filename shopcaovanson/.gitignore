@@ -26,6 +26,8 @@ k8s/**/secret*.yaml
 **/dist/
 **/build/
 logs/
+.local/
+services/analytics-service/exports/
 
 # Cluster setup generated files
 k8s/cluster-setup/cloud-init/
