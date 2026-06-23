@@ -1,29 +1,13 @@
-# Chay mot Go microservice — uu tien WSL de tranh Windows Smart App Control chan .exe
+# Chay mot Go microservice - uu tien WSL de tranh Windows Smart App Control chan .exe
 param(
     [Parameter(Mandatory)][string]$Name,
     [Parameter(Mandatory)][string]$Dir,
-    [switch]$UseWsl
+    [switch]$UseWsl,
+    [string]$WslDistro
 )
 
 $ErrorActionPreference = 'Continue'
-
-function Write-AppControlHelp {
-    Write-Host ""
-    Write-Host "Windows Smart App Control dang chan binary Go (.exe)." -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Cach 1 (khuyen nghi): Cai Go trong WSL, roi chay lai script:" -ForegroundColor White
-    Write-Host "  wsl --install -d Ubuntu" -ForegroundColor DarkGray
-    Write-Host "  wsl sudo apt update && sudo apt install -y golang-go" -ForegroundColor DarkGray
-    Write-Host "  .\scripts\start-local-services.ps1" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "Cach 2: Tat Smart App Control" -ForegroundColor White
-    Write-Host "  Cai dat > Quyen rieng tu va bao mat > Bao mat Windows" -ForegroundColor DarkGray
-    Write-Host "  > Kiem soat ung dung va trinh duyet > Cai dat Kiểm soat Ung dung Thong minh > Tat" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "Cach 3: Chay thu trong WSL (sau khi cai Go):" -ForegroundColor White
-    Write-Host "  wsl --cd `"$Dir`" go run ." -ForegroundColor DarkGray
-    Write-Host ""
-}
+. (Join-Path $PSScriptRoot 'lib\wsl-go.ps1')
 
 if (-not (Test-Path $Dir)) {
     Write-Host "Khong tim thay thu muc service: $Dir" -ForegroundColor Red
@@ -33,9 +17,27 @@ if (-not (Test-Path $Dir)) {
 $resolvedDir = (Resolve-Path $Dir).Path
 Write-Host "[$Name] Ctrl+C de dung" -ForegroundColor Cyan
 
-if ($UseWsl) {
-    & wsl --cd $resolvedDir go run .
-    exit $LASTEXITCODE
+$distro = $WslDistro
+if ($UseWsl -and -not $distro) {
+    $distro = Find-WslDistroWithGo
+    if (-not $distro) {
+        Write-Host "WSL duoc yeu cau nhung chua co Go trong bat ky distro nao." -ForegroundColor Red
+        Write-SmartAppControlHelp $resolvedDir
+        Write-Host "Chay: .\scripts\setup-wsl-go.ps1" -ForegroundColor White
+        exit 1
+    }
+}
+
+if ($distro) {
+    if ($distro -ne 'default') {
+        Write-Host "[$Name] WSL ($distro): go run ." -ForegroundColor DarkGray
+    }
+    $code = Invoke-WslGo -Distro $distro -Dir $resolvedDir -GoArgs @('run', '.')
+    exit $code
+}
+
+if (Test-SmartAppControlOn) {
+    Write-Host "[$Name] CANH BAO: Smart App Control dang bat - co the chan .exe" -ForegroundColor Yellow
 }
 
 Set-Location $resolvedDir
@@ -52,6 +54,6 @@ $env:GOTMPDIR = Join-Path $cacheRoot 'gotmp'
 & go run .
 $code = $LASTEXITCODE
 if ($code -ne 0) {
-    Write-AppControlHelp
+    Write-SmartAppControlHelp $resolvedDir
 }
 exit $code
