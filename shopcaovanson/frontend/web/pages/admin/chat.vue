@@ -117,22 +117,20 @@
 
           <div ref="messagesEl" class="admin-chat__messages">
             <EmptyState
-              v-if="!messages.length"
+              v-if="!messages.length && !showTyping"
               icon="mdi-headset"
               title="Chưa có tin nhắn"
               description="Gửi lời chào để hỗ trợ khách hàng."
             />
-            <template v-else>
-              <ChatMessage
-                v-for="msg in messages"
-                :key="msg.id"
-                :message="msg"
-                :current-user-id="auth.user.value?.id"
-                show-reactions
-                @react="onReact(msg.id, $event)"
-              />
-              <div v-if="typingText" class="text-caption text-grey pa-2">{{ typingText }}</div>
-            </template>
+            <ChatMessage
+              v-for="msg in messages"
+              :key="msg.id"
+              :message="msg"
+              :current-user-id="auth.user.value?.id"
+              show-reactions
+              @react="onReact(msg.id, $event)"
+            />
+            <ChatTypingIndicator v-if="showTyping" :label="typingLabel" />
           </div>
 
           <div class="admin-chat__composer">
@@ -189,18 +187,18 @@ const activeCustomerLabel = computed(() => {
   return customerLabel(activeCustomerId.value)
 })
 
-const typingText = computed(() => {
+const typingOthersCount = computed(() => {
   const roomId = chat.activeRoomId.value
   if (!roomId) {
-    return ''
+    return 0
   }
   const users = chat.typingUsers.value[roomId] || []
-  const others = users.filter((id) => id !== auth.user.value?.id)
-  if (!others.length) {
-    return ''
-  }
-  return 'Khách đang nhập...'
+  return users.filter((id) => id !== auth.user.value?.id).length
 })
+
+const showTyping = computed(() => typingOthersCount.value > 0)
+
+const typingLabel = computed(() => getChatTypingLabel(typingOthersCount.value, true))
 
 function shortId(id: string) {
   return `Khách #${id.slice(0, 8)}`
@@ -227,10 +225,22 @@ function formatRoomDate(value: string) {
   })
 }
 
-const scrollToBottom = () => {
+const isNearBottom = () => {
+  const el = messagesEl.value
+  if (!el) {
+    return true
+  }
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 96
+}
+
+const scrollToBottom = (force = false) => {
   nextTick(() => {
-    if (messagesEl.value) {
-      messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+    const el = messagesEl.value
+    if (!el) {
+      return
+    }
+    if (force || isNearBottom()) {
+      el.scrollTop = el.scrollHeight
     }
   })
 }
@@ -263,7 +273,7 @@ async function openChatWithCustomer(customerId: string) {
   const room = await chat.openCustomerSupportRoom(customerId)
   activeCustomerId.value = room.customer_id || customerId
   await loadRooms()
-  scrollToBottom()
+  scrollToBottom(true)
 }
 
 async function selectRoom(room: SupportChatRoom) {
@@ -273,7 +283,7 @@ async function selectRoom(room: SupportChatRoom) {
   }
   chat.joinRoom(room.id)
   await chat.fetchMessages(room.id)
-  scrollToBottom()
+  scrollToBottom(true)
 }
 
 const send = () => {
@@ -284,7 +294,7 @@ const send = () => {
   }
   input.value = ''
   chat.sendMessage(roomId, text)
-  scrollToBottom()
+  scrollToBottom(true)
 }
 
 const onSendImage = async (file: File) => {
@@ -317,6 +327,15 @@ const onTyping = () => {
     chat.sendTyping(roomId)
   }
 }
+
+watch(
+  () => typingOthersCount.value,
+  (count, prev) => {
+    if (count > 0 && prev === 0) {
+      scrollToBottom()
+    }
+  },
+)
 
 watch(
   () => messages.value.length,
@@ -400,9 +419,13 @@ onUnmounted(() => {
 .admin-chat__messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 28px 16px 16px;
   min-height: 360px;
   background: var(--color-bg, #fafafa);
+  overscroll-behavior: contain;
+  overflow-anchor: auto;
+  scroll-behavior: auto;
+  contain: layout style;
 }
 
 .admin-chat__composer {

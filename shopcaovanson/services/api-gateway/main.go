@@ -15,6 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/shopcaovanson/api-gateway/internal/config"
 	"github.com/shopcaovanson/api-gateway/internal/middleware"
+	wsproxy "github.com/shopcaovanson/api-gateway/internal/proxy"
 )
 
 func main() {
@@ -132,7 +133,7 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 
 	app.All("/api/chat", middleware.PublicOrAuth(), proxyHandler(chatURL))
 	app.All("/api/chat/*", middleware.PublicOrAuth(), proxyHandler(chatURL))
-	app.All("/ws", middleware.PublicOrAuth(), proxyHandler(chatURL))
+	app.All("/ws", wsproxy.WebSocketHandler(chatURL))
 
 	app.All("/api/chatbot", middleware.PublicOrAuth(), proxyHandler(rasaURL))
 	app.All("/api/chatbot/*", middleware.PublicOrAuth(), proxyHandler(rasaURL))

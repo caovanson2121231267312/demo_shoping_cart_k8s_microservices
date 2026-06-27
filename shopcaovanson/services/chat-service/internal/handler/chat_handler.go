@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"log"
 	"strconv"
+	"strings"
 
 	"github.com/caovanson/shopcaovanson/chat-service/internal/domain"
 	"github.com/caovanson/shopcaovanson/chat-service/internal/hub"
@@ -81,7 +84,10 @@ func (h *ChatHandler) CreateSupportRoomForCustomer(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 	}
-	return c.JSON(fiber.Map{"data": room})
+	return c.JSON(fiber.Map{"data": domain.SupportRoomSummary{
+		ChatRoom:   *room,
+		CustomerID: req.CustomerID,
+	}})
 }
 
 func (h *ChatHandler) GetMessages(c *fiber.Ctx) error {
@@ -120,10 +126,12 @@ func (h *ChatHandler) WebSocket(c *websocket.Conn) {
 	}
 	userID := claims.Subject
 	userRole := claims.Role
+	log.Printf("[chat-ws] connected user=%s role=%s", userID, userRole)
 
 	var activeRoom string
 
 	defer func() {
+		log.Printf("[chat-ws] disconnected user=%s room=%s", userID, activeRoom)
 		if activeRoom != "" {
 			h.hub.Unregister(c, activeRoom)
 		}
@@ -131,10 +139,22 @@ func (h *ChatHandler) WebSocket(c *websocket.Conn) {
 	}()
 
 	for {
-		var msg domain.WSClientMessage
-		if err := c.ReadJSON(&msg); err != nil {
+		mt, raw, err := c.ReadMessage()
+		if err != nil {
+			log.Printf("[chat-ws] read closed user=%s room=%s err=%v", userID, activeRoom, err)
 			break
 		}
+		if mt != websocket.TextMessage && mt != websocket.BinaryMessage {
+			log.Printf("[chat-ws] skip frame user=%s type=%d", userID, mt)
+			continue
+		}
+
+		var msg domain.WSClientMessage
+		if err := json.Unmarshal(raw, &msg); err != nil {
+			log.Printf("[chat-ws] bad json user=%s raw=%q err=%v", userID, string(raw), err)
+			continue
+		}
+		log.Printf("[chat-ws] recv user=%s type=%s room=%s", userID, msg.Type, msg.RoomID)
 
 		switch msg.Type {
 		case "join":
@@ -142,13 +162,26 @@ func (h *ChatHandler) WebSocket(c *websocket.Conn) {
 				h.hub.Unregister(c, activeRoom)
 			}
 			if err := h.svc.ValidateRoomAccess(context.Background(), userID, userRole, msg.RoomID); err != nil {
+				log.Printf("[chat-ws] join denied user=%s room=%s err=%v", userID, msg.RoomID, err)
 				_ = c.WriteJSON(fiber.Map{"error": err.Error()})
 				continue
 			}
 			activeRoom = msg.RoomID
 			h.hub.Register(c, userID, activeRoom)
+			log.Printf("[chat-ws] joined user=%s room=%s listeners=%d", userID, activeRoom, h.hub.RoomListenerCount(activeRoom))
+			_ = c.WriteJSON(domain.WSServerMessage{
+				Type:   "joined",
+				RoomID: activeRoom,
+				UserID: userID,
+			})
 		default:
+			preview := strings.TrimSpace(msg.Content)
+			if len(preview) > 40 {
+				preview = preview[:40] + "..."
+			}
+			log.Printf("[chat-ws] %s user=%s room=%s content=%q", msg.Type, userID, msg.RoomID, preview)
 			if err := h.hub.HandleMessage(context.Background(), userID, userRole, msg); err != nil {
+				log.Printf("[chat-ws] %s failed user=%s room=%s err=%v", msg.Type, userID, msg.RoomID, err)
 				_ = c.WriteJSON(fiber.Map{"error": err.Error()})
 			}
 		}

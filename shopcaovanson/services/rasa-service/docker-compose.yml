@@ -1,20 +1,11 @@
-version: "3.8"
-
 services:
-  rasa:
-    image: rasa/rasa:3.6.20-full
-    volumes:
-      - ./rasa:/app
-    command: run --enable-api --cors "*" --debug
-    ports:
-      - "5005:5005"
-    depends_on:
-      - rasa-actions
-
   rasa-actions:
     build:
-      context: ./actions
+      context: .
+      dockerfile: actions/Dockerfile
     volumes:
+      - ./bot_engine.py:/app/bot_engine.py:ro
+      - ./chat_data.py:/app/chat_data.py:ro
       - ./actions:/app/actions
     environment:
       PRODUCT_SERVICE_URL: http://host.docker.internal:8082
@@ -22,6 +13,37 @@ services:
       API_GATEWAY_URL: http://host.docker.internal:8080
     ports:
       - "5055:5055"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  rasa:
+    image: rasa/rasa:3.6.20-full
+    entrypoint: ["/bin/bash", "-c"]
+    volumes:
+      - ./rasa:/app
+    command:
+      - |
+        set -e
+        cd /app
+        chmod +x scripts/*.sh 2>/dev/null || true
+        for i in $(seq 1 45); do
+          wget -q -O /dev/null http://rasa-actions:5055/health 2>/dev/null && break
+          sleep 2
+        done
+        if [ "$${FORCE_RASA_TRAIN}" = "true" ]; then
+          bash scripts/train-timestamped.sh
+        elif ! MODEL=$$(bash scripts/resolve-model.sh 2>/dev/null); then
+          bash scripts/train-timestamped.sh
+        fi
+        MODEL=$$(bash scripts/resolve-model.sh)
+        echo "[rasa] loading $$MODEL"
+        exec rasa run --enable-api --cors "*" --model "$$MODEL"
+    ports:
+      - "5005:5005"
+    environment:
+      FORCE_RASA_TRAIN: ${FORCE_RASA_TRAIN:-false}
+    depends_on:
+      - rasa-actions
 
   rasa-bridge:
     build:
@@ -37,3 +59,5 @@ services:
       API_GATEWAY_URL: http://host.docker.internal:8080
     depends_on:
       - rasa
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

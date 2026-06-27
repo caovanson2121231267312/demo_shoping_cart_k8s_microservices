@@ -23,6 +23,7 @@ func NewOrderHandler(cartSvc *service.CartService, orderSvc *service.OrderServic
 
 func (h *OrderHandler) RegisterRoutes(app fiber.Router) {
 	app.Post("/api/orders/track", h.TrackOrder)
+	app.Post("/api/orders/lookup", h.LookupOrders)
 
 	api := app.Group("/api", middleware.RequireAuth())
 
@@ -225,6 +226,18 @@ func (h *OrderHandler) TrackOrder(c *fiber.Ctx) error {
 		return mapServiceError(c, err)
 	}
 	return c.JSON(order)
+}
+
+func (h *OrderHandler) LookupOrders(c *fiber.Ctx) error {
+	var input domain.LookupOrdersInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	result, err := h.orderSvc.LookupOrders(c.Context(), input)
+	if err != nil {
+		return mapServiceError(c, err)
+	}
+	return c.JSON(result)
 }
 
 func queryInt(c *fiber.Ctx, key string, def int) int {

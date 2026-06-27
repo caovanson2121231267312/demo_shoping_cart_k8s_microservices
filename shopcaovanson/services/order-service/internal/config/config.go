@@ -18,6 +18,7 @@ type Config struct {
 	RedisDB           int
 	CartTTLHours      int
 	ProductServiceURL string
+	AuthServiceURL    string
 	KafkaBrokers      []string
 }
 
@@ -60,6 +61,7 @@ func Load() (*Config, error) {
 		RedisDB:           redisDB,
 		CartTTLHours:      cartTTL,
 		ProductServiceURL: strings.TrimRight(getEnv("PRODUCT_SERVICE_URL", "http://localhost:8082"), "/"),
+		AuthServiceURL:    strings.TrimRight(getEnv("AUTH_SERVICE_URL", "http://localhost:8081"), "/"),
 		KafkaBrokers:      brokers,
 	}, nil
 }

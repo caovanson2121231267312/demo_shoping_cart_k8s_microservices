@@ -24,6 +24,8 @@ services:
 
   postgres:
     image: postgres:15-alpine
+    # Default Docker /dev/shm is 64MB — large exports (hash joins/sorts) need more.
+    shm_size: "256mb"
     environment:
       POSTGRES_USER: shop
       POSTGRES_PASSWORD: shop_secret

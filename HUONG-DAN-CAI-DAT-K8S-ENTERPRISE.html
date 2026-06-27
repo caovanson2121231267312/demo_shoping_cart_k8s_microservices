@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hướng dẫn cài đặt K8s Microservice — Chuẩn doanh nghiệp</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --surface: #151b24; --surface2: #1e2836; --border: #2a384d;
+      --text: #e6edf5; --muted: #8b9cb3; --primary: #1e88e5; --primary-light: #64b5f6;
+      --accent: #00acc1; --warning: #fb8c00; --success: #43a047; --danger: #e53935;
+      --code-bg: #0d1117; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 15px; }
+    .hero { background: linear-gradient(135deg, #0d47a1 0%, #1565c0 35%, #00838f 100%); padding: 3rem 2rem; text-align: center; border-bottom: 3px solid var(--accent); }
+    .hero h1 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+    .hero p { color: rgba(255,255,255,0.92); font-size: 1.05rem; max-width: 800px; margin: 0 auto; }
+    .hero .badges { margin-top: 1.2rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .badge { background: rgba(255,255,255,0.14); padding: 0.3rem 0.9rem; border-radius: 20px; font-size: 0.84rem; }
+    .badge.ip { background: rgba(255,193,7,0.25); border: 1px solid rgba(255,193,7,0.5); font-weight: 600; }
+    .page-wrap { margin-left: 280px; transition: margin-left 0.3s; }
+    .page-wrap.sidebar-collapsed { margin-left: 52px; }
+    .container { max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    .toc-sidebar { position: fixed; left: 0; top: 0; z-index: 200; height: 100vh; width: 280px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transition: width 0.3s; }
+    .toc-sidebar.collapsed { width: 52px; }
+    .toc-sidebar.collapsed:hover, .toc-sidebar.collapsed.pinned { width: 280px; }
+    .toc-toggle { flex-shrink: 0; display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.85rem 1rem; background: var(--surface2); border: none; border-bottom: 1px solid var(--border); color: var(--primary-light); font-weight: 600; cursor: pointer; text-align: left; }
+    .toc-toggle .label { white-space: nowrap; overflow: hidden; transition: opacity 0.2s; }
+    .toc-sidebar.collapsed .toc-toggle .label { opacity: 0; width: 0; }
+    .toc-sidebar.collapsed:hover .toc-toggle .label, .toc-sidebar.collapsed.pinned .toc-toggle .label { opacity: 1; width: auto; }
+    .toc-panel { flex: 1; overflow-y: auto; padding: 1rem 1.1rem 1.5rem; }
+    .toc-sidebar.collapsed .toc-panel { opacity: 0; pointer-events: none; }
+    .toc-sidebar.collapsed:hover .toc-panel, .toc-sidebar.collapsed.pinned .toc-panel { opacity: 1; pointer-events: auto; }
+    .toc-panel h2 { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .toc-panel ol { list-style: none; }
+    .toc-panel a { display: block; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text); text-decoration: none; font-size: 0.86rem; }
+    .toc-panel a:hover { background: var(--surface2); color: var(--primary-light); }
+    .toc-panel a.active { background: rgba(30,136,229,0.22); color: var(--primary-light); font-weight: 600; }
+
+    section { margin-bottom: 3rem; scroll-margin-top: 1.5rem; }
+    h2 { font-size: 1.6rem; color: var(--primary-light); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.2rem; }
+    h3 { font-size: 1.15rem; color: var(--accent); margin: 1.5rem 0 0.8rem; }
+    h4 { font-size: 1rem; color: var(--warning); margin: 1rem 0 0.5rem; }
+    p, li { color: var(--text); }
+    ul, ol { padding-left: 1.5rem; margin: 0.5rem 0 1rem; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.5rem; margin: 1rem 0; }
+    .card.info { border-left: 4px solid var(--primary); }
+    .card.warn { border-left: 4px solid var(--warning); }
+    .card.ok { border-left: 4px solid var(--success); }
+    .card.danger { border-left: 4px solid var(--danger); }
+    .card.vps { border-left: 4px solid #ffc107; background: linear-gradient(135deg, #1a2332 0%, #1e2a1a 100%); }
+
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid var(--border); padding: 0.6rem 0.9rem; text-align: left; }
+    th { background: var(--surface2); color: var(--primary-light); }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    code { font-family: Consolas, monospace; background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.88em; color: #79c0ff; }
+
+    .phase-tag { display: inline-block; background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.65rem; border-radius: 4px; margin-right: 0.5rem; }
+    .arch { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; font-family: Consolas, monospace; font-size: 0.76rem; line-height: 1.45; white-space: pre; overflow-x: auto; color: #8b9cb3; }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* ── Command block ── */
+    .cmd-block {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin: 1.2rem 0; overflow: hidden;
+    }
+    .cmd-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1rem; background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    .cmd-title { font-weight: 600; color: var(--primary-light); font-size: 0.95rem; }
+    .copy-btn {
+      flex-shrink: 0; background: var(--primary); color: #fff; border: none;
+      padding: 0.35rem 0.85rem; border-radius: 6px; font-size: 0.8rem;
+      cursor: pointer; transition: background 0.2s, transform 0.1s;
+    }
+    .copy-btn:hover { background: #1976d2; }
+    .copy-btn.copied { background: var(--success); }
+    .cmd-meta { padding: 0.75rem 1rem 0; font-size: 0.9rem; }
+    .cmd-meta p { margin-bottom: 0.4rem; }
+    .cmd-meta .label { color: var(--muted); }
+    .cmd-code {
+      margin: 0.6rem 1rem 0.75rem; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 1rem 1.1rem; overflow-x: auto;
+      font-family: 'Cascadia Code', Consolas, monospace;
+      font-size: 0.81rem; line-height: 1.55; color: #c9d1d9;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .cmd-output { border-top: 1px solid var(--border); }
+    .cmd-output summary {
+      padding: 0.7rem 1rem; cursor: pointer; color: var(--accent);
+      font-size: 0.88rem; font-weight: 600; user-select: none;
+      list-style: none; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .cmd-output summary::-webkit-details-marker { display: none; }
+    .cmd-output summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    .cmd-output[open] summary::before { transform: rotate(90deg); }
+    .cmd-output summary:hover { background: rgba(0,172,193,0.08); }
+    .output-preview {
+      margin: 0 1rem 1rem; padding: 1rem 1.1rem;
+      background: #0a1a0a; border: 1px solid #1b4332; border-radius: 8px;
+      font-family: Consolas, monospace; font-size: 0.78rem; line-height: 1.5;
+      color: #7ee787; white-space: pre-wrap; overflow-x: auto;
+    }
+    .output-preview .comment { color: #8b9cb3; }
+    .output-preview .ok { color: #7ee787; }
+    .output-preview .warn { color: #f0c674; }
+
+    .sec-level { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 4px; margin-left: 0.4rem; vertical-align: middle; }
+    .sec-critical { background: rgba(229,57,53,0.25); color: #ef9a9a; border: 1px solid #e53935; }
+    .sec-high { background: rgba(251,140,0,0.2); color: #ffcc80; border: 1px solid #fb8c00; }
+    .sec-medium { background: rgba(30,136,229,0.2); color: #90caf9; border: 1px solid #1e88e5; }
+
+    footer { text-align: center; padding: 2rem; color: var(--muted); border-top: 1px solid var(--border); font-size: 0.85rem; }
+    @media (max-width: 768px) {
+      .compare-grid { grid-template-columns: 1fr; }
+      .page-wrap, .page-wrap.sidebar-collapsed { margin-left: 0; }
+      .toc-sidebar { width: 52px; }
+      .hero h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<aside id="toc-sidebar" class="toc-sidebar">
+  <button type="button" class="toc-toggle" id="toc-toggle"><span class="icon">☰</span><span class="label">Mục lục</span></button>
+  <nav class="toc-panel">
+    <h2>Nội dung</h2>
+    <ol>
+      <li><a href="#vps-info">0. Thông tin VPS</a></li>
+      <li><a href="#tong-quan">1. Tổng quan</a></li>
+      <li><a href="#dns">2. DNS</a></li>
+      <li><a href="#phase1">3. Phase 1 — Chuẩn bị VPS</a></li>
+      <li><a href="#phase2">4. Phase 2 — containerd</a></li>
+      <li><a href="#phase3">5. Phase 3 — Kubernetes</a></li>
+      <li><a href="#phase4">6. Phase 4 — Storage &amp; MetalLB</a></li>
+      <li><a href="#phase5">7. Phase 5 — Ingress &amp; SSL</a></li>
+      <li><a href="#phase6">8. Phase 6 — Secrets</a></li>
+      <li><a href="#phase7">9. Phase 7 — Deploy app</a></li>
+      <li><a href="#phase8">10. Phase 8 — Migrate &amp; Seed</a></li>
+      <li><a href="#verify">11. Kiểm tra cuối</a></li>
+      <li><a href="#cicd">12. CI/CD — Git &amp; auto deploy</a></li>
+      <li><a href="#van-hanh">13. Vận hành &amp; kiểm tra app</a></li>
+      <li><a href="#bao-mat">14. Bảo mật nâng cao</a></li>
+      <li><a href="#sua-loi">15. Xử lý lỗi</a></li>
+      <li><a href="#checklist">16. Checklist</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<div id="page-wrap" class="page-wrap">
+
+<header class="hero">
+  <h1>☸️ Cài đặt K8s Microservice — Chuẩn doanh nghiệp</h1>
+  <p>Triển khai <strong>shopcaovanson</strong> trên VPS Ubuntu 8 CPU · 16 GB RAM — mỗi lệnh có giải thích, nút Copy và kết quả dự kiến.</p>
+  <div class="badges">
+    <span class="badge ip">IP VPS: 110.172.29.72</span>
+    <span class="badge">Kubernetes 1.29</span>
+    <span class="badge">kubeadm + Calico</span>
+    <span class="badge">shopcaovanson.xyz</span>
+    <span class="badge">🔒 Security Hardening</span>
+    <span class="badge">🚀 CI/CD prod branch</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 0. VPS INFO -->
+  <section id="vps-info">
+    <h2>0. Thông tin VPS dự án</h2>
+    <div class="card vps">
+      <table>
+        <tr><th>Thông số</th><th>Giá trị</th></tr>
+        <tr><td>IP Public</td><td><strong>110.172.29.72</strong></td></tr>
+        <tr><td>CPU / RAM</td><td>8 vCPU · 16 GB RAM</td></tr>
+        <tr><td>OS</td><td>Ubuntu 22.04 LTS</td></tr>
+        <tr><td>Hostname K8s</td><td><code>k8s-master</code></td></tr>
+        <tr><td>Frontend</td><td>https://shopcaovanson.xyz → 110.172.29.72</td></tr>
+        <tr><td>API</td><td>https://shopapicaovanson.xyz → 110.172.29.72</td></tr>
+      </table>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">0.1 SSH vào VPS</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Kết nối vào server để chạy tất cả lệnh bên dưới.</p>
+        <p><span class="label">📍 Chạy tại:</span> Terminal trên máy Windows/Mac (PowerShell, CMD, hoặc Terminal).</p>
+        <p><span class="label">⏱ Thời gian:</span> Vài giây nếu SSH key đã cấu hình.</p>
+      </div>
+      <pre class="cmd-code">ssh root@110.172.29.72
+# Hoặc nếu dùng user deploy:
+# ssh deploy@110.172.29.72</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview"><span class="comment"># Lần đầu kết nối — chấp nhận fingerprint:</span>
+The authenticity of host '110.172.29.72' can't be established.
+Are you sure you want to continue connecting (yes/no)? <span class="ok">yes</span>
+
+<span class="comment"># Đăng nhập thành công:</span>
+Welcome to Ubuntu 22.04.x LTS (GNU/Linux ...)
+root@k8s-master:~#</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 1. TỔNG QUAN -->
+  <section id="tong-quan">
+    <h2>1. Tổng quan kiến trúc</h2>
+    <div class="arch">                         Internet
+                            |
+                   [ VPS 110.172.29.72 ]
+                   8 CPU / 16 GB RAM
+                            |
+              +------------------------+
+              |   Kubernetes 1.29      |
+              | MetalLB + nginx-ingress|
+              | cert-manager (SSL)     |
+              +------------------------+
+                    |           |
+         shopcaovanson.xyz   shopapicaovanson.xyz
+              frontend          /api  /ws
+                    |           |
+         namespace shop (7 microservices + frontend)
+                    |
+         namespace infra (Postgres, Mongo, Redis, Kafka, ES)</div>
+    <div class="card info">
+      <strong>Mô hình khuyến nghị:</strong> Single-node kubeadm trực tiếp trên VPS (không dùng KVM) — tiết kiệm RAM, phù hợp 16 GB.
+    </div>
+  </section>
+
+  <!-- 2. DNS -->
+  <section id="dns">
+    <h2>2. Cấu hình DNS (làm TRƯỚC khi cài SSL)</h2>
+    <p>Vào trang quản lý domain, tạo 3 bản ghi A trỏ về <strong>110.172.29.72</strong>.</p>
+    <table>
+      <tr><th>Bản ghi</th><th>Loại</th><th>Giá trị</th></tr>
+      <tr><td>shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td></tr>
+      <tr><td>www.shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td></tr>
+      <tr><td>shopapicaovanson.xyz</td><td>A</td><td>110.172.29.72</td></tr>
+    </table>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">2.1 Kiểm tra DNS đã trỏ đúng chưa</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận domain đã resolve về IP VPS trước khi chạy cert-manager (Let's Encrypt).</p>
+        <p><span class="label">📍 Chạy tại:</span> Máy local hoặc VPS đều được.</p>
+      </div>
+      <pre class="cmd-code">dig +short shopcaovanson.xyz
+dig +short shopapicaovanson.xyz</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview"><span class="ok">110.172.29.72</span>
+<span class="ok">110.172.29.72</span>
+
+<span class="comment"># Nếu trả về rỗng hoặc IP khác → đợi DNS propagate (5–30 phút) hoặc kiểm tra lại cấu hình domain.</span></pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 1 -->
+  <section id="phase1">
+    <h2><span class="phase-tag">PHASE 1</span> Chuẩn bị VPS</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">1.1 Cập nhật hệ thống &amp; cài công cụ</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cập nhật package, cài git/curl/ufw/fail2ban — nền tảng cho mọi bước sau.</p>
+        <p><span class="label">📍 Chạy tại:</span> SSH <code>root@110.172.29.72</code></p>
+        <p><span class="label">⏱ Thời gian:</span> 3–8 phút.</p>
+      </div>
+      <pre class="cmd-code">sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl wget git vim htop jq apt-transport-https ca-certificates gnupg lsb-release ufw fail2ban</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Hit:1 http://archive.ubuntu.com/ubuntu jammy InRelease
+...
+Reading package lists... Done
+Building dependency tree... Done
+...
+<span class="ok">0 upgraded, 0 newly installed, 0 to remove</span>  <span class="comment">(hoặc vài package upgraded)</span>
+<span class="ok">Setting up fail2ban (0.11.2-6) ...</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">1.2 Đặt hostname cho node Kubernetes</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Đặt tên node là <code>k8s-master</code> và map IP trong /etc/hosts — kubeadm cần hostname ổn định.</p>
+        <p><span class="label">📍 Chạy tại:</span> VPS 110.172.29.72</p>
+      </div>
+      <pre class="cmd-code">sudo hostnamectl set-hostname k8s-master
+echo "110.172.29.72 k8s-master" | sudo tee -a /etc/hosts</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview"><span class="ok">110.172.29.72 k8s-master</span>
+<span class="comment"># Kiểm tra:</span>
+$ hostname
+<span class="ok">k8s-master</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">1.3 Tắt swap (bắt buộc cho Kubernetes)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> kubelet từ chối chạy nếu swap bật. Tắt ngay và vô hiệu hóa vĩnh viễn.</p>
+        <p><span class="label">⚠️ Lưu ý:</span> Không tắt swap = kubeadm init sẽ báo lỗi.</p>
+      </div>
+      <pre class="cmd-code">sudo swapoff -a
+sudo sed -i '/ swap / s/^/#/' /etc/fstab</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">$ free -h
+               total        used        free
+Mem:            15Gi       1.2Gi        14Gi
+Swap:             <span class="ok">0B</span>          0B          0B   <span class="comment">← Swap phải = 0</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">1.4 Bật kernel modules &amp; IP forwarding</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cho phép pod network (Calico) hoạt động — bridge netfilter và routing giữa các container.</p>
+      </div>
+      <pre class="cmd-code">cat &lt;&lt;EOF | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/99-kubernetes.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+sudo sysctl --system</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">* Applying /etc/sysctl.d/99-kubernetes.conf ...
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+<span class="ok">* Applying /etc/sysctl.d/99-kubernetes.conf ... done</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">1.5 Cấu hình firewall UFW</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Chỉ mở port SSH (22), HTTP (80), HTTPS (443), K8s API (6443). Chặn mọi traffic khác.</p>
+        <p><span class="label">🔒 Bảo mật:</span> Port 80 cần mở để Let's Encrypt xác thực domain.</p>
+      </div>
+      <pre class="cmd-code">sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 6443/tcp
+sudo ufw allow from 10.0.0.0/8
+sudo ufw allow from 172.16.0.0/12
+sudo ufw allow from 192.168.0.0/16
+sudo ufw --force enable
+sudo ufw status verbose</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Status: <span class="ok">active</span>
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
+443/tcp                    ALLOW       Anywhere
+6443/tcp                   ALLOW       Anywhere
+Anywhere                   ALLOW       10.0.0.0/8
+...</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">1.6 Bật Fail2ban chống brute-force SSH</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tự động chặn IP đăng nhập SSH sai nhiều lần.</p>
+      </div>
+      <pre class="cmd-code">sudo systemctl enable --now fail2ban
+sudo fail2ban-client status sshd</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Status for the jail: sshd
+|- Filter
+|  |- Currently failed: 0
+|  |- Total failed:     0
+|  `- Journal matches:  ...
+`- Actions
+   |- Currently banned: <span class="ok">0</span>
+   |- Total banned:     0</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 2 -->
+  <section id="phase2">
+    <h2><span class="phase-tag">PHASE 2</span> Container Runtime (containerd)</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">2.1 Cài containerd</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cài runtime chạy container — Kubernetes 1.29 dùng containerd (không cần Docker daemon).</p>
+        <p><span class="label">⏱ Thời gian:</span> 2–3 phút.</p>
+      </div>
+      <pre class="cmd-code">sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt update
+sudo apt install -y containerd.io</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Selecting previously unselected package containerd.io.
+...
+<span class="ok">Setting up containerd.io (1.7.x) ...</span>
+containerd.service - containerd container runtime
+   Loaded: loaded
+   Active: <span class="ok">active (running)</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">2.2 Cấu hình containerd (SystemdCgroup = true)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Đồng bộ cgroup với systemd — kubelet yêu cầu cấu hình này trên Ubuntu 22.04.</p>
+        <p><span class="label">⚠️ Bỏ qua bước này:</span> Pod sẽ CrashLoop hoặc kubelet báo lỗi cgroup driver.</p>
+      </div>
+      <pre class="cmd-code">sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl enable containerd</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">$ sudo systemctl status containerd | head -5
+● containerd.service - containerd container runtime
+     Loaded: loaded
+     Active: <span class="ok">active (running)</span> since ...
+
+$ grep SystemdCgroup /etc/containerd/config.toml
+            SystemdCgroup = <span class="ok">true</span></pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 3 -->
+  <section id="phase3">
+    <h2><span class="phase-tag">PHASE 3</span> Kubernetes Cluster (kubeadm 1.29)</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">3.1 Cài kubelet, kubeadm, kubectl</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cài bộ công cụ Kubernetes 1.29 từ repo chính thức pkgs.k8s.io. <code>apt-mark hold</code> ngăn tự động nâng version.</p>
+      </div>
+      <pre class="cmd-code">K8S_VERSION="1.29"
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/Release.key" | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt update
+sudo apt install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+sudo systemctl enable kubelet</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">$ kubeadm version
+kubeadm version: &amp;version.Info{Major:"1", Minor:"29", ...}
+
+$ kubectl version --client
+Client Version: version.Info{Major:"1", Minor:"29", ...}</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">3.2 Khởi tạo cluster (kubeadm init)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tạo control-plane trên VPS 110.172.29.72, cấu hình pod network 192.168.0.0/16 cho Calico.</p>
+        <p><span class="label">⏱ Thời gian:</span> 2–5 phút. <strong>Lưu lại dòng kubeadm join</strong> nếu sau này thêm worker.</p>
+      </div>
+      <pre class="cmd-code">sudo kubeadm init \
+  --pod-network-cidr=192.168.0.0/16 \
+  --service-cidr=10.96.0.0/12 \
+  --apiserver-advertise-address=110.172.29.72 \
+  --control-plane-endpoint=110.172.29.72 \
+  --node-name=k8s-master
+
+mkdir -p $HOME/.kube
+sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[init] Using Kubernetes version: v1.29.x
+...
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following:
+  mkdir -p $HOME/.kube
+  sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
+  ...
+
+<span class="ok">You can now join any number of machines by running:</span>
+  kubeadm join 110.172.29.72:6443 --token xxxxx ...
+
+<span class="comment"># Lúc này node chưa Ready (chưa có CNI) — bình thường.</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">3.3 Cho phép chạy pod trên control-plane (single-node)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Gỡ taint mặc định — cho phép schedule app pod lên node master (vì chỉ có 1 server).</p>
+      </div>
+      <pre class="cmd-code">kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>/dev/null || true
+kubectl get nodes</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">node/k8s-master untainted
+
+NAME         STATUS     ROLES           AGE   VERSION
+k8s-master   <span class="warn">NotReady</span>   control-plane   1m    v1.29.x
+<span class="comment"># NotReady → sẽ thành Ready sau khi cài Calico (bước 3.4)</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">3.4 Cài Calico CNI (mạng pod)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cài plugin mạng — pod mới có IP và giao tiếp được. Không có CNI = node mãi NotReady.</p>
+        <p><span class="label">⏱ Thời gian:</span> 2–4 phút.</p>
+      </div>
+      <pre class="cmd-code">CALICO_VERSION="v3.27.0"
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/tigera-operator.yaml"
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/custom-resources.yaml"
+kubectl wait --for=condition=Available deployment/tigera-operator -n tigera-operator --timeout=120s
+kubectl wait --for=condition=Ready node/k8s-master --timeout=180s
+kubectl get pods -n kube-system</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">node/k8s-master condition met
+
+NAME                                       READY   STATUS    RESTARTS
+calico-node-xxxxx                          <span class="ok">1/1</span>     Running   0
+coredns-xxxxx                              <span class="ok">1/1</span>     Running   0
+kube-apiserver-k8s-master                  <span class="ok">1/1</span>     Running   0
+kube-controller-manager-k8s-master         <span class="ok">1/1</span>     Running   0
+kube-scheduler-k8s-master                  <span class="ok">1/1</span>     Running   0
+
+$ kubectl get nodes
+NAME         STATUS   ROLES           AGE   VERSION
+k8s-master   <span class="ok">Ready</span>    control-plane   5m    v1.29.x</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">3.5 Cài Helm 3 &amp; metrics-server</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Helm để cài ingress/cert-manager. metrics-server cho <code>kubectl top</code> và HPA auto-scale.</p>
+      </div>
+      <pre class="cmd-code">curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+helm version
+
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl patch deployment metrics-server -n kube-system --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl rollout status deployment/metrics-server -n kube-system --timeout=120s</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">version.BuildInfo{Version:"v3.x.x", ...}
+deployment "metrics-server" successfully rolled out
+
+$ kubectl top nodes
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+k8s-master   350m         4%       3200Mi          20%</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 4 -->
+  <section id="phase4">
+    <h2><span class="phase-tag">PHASE 4</span> Storage &amp; MetalLB</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">4.1 Cài Local Path Provisioner (ổ cứng cho DB)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tạo PersistentVolume tự động trên disk VPS — PostgreSQL, MongoDB, Kafka cần PVC mới chạy được.</p>
+        <p><span class="label">⚠️ Không có bước này:</span> Pod infra sẽ Pending vì thiếu StorageClass.</p>
+      </div>
+      <pre class="cmd-code">kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
+kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+kubectl get storageclass</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">storageclass.storage.k8s.io/local-path patched
+
+NAME                   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE
+<span class="ok">local-path (default)</span>   rancher.io/local-path   Delete          WaitForFirstConsumer</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">4.2 Cài MetalLB — gán IP 110.172.29.72 cho LoadBalancer</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Trên VPS bare-metal, Service type LoadBalancer không tự có IP. MetalLB gán IP public 110.172.29.72 cho nginx-ingress.</p>
+        <p><span class="label">⚠️ Không có MetalLB:</span> <code>kubectl get svc -n ingress-nginx</code> sẽ hiện EXTERNAL-IP &lt;pending&gt; mãi.</p>
+      </div>
+      <pre class="cmd-code">kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml
+kubectl wait --namespace metallb-system \
+  --for=condition=ready pod --selector=app=metallb --timeout=120s
+
+cat &lt;&lt;EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 110.172.29.72/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - default-pool
+EOF</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">ipaddresspool.metallb.io/default-pool created
+l2advertisement.metallb.io/default created
+
+$ kubectl get pods -n metallb-system
+NAME                          READY   STATUS    RESTARTS
+controller-xxxxx              <span class="ok">1/1</span>     Running   0
+speaker-xxxxx                 <span class="ok">1/1</span>     Running   0</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 5 -->
+  <section id="phase5">
+    <h2><span class="phase-tag">PHASE 5</span> Ingress &amp; SSL (cert-manager)</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">5.1 Clone repo shopcaovanson</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tải mã nguồn chứa K8s manifests, scripts deploy, Makefile.</p>
+      </div>
+      <pre class="cmd-code">cd ~
+git clone https://github.com/caovanson/shopcaovanson.git
+cd shopcaovanson
+export KUBECONFIG=$HOME/.kube/config</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Cloning into 'shopcaovanson'...
+<span class="ok">Receiving objects: 100% ... done.</span>
+
+root@k8s-master:~/shopcaovanson# ls
+Makefile  README.md  frontend  k8s  scripts  services</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">5.2 Cài cert-manager (SSL tự động Let's Encrypt)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tự động cấp và gia hạn chứng chỉ HTTPS cho shopcaovanson.xyz và shopapicaovanson.xyz.</p>
+        <p><span class="label">📋 Điều kiện:</span> DNS đã trỏ 110.172.29.72, port 80 mở.</p>
+      </div>
+      <pre class="cmd-code">helm repo add jetstack https://charts.jetstack.io
+helm repo update jetstack
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --version v1.14.5 --set installCRDs=true --wait
+kubectl apply -f k8s/base/cert-manager/cluster-issuer.yaml
+kubectl get clusterissuer</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">STATUS: deployed
+REVISION: 1
+
+NAME               READY   AGE
+<span class="ok">letsencrypt-prod</span>   True    30s</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">5.3 Cài nginx-ingress controller</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Reverse proxy nhận traffic HTTP/HTTPS từ internet, route đến frontend và API services.</p>
+        <p><span class="label">✅ Thành công khi:</span> EXTERNAL-IP = <strong>110.172.29.72</strong></p>
+      </div>
+      <pre class="cmd-code">helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update ingress-nginx
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx --create-namespace \
+  --version 4.10.0 \
+  --set controller.service.type=LoadBalancer \
+  --set controller.admissionWebhooks.enabled=false \
+  --wait
+
+kubectl get svc -n ingress-nginx</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAME                                 TYPE           EXTERNAL-IP
+ingress-nginx-controller             LoadBalancer   <span class="ok">110.172.29.72</span>
+ingress-nginx-controller-admission     ClusterIP      &lt;none&gt;
+
+<span class="comment"># Nếu EXTERNAL-IP vẫn &lt;pending&gt; → kiểm tra MetalLB (Phase 4.2)</span></pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 6 -->
+  <section id="phase6">
+    <h2><span class="phase-tag">PHASE 6</span> Kubernetes Secrets</h2>
+    <div class="card danger">
+      <strong>🔒 Quan trọng:</strong> Lưu mật khẩu vào password manager. Không commit secrets vào git.
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">6.1 Tạo mật khẩu ngẫu nhiên</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Sinh mật khẩu mạnh cho Postgres, MongoDB, Redis, Elasticsearch — dùng chung cho infra và app secrets.</p>
+        <p><span class="label">⚠️ Bắt buộc:</span> Copy và lưu output — mất mật khẩu = phải tạo lại secrets và redeploy.</p>
+      </div>
+      <pre class="cmd-code">export PG_PASS=$(openssl rand -base64 32)
+export MONGO_PASS=$(openssl rand -base64 32)
+export REDIS_PASS=$(openssl rand -base64 32)
+export ES_PASS=$(openssl rand -base64 32)
+echo "=== LƯU LẠI NGAY ==="
+echo "PG_PASS=$PG_PASS"
+echo "MONGO_PASS=$MONGO_PASS"
+echo "REDIS_PASS=$REDIS_PASS"
+echo "ES_PASS=$ES_PASS"</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">=== LƯU LẠI NGAY ===
+PG_PASS=<span class="ok">xK9mP2vL8nQ4wR7tY1uI3oP5aS6dF0gH==</span>
+MONGO_PASS=<span class="ok">aB3cD5eF7gH9iJ1kL2mN4oP6qR8sT0uV==</span>
+REDIS_PASS=<span class="ok">...</span>
+ES_PASS=<span class="ok">...</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">6.2 Tạo secrets hạ tầng (namespace: infra)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cung cấp mật khẩu cho PostgreSQL, MongoDB, Redis, Elasticsearch StatefulSets.</p>
+        <p><span class="label">📋 Chạy sau:</span> Bước 6.1 (biến $PG_PASS... phải còn trong session).</p>
+      </div>
+      <pre class="cmd-code">kubectl create namespace infra
+
+kubectl create secret generic postgres-secret -n infra \
+  --from-literal=POSTGRES_PASSWORD="$PG_PASS"
+
+kubectl create secret generic mongodb-secret -n infra \
+  --from-literal=MONGO_PASSWORD="$MONGO_PASS"
+
+kubectl create secret generic redis-secret -n infra \
+  --from-literal=REDIS_PASSWORD="$REDIS_PASS"
+
+kubectl create secret generic elasticsearch-secret -n infra \
+  --from-literal=ELASTIC_PASSWORD="$ES_PASS"
+
+kubectl get secrets -n infra</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">namespace/infra created
+secret/postgres-secret created
+secret/mongodb-secret created
+secret/redis-secret created
+secret/elasticsearch-secret created
+
+NAME                   TYPE     DATA   AGE
+<span class="ok">elasticsearch-secret</span>   Opaque   1      5s
+<span class="ok">mongodb-secret</span>         Opaque   1      5s
+<span class="ok">postgres-secret</span>        Opaque   1      5s
+<span class="ok">redis-secret</span>           Opaque   1      5s</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">6.3 Tạo secrets ứng dụng + JWT keys (namespace: shop)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cấp DB password, Redis password, cặp khóa RSA JWT cho auth-service và api-gateway.</p>
+        <p><span class="label">📧 SMTP:</span> Thay <code>your-smtp@gmail.com</code> bằng email thật nếu cần gửi mail.</p>
+      </div>
+      <pre class="cmd-code">kubectl create namespace shop
+
+openssl genrsa -out jwt-private.pem 2048
+openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem
+
+kubectl create secret generic auth-service-secret -n shop \
+  --from-literal=DB_PASSWORD="$PG_PASS" \
+  --from-literal=REDIS_PASSWORD="$REDIS_PASS" \
+  --from-file=JWT_PRIVATE_KEY=jwt-private.pem \
+  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
+
+kubectl create secret generic api-gateway-secret -n shop \
+  --from-literal=REDIS_PASSWORD="$REDIS_PASS" \
+  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
+
+kubectl create secret generic product-service-secret -n shop \
+  --from-literal=DB_PASSWORD="$PG_PASS" \
+  --from-literal=MONGO_PASSWORD="$MONGO_PASS" \
+  --from-literal=ELASTIC_PASSWORD="$ES_PASS"
+
+kubectl create secret generic order-service-secret -n shop \
+  --from-literal=DB_PASSWORD="$PG_PASS" \
+  --from-literal=REDIS_PASSWORD="$REDIS_PASS"
+
+kubectl create secret generic chat-service-secret -n shop \
+  --from-literal=MONGO_PASSWORD="$MONGO_PASS" \
+  --from-literal=REDIS_PASSWORD="$REDIS_PASS" \
+  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
+
+kubectl create secret generic notification-service-secret -n shop \
+  --from-literal=SMTP_USER='your-smtp@gmail.com' \
+  --from-literal=SMTP_PASSWORD='your-gmail-app-password'
+
+kubectl create secret generic search-service-secret -n shop \
+  --from-literal=ELASTIC_PASSWORD="$ES_PASS"
+
+rm -f jwt-private.pem jwt-public.pem
+kubectl get secrets -n shop</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Generating RSA private key, 2048 bit...
+writing RSA key
+secret/auth-service-secret created
+...
+secret/search-service-secret created
+
+NAME                          TYPE     DATA   AGE
+<span class="ok">api-gateway-secret</span>          Opaque   2      10s
+<span class="ok">auth-service-secret</span>           Opaque   4      10s
+<span class="ok">chat-service-secret</span>           Opaque   3      10s
+<span class="ok">notification-service-secret</span>   Opaque   2      10s
+<span class="ok">order-service-secret</span>          Opaque   2      10s
+<span class="ok">product-service-secret</span>        Opaque   3      10s
+<span class="ok">search-service-secret</span>         Opaque   1      10s</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 7 -->
+  <section id="phase7">
+    <h2><span class="phase-tag">PHASE 7</span> Deploy ứng dụng</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">7.1 Deploy toàn bộ (overlay dev — khuyến nghị 16GB RAM)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Deploy infra (DB, Kafka, ES) + 7 microservices + frontend + ingress. Overlay dev = 1 replica mỗi service.</p>
+        <p><span class="label">⏱ Thời gian:</span> 10–20 phút (chờ Elasticsearch, Kafka khởi động).</p>
+        <p><span class="label">📋 Script tự động:</span> Kiểm tra secrets → apply manifests → chờ pods ready.</p>
+      </div>
+      <pre class="cmd-code">cd ~/shopcaovanson
+OVERLAY=dev bash scripts/deploy-all.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[deploy-all] Installing cert-manager v1.14.5...
+[deploy-all] cert-manager deployed.
+[deploy-all] Installing nginx-ingress 4.10.0...
+[deploy-all] nginx-ingress deployed.
+[deploy-all] Checking infra secrets in namespace infra...
+[deploy-all] Checking application secrets in namespace shop...
+[deploy-all] Deploying manifests from overlay: dev
+[deploy-all] Waiting for infrastructure pods...
+statefulset rolling update complete postgres
+statefulset rolling update complete mongodb
+...
+statefulset rolling update complete elasticsearch
+[deploy-all] Waiting for application pods...
+deployment "api-gateway" successfully rolled out
+deployment "auth-service" successfully rolled out
+...
+<span class="ok">[deploy-all] Deploy complete.</span>
+[deploy-all] Run migrations: bash scripts/migrate-all.sh
+[deploy-all] Seed data:       bash scripts/seed-data.sh</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">7.2 Kiểm tra pods sau deploy</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận tất cả pod Running — không có CrashLoopBackOff hoặc Pending.</p>
+      </div>
+      <pre class="cmd-code">kubectl get pods -n infra
+kubectl get pods -n shop
+kubectl get ingress -n shop
+kubectl top nodes</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview"><span class="comment"># namespace infra</span>
+NAME              READY   STATUS    RESTARTS   AGE
+elasticsearch-0   <span class="ok">1/1</span>     Running   0          8m
+kafka-0           <span class="ok">1/1</span>     Running   0          8m
+mongodb-0         <span class="ok">1/1</span>     Running   0          8m
+postgres-0        <span class="ok">1/1</span>     Running   0          8m
+redis-0           <span class="ok">1/1</span>     Running   0          8m
+zookeeper-0       <span class="ok">1/1</span>     Running   0          8m
+
+<span class="comment"># namespace shop</span>
+NAME                              READY   STATUS    RESTARTS   AGE
+api-gateway-xxxxx                 <span class="ok">1/1</span>     Running   0          5m
+auth-service-xxxxx                <span class="ok">1/1</span>     Running   0          5m
+frontend-xxxxx                    <span class="ok">1/1</span>     Running   0          5m
+...
+
+NAME          CLASS   HOSTS                                    ADDRESS
+shop-ingress  nginx   shopcaovanson.xyz,shopapicaovanson.xyz   <span class="ok">110.172.29.72</span></pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- PHASE 8 -->
+  <section id="phase8">
+    <h2><span class="phase-tag">PHASE 8</span> Migration &amp; Seed Data</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">8.1 Chạy database migrations</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tạo bảng database cho auth, product, order services — bắt buộc trước khi app hoạt động.</p>
+      </div>
+      <pre class="cmd-code">cd ~/shopcaovanson
+bash scripts/migrate-all.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[migrate] Running auth-service migrations...
+job.batch/migrate-auth-service-xxxxx created
+job.batch/migrate-auth-service-xxxxx condition met
+[migrate] Running product-service migrations...
+<span class="ok">job.batch/migrate-product-service-xxxxx condition met</span>
+[migrate] Running order-service migrations...
+<span class="ok">job.batch/migrate-order-service-xxxxx condition met</span>
+<span class="ok">[migrate] All migrations complete.</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">8.2 Seed dữ liệu mẫu</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tạo 50 users, 200 sản phẩm, 300 đơn hàng, dữ liệu chat — để test ngay trên production.</p>
+        <p><span class="label">👤 Admin:</span> <code>admin@shop.com</code> / <code>Admin@123</code></p>
+      </div>
+      <pre class="cmd-code">cd ~/shopcaovanson
+bash scripts/seed-data.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[seed] Seeding auth-service...
+<span class="ok">50 users created (1 admin)</span>
+[seed] Seeding product-service...
+<span class="ok">200 products, 10 categories, 500 reviews</span>
+[seed] Seeding order-service...
+<span class="ok">300 orders created</span>
+[seed] Seeding chat-service...
+<span class="ok">20 rooms, ~400 messages</span>
+<span class="ok">[seed] Seed complete.</span></pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- VERIFY -->
+  <section id="verify">
+    <h2>11. Kiểm tra cuối — Truy cập production</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">11.1 Kiểm tra SSL certificate</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận Let's Encrypt đã cấp chứng chỉ HTTPS (đợi 2–5 phút sau deploy).</p>
+      </div>
+      <pre class="cmd-code">kubectl get certificates -n shop
+kubectl describe certificate frontend-tls -n shop | tail -10</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAME           READY   SECRET         AGE
+frontend-tls   <span class="ok">True</span>    frontend-tls   5m
+backend-tls    <span class="ok">True</span>    backend-tls    5m
+
+  Conditions:
+    Type    Status   Reason
+    Ready   <span class="ok">True</span>    Ready</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">11.2 Test API health từ VPS</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Kiểm tra API gateway phản hồi qua HTTPS.</p>
+      </div>
+      <pre class="cmd-code">curl -s https://shopapicaovanson.xyz/api/health | jq .
+curl -sI https://shopcaovanson.xyz | head -5</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">{
+  "status": "<span class="ok">ok</span>",
+  "service": "api-gateway"
+}
+
+HTTP/2 <span class="ok">200</span>
+server: nginx
+content-type: text/html</pre>
+      </details>
+    </div>
+
+    <table>
+      <tr><th>Tài nguyên</th><th>URL</th></tr>
+      <tr><td>Frontend</td><td><a href="https://shopcaovanson.xyz" style="color:#64b5f6">https://shopcaovanson.xyz</a></td></tr>
+      <tr><td>API</td><td><a href="https://shopapicaovanson.xyz/api" style="color:#64b5f6">https://shopapicaovanson.xyz/api</a></td></tr>
+      <tr><td>Admin login</td><td>admin@shop.com / Admin@123</td></tr>
+      <tr><td>VPS IP</td><td>110.172.29.72</td></tr>
+    </table>
+  </section>
+
+  <!-- CI/CD -->
+  <section id="cicd">
+    <h2>12. CI/CD — Git, GitHub Actions &amp; auto deploy nhánh <code>prod</code></h2>
+    <p>Khi push code lên nhánh <strong>prod</strong>, GitHub Actions tự động: build Docker image → push GHCR → deploy lên K8s VPS <code>110.172.29.72</code> → verify health.</p>
+
+    <div class="arch">Developer push code → branch prod
+        |
+        v
+  GitHub Actions (.github/workflows/deploy.yaml)
+        |
+   +----+----+
+   |         |
+   v         v
+Build image   Deploy K8s (kubectl)
+push GHCR     VPS 110.172.29.72
+   |              |
+   +------+-------+
+          v
+   shopcaovanson.xyz live</div>
+
+    <h3>12.0 Luồng nhánh Git khuyến nghị</h3>
+    <table>
+      <tr><th>Nhánh</th><th>Mục đích</th><th>CI/CD</th></tr>
+      <tr><td><code>main</code> / <code>dev</code></td><td>Phát triển, test local</td><td>Không auto deploy</td></tr>
+      <tr><td><code>prod</code></td><td>Production trên VPS</td><td><strong>Auto build + deploy</strong></td></tr>
+    </table>
+
+    <h3><span class="phase-tag">GIT-1</span> Kết nối Git &amp; đẩy code lên GitHub</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.1 Khởi tạo Git local &amp; remote (lần đầu)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Liên kết project local với repo GitHub — nền tảng cho CI/CD.</p>
+        <p><span class="label">📍 Chạy tại:</span> Máy dev (Windows: PowerShell trong <code>d:\k8s\shopcaovanson</code>).</p>
+      </div>
+      <pre class="cmd-code">cd d:\k8s\shopcaovanson
+
+# Kiểm tra git đã cài
+git --version
+
+# Cấu hình identity (thay email/tên của bạn)
+git config user.name "Cao Van Son"
+git config user.email "admin@shopcaovanson.xyz"
+
+# Thêm remote GitHub (tạo repo trống trên github.com trước)
+git remote add origin https://github.com/caovanson/shopcaovanson.git
+git remote -v</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">git version 2.x.x
+origin  https://github.com/caovanson/shopcaovanson.git (fetch)
+origin  https://github.com/caovanson/shopcaovanson.git (push)</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.2 Tạo nhánh prod &amp; push lần đầu</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tạo nhánh <code>prod</code> — mọi push vào nhánh này kích hoạt pipeline deploy.</p>
+      </div>
+      <pre class="cmd-code">cd d:\k8s\shopcaovanson
+git checkout -b prod
+git add .
+git commit -m "chore: initial production setup"
+git push -u origin prod</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Switched to a new branch 'prod'
+[prod abc1234] chore: initial production setup
+ ...
+To https://github.com/caovanson/shopcaovanson.git
+ * [new branch]      <span class="ok">prod -> prod</span>
+branch 'prod' set up to track 'origin/prod'.</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.3 Quy trình deploy hàng ngày (dev → prod)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Merge code đã test vào <code>prod</code> để trigger auto deploy.</p>
+      </div>
+      <pre class="cmd-code"># Sau khi sửa code trên nhánh dev/feature
+git checkout prod
+git pull origin prod
+git merge dev          # hoặc cherry-pick commit cụ thể
+git push origin prod   # → GitHub Actions tự deploy lên VPS
+
+# Xem pipeline trên GitHub:
+# https://github.com/caovanson/shopcaovanson/actions</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview"><span class="comment"># Trên GitHub Actions tab:</span>
+Workflow: Build and Deploy (prod)
+Status: <span class="ok">✓ Success</span> (3-12 phút tùy service)
+
+Jobs:
+  detect-changes     ✓
+  build-auth-service ✓  (nếu auth thay đổi)
+  deploy-k8s         ✓  → VPS 110.172.29.72
+  update-manifests   ✓</pre>
+      </details>
+    </div>
+
+    <h3><span class="phase-tag">GIT-2</span> Cấu hình GitHub Secrets &amp; Kubeconfig</h3>
+
+    <div class="card info">
+      <strong>GitHub Secrets cần tạo:</strong> Vào repo → <em>Settings → Secrets and variables → Actions → New repository secret</em>
+      <table>
+        <tr><th>Secret</th><th>Giá trị</th><th>Mục đích</th></tr>
+        <tr><td><code>KUBECONFIG_DATA</code></td><td>base64 kubeconfig</td><td>GitHub Actions kết nối K8s VPS</td></tr>
+      </table>
+      <p style="margin-top:0.5rem"><code>GITHUB_TOKEN</code> tự có sẵn — dùng push image lên GHCR, không cần tạo thủ công.</p>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.4 Tạo kubeconfig CI/CD trên VPS</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tạo token ServiceAccount <code>cicd-deployer</code> — GitHub Actions dùng để deploy (không dùng cluster-admin).</p>
+        <p><span class="label">📍 Chạy tại:</span> SSH <code>root@110.172.29.72</code></p>
+        <p><span class="label">📋 Điều kiện:</span> Đã chạy <code>bash scripts/apply-security.sh</code></p>
+      </div>
+      <pre class="cmd-code">cd ~/shopcaovanson
+bash scripts/apply-security.sh
+chmod +x scripts/create-cicd-kubeconfig.sh
+bash scripts/create-cicd-kubeconfig.sh
+
+# Script in ra chuỗi base64 — copy TOÀN BỘ dòng đó
+# Dán vào GitHub Secret: KUBECONFIG_DATA</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[create-cicd-kubeconfig] Kubeconfig saved: ./cicd-kubeconfig.yaml
+
+=== Thêm vào GitHub Secrets ===
+Secret name: KUBECONFIG_DATA
+Secret value (copy dòng dưới):
+
+<span class="ok">YXBpVmVyc2lvbjogdjEvCmtpbmQ6... (chuỗi base64 dài)</span>
+
+<span class="comment"># Test trên VPS:</span>
+KUBECONFIG=./cicd-kubeconfig.yaml kubectl get deployments -n shop
+NAME           READY   UP-TO-DATE   AVAILABLE
+auth-service   2/2     2            2
+...</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.5 Mở port 6443 cho GitHub Actions runners</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> GitHub Actions (cloud runner) cần gọi K8s API port 6443 trên VPS. Cho phép dải IP GitHub hoặc tạm mở rộng (xem <a href="https://api.github.com/meta" style="color:#64b5f6">GitHub IP ranges</a>).</p>
+        <p><span class="label">💡 Cách đơn giản hơn:</span> Dùng <strong>self-hosted runner</strong> cài trên VPS — không cần mở 6443 ra internet.</p>
+      </div>
+      <pre class="cmd-code"># Tải IP ranges GitHub Actions
+curl -s https://api.github.com/meta | jq -r '.actions[]'
+
+# Cho phép từng dải (ví dụ)
+sudo ufw allow from 140.82.112.0/20 to any port 6443 proto tcp comment 'GitHub Actions'
+sudo ufw allow from 143.55.64.0/20 to any port 6443 proto tcp comment 'GitHub Actions'
+sudo ufw status | grep 6443</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">140.82.112.0/20
+143.55.64.0/20
+...
+
+6443/tcp                   ALLOW IN    140.82.112.0/20
+6443/tcp                   ALLOW IN    143.55.64.0/20</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.6 Cho phép cluster pull image từ GHCR (nếu package private)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> K8s cần quyền pull image <code>ghcr.io/caovanson/*</code> nếu package để private.</p>
+        <p><span class="label">📋 PAT:</span> Tạo tại GitHub → Settings → Developer settings → PAT → quyền <code>read:packages</code></p>
+      </div>
+      <pre class="cmd-code"># Trên VPS
+kubectl create secret docker-registry ghcr-secret -n shop \
+  --docker-server=ghcr.io \
+  --docker-username=caovanson \
+  --docker-password="YOUR_GITHUB_PAT" \
+  --docker-email=admin@shopcaovanson.xyz
+
+# Thêm vào deployment (nếu ImagePullBackOff):
+# spec.template.spec.imagePullSecrets:
+#   - name: ghcr-secret</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">secret/ghcr-secret created
+
+<span class="comment"># Kiểm tra pod pull được image:</span>
+kubectl describe pod -l app=auth-service -n shop | grep -A2 "Pulling"
+<span class="ok">Successfully pulled image "ghcr.io/caovanson/auth-service:latest"</span></pre>
+      </details>
+    </div>
+
+    <h3><span class="phase-tag">GIT-3</span> Kiểm tra pipeline &amp; deploy thủ công</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.7 Trigger deploy thủ công (không cần push code)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Chạy lại pipeline từ GitHub UI — hữu ích khi fix secret hoặc redeploy.</p>
+      </div>
+      <pre class="cmd-code"># GitHub → Actions → "Build and Deploy (prod)" → Run workflow → Branch: prod
+
+# Hoặc trên VPS deploy thủ công 1 service:
+cd ~/shopcaovanson
+SHA=$(git rev-parse HEAD)
+SERVICES="auth-service" SHA="${SHA}" bash scripts/ci-deploy.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[ci-deploy] Rolling out auth-service → ghcr.io/caovanson/auth-service:abc1234
+deployment.apps/auth-service image updated
+Waiting for deployment "auth-service" rollout to finish: 1 of 2 updated replicas are available...
+<span class="ok">deployment "auth-service" successfully rolled out</span>
+[ci-deploy] ✓ auth-service deployed</pre>
+      </details>
+    </div>
+
+    <div class="card ok">
+      <strong>Pipeline file:</strong> <code>.github/workflows/deploy.yaml</code><br>
+      <strong>Trigger:</strong> push nhánh <code>prod</code> hoặc workflow_dispatch<br>
+      <strong>Chỉ build service thay đổi</strong> (path filter) — tiết kiệm thời gian CI
+    </div>
+  </section>
+
+  <!-- VẬN HÀNH -->
+  <section id="van-hanh">
+    <h2>13. Vận hành — Kiểm tra container, pod &amp; ứng dụng</h2>
+    <p>Tất cả lệnh dưới chạy trên VPS <code>110.172.29.72</code> sau khi SSH vào. Dùng hàng ngày để giám sát hệ thống.</p>
+
+    <h3>13.1 Kiểm tra nhanh toàn bộ (1 lệnh)</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.1 Script verify-app — kiểm tra tất cả</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Kiểm tra nodes, pods, deployments, infra, HTTP health API + frontend — báo PASS/FAIL.</p>
+      </div>
+      <pre class="cmd-code">cd ~/shopcaovanson
+chmod +x scripts/verify-app.sh
+bash scripts/verify-app.sh
+
+# Hoặc qua Makefile
+make verify-app</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">========== Kubernetes cluster ==========
+<span class="ok">✓</span> Cluster reachable
+NAME         STATUS   ROLES           AGE   VERSION
+k8s-master   Ready    control-plane   5d    v1.29.x
+
+========== Pods namespace: shop ==========
+<span class="ok">✓</span> Tất cả pods Running trong shop
+
+========== HTTP health checks ==========
+<span class="ok">✓</span> API https://shopapicaovanson.xyz/api/health → HTTP 200
+<span class="ok">✓</span> Frontend https://shopcaovanson.xyz → HTTP 200
+
+<span class="ok">✓ Tất cả kiểm tra PASSED</span></pre>
+      </details>
+    </div>
+
+    <h3>13.2 Kiểm tra container &amp; pod Kubernetes</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.2 Xem tất cả pod đang chạy</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Liệt kê pod — cột READY phải đủ (vd: 1/1, 2/2), STATUS = Running.</p>
+      </div>
+      <pre class="cmd-code"># Tất cả namespace quan trọng
+kubectl get pods -n shop -o wide
+kubectl get pods -n infra -o wide
+kubectl get pods -n ingress-nginx
+kubectl get pods -n cert-manager
+
+# Makefile shortcut
+make status</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAMESPACE  NAME                              READY   STATUS    RESTARTS   IP
+shop       api-gateway-7d8f9c6b4-xk2mj         <span class="ok">1/1</span>     Running   0          192.168.1.10
+shop       auth-service-5c7d8f9b4-abc12        <span class="ok">2/2</span>     Running   0          192.168.1.11
+shop       frontend-6b8c9d7e5-def34            <span class="ok">2/2</span>     Running   0          192.168.1.12
+infra      postgres-0                        <span class="ok">1/1</span>     Running   0          192.168.1.50
+infra      kafka-0                           <span class="ok">1/1</span>     Running   0          192.168.1.53</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.3 Chi tiết container trong 1 pod</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xem image đang chạy, trạng thái container, lý do restart/crash.</p>
+      </div>
+      <pre class="cmd-code"># Thay tên pod (lấy từ kubectl get pods)
+kubectl describe pod -l app=auth-service -n shop
+
+# Chỉ xem image + trạng thái container
+kubectl get pods -n shop -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .status.containerStatuses[*]}  {.name}: ready={.ready} image={.image}{"\n"}{end}{end}'
+
+# Container runtime (containerd) trên node
+sudo crictl ps | head -20</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Containers:
+  auth-service:
+    Image:          <span class="ok">ghcr.io/caovanson/auth-service:abc1234</span>
+    State:          <span class="ok">Running</span>
+    Ready:          <span class="ok">True</span>
+    Restart Count:  0
+
+<span class="comment"># crictl — container trên node:</span>
+CONTAINER ID   IMAGE                                    STATUS
+a1b2c3d4e5f6   ghcr.io/caovanson/auth-service:abc1234   <span class="ok">Running</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.4 Pod lỗi — Pending / CrashLoopBackOff / ImagePullBackOff</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Chẩn đoán pod không healthy — đọc Events ở cuối describe.</p>
+      </div>
+      <pre class="cmd-code"># Liệt kê pod có vấn đề
+kubectl get pods -n shop | grep -v Running
+kubectl get pods -n infra | grep -v Running
+
+# Chi tiết lỗi
+kubectl describe pod POD_NAME -n shop | tail -25
+
+# Log container crash
+kubectl logs POD_NAME -n shop --previous --tail=50</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả &amp; cách xử lý</summary>
+        <pre class="output-preview"><span class="warn">ImagePullBackOff</span> → kiểm tra ghcr-secret, image tag tồn tại
+<span class="warn">CrashLoopBackOff</span> → kubectl logs để xem lỗi app (DB connection, env...)
+<span class="warn">Pending</span>          → thiếu RAM: kubectl describe pod | grep -A5 Events
+                   → Insufficient memory → dùng OVERLAY=dev
+
+Events:
+  Warning  Failed  Error: ImagePullBackOff</pre>
+      </details>
+    </div>
+
+    <h3>13.3 Kiểm tra tài nguyên &amp; deployment</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.5 CPU/RAM nodes và pods</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Theo dõi RAM 16GB — nếu MEMORY% &gt; 85% cần giảm replica hoặc nâng VPS.</p>
+      </div>
+      <pre class="cmd-code">kubectl top nodes
+kubectl top pods -n shop --sort-by=memory | head -15
+kubectl top pods -n infra --sort-by=memory
+
+# RAM hệ thống VPS
+free -h</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+k8s-master   1200m        15%      <span class="ok">11200Mi</span>       70%
+
+NAME                  CPU(cores)   MEMORY(bytes)
+elasticsearch-0       200m         <span class="warn">2100Mi</span>
+kafka-0               150m         980Mi
+auth-service-xxx      50m          120Mi
+
+               total        used        free
+Mem:            15Gi        <span class="ok">12Gi</span>        2.5Gi</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.6 Trạng thái deployment &amp; rollout history</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận deploy CI/CD thành công — READY phải bằng DESIRED.</p>
+      </div>
+      <pre class="cmd-code">kubectl get deployments -n shop
+kubectl rollout status deployment/auth-service -n shop
+kubectl rollout history deployment/auth-service -n shop
+
+# Rollback nếu deploy lỗi
+kubectl rollout undo deployment/auth-service -n shop
+kubectl rollout status deployment/auth-service -n shop</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+auth-service   <span class="ok">2/2</span>     2            2           3d
+api-gateway    <span class="ok">2/2</span>     2            2           3d
+
+deployment "auth-service" successfully rolled out
+
+REVISION  CHANGE-CAUSE
+1         &lt;none&gt;
+2         &lt;none&gt;   <span class="comment">← revision mới sau CI/CD</span></pre>
+      </details>
+    </div>
+
+    <h3>13.4 Kiểm tra ứng dụng (HTTP / API / DB)</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.7 Health check từng microservice</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Gọi endpoint /health qua ingress và trực tiếp trong cluster.</p>
+      </div>
+      <pre class="cmd-code"># Từ internet (HTTPS)
+curl -s https://shopapicaovanson.xyz/api/health | jq .
+curl -s https://shopapicaovanson.xyz/api/auth/health | jq .
+curl -sI https://shopcaovanson.xyz | head -3
+
+# Từ trong cluster (bypass ingress)
+kubectl run curl-test --rm -it --restart=Never --image=curlimages/curl:8.5.0 -n shop -- \
+  curl -s http://auth-service.shop.svc.cluster.local/health
+
+kubectl run curl-test --rm -it --restart=Never --image=curlimages/curl:8.5.0 -n shop -- \
+  curl -s http://api-gateway.shop.svc.cluster.local/health</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">{"status":"<span class="ok">ok</span>","service":"api-gateway"}
+{"status":"<span class="ok">ok</span>","service":"auth-service"}
+HTTP/2 <span class="ok">200</span>
+
+{"status":"<span class="ok">ok</span>","service":"auth-service"}
+pod "curl-test" deleted</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.8 Xem log ứng dụng real-time</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Theo dõi log container — debug lỗi API, DB, Kafka.</p>
+      </div>
+      <pre class="cmd-code"># Log 1 service (theo label app)
+kubectl logs -f -l app=auth-service -n shop --tail=100 --all-containers
+
+# Makefile
+make logs svc=auth-service
+make logs svc=api-gateway
+
+# Log infra
+kubectl logs -f postgres-0 -n infra --tail=50
+kubectl logs -f kafka-0 -n infra --tail=50
+
+# Log tất cả pod lỗi
+kubectl get pods -n shop --field-selector=status.phase!=Running -o name | \
+  xargs -I{} kubectl logs {} -n shop --tail=30</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">{"level":"info","msg":"server started","port":8080}
+{"level":"info","msg":"connected to postgres"}
+{"level":"info","method":"GET","path":"/health","status":200}
+
+<span class="comment"># Lỗi thường gặp trong log:</span>
+<span class="warn">dial tcp: lookup postgres.infra.svc.cluster.local</span> → infra chưa ready
+<span class="warn">password authentication failed</span>                    → secret sai password</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.9 Kiểm tra database &amp; ingress</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận PostgreSQL sẵn sàng và ingress route đúng domain.</p>
+      </div>
+      <pre class="cmd-code"># PostgreSQL ready?
+kubectl exec -n infra postgres-0 -- pg_isready -U shopcaovanson -d shopcaovanson
+
+# Đếm user trong DB
+kubectl exec -n infra postgres-0 -- psql -U shopcaovanson -d shopcaovanson -c "SELECT count(*) FROM users;"
+
+# Ingress + TLS
+kubectl get ingress -n shop
+kubectl get certificates -n shop
+kubectl describe ingress shop-ingress -n shop | grep -E "Host|Path|Backend"</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">/var/run/postgresql:5432 - accepting connections
+ count
+-------
+    <span class="ok">50</span>
+
+NAME          CLASS   HOSTS                         ADDRESS
+shop-ingress  nginx   shopcaovanson.xyz + 1 more... <span class="ok">110.172.29.72</span>
+
+frontend-tls   <span class="ok">True</span>    frontend-tls
+backend-tls    <span class="ok">True</span>    backend-tls</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.10 Restart service &amp; xem events cluster</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Khởi động lại deployment sau khi đổi ConfigMap/Secret; xem events gần nhất.</p>
+      </div>
+      <pre class="cmd-code"># Restart 1 service
+make restart svc=product-service
+# hoặc
+kubectl rollout restart deployment/product-service -n shop
+kubectl rollout status deployment/product-service -n shop
+
+# Events 30 phút gần nhất
+kubectl get events -n shop --sort-by='.lastTimestamp' | tail -20
+kubectl get events -n infra --sort-by='.lastTimestamp' | tail -10</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">deployment.apps/product-service restarted
+Waiting for deployment "product-service" rollout to finish: 1 of 2 updated replicas are available...
+<span class="ok">deployment "product-service" successfully rolled out</span>
+
+2m   Normal   ScalingReplicaSet   deployment/product-service   Scaled up replica set
+1m   Normal   Pulled              pod/product-service-xxx       Container image already present</pre>
+      </details>
+    </div>
+
+    <table>
+      <tr><th>Lệnh Makefile</th><th>Mô tả</th></tr>
+      <tr><td><code>make status</code></td><td>Pods + services + ingress</td></tr>
+      <tr><td><code>make verify-app</code></td><td>Kiểm tra toàn bộ health</td></tr>
+      <tr><td><code>make logs svc=auth-service</code></td><td>Tail log service</td></tr>
+      <tr><td><code>make restart svc=auth-service</code></td><td>Restart deployment</td></tr>
+      <tr><td><code>make cicd-kubeconfig</code></td><td>Tạo kubeconfig cho GitHub Actions</td></tr>
+      <tr><td><code>make apply-security</code></td><td>Áp dụng NetworkPolicy + PSS</td></tr>
+    </table>
+  </section>
+
+  <!-- BẢO MẬT -->
+  <section id="bao-mat">
+    <h2>14. Bảo mật nâng cao — Hardening toàn hệ thống</h2>
+    <p>Áp dụng <strong>sau khi deploy thành công</strong> (Phase 7–8). Các bước dưới giảm diện tích tấn công cho VPS <code>110.172.29.72</code> và cluster Kubernetes.</p>
+
+    <div class="card danger">
+      <strong>⚠️ Đổi mật khẩu admin ngay sau seed:</strong> Tài khoản mặc định <code>admin@shop.com / Admin@123</code> chỉ dùng demo — đổi password mạnh trên production.
+    </div>
+
+    <h3>Bảng ưu tiên bảo mật</h3>
+    <table>
+      <tr><th>Mức</th><th>Hạng mục</th><th>Mô tả</th></tr>
+      <tr><td><span class="sec-level sec-critical">BẮT BUỘC</span></td><td>SSH key-only</td><td>Tắt đăng nhập mật khẩu, chặn root password</td></tr>
+      <tr><td><span class="sec-level sec-critical">BẮT BUỘC</span></td><td>UFW + Fail2ban</td><td>Chỉ mở 22/80/443, chống brute-force</td></tr>
+      <tr><td><span class="sec-level sec-critical">BẮT BUỘC</span></td><td>Secrets K8s</td><td>Không commit .env, JWT, DB password</td></tr>
+      <tr><td><span class="sec-level sec-high">CAO</span></td><td>NetworkPolicy</td><td>infra chỉ nhận từ shop; ingress chỉ từ nginx</td></tr>
+      <tr><td><span class="sec-level sec-high">CAO</span></td><td>Ingress TLS + rate limit</td><td>TLS 1.2+, giới hạn 50 req/s</td></tr>
+      <tr><td><span class="sec-level sec-high">CAO</span></td><td>Pod Security Standards</td><td>Cấm privileged container</td></tr>
+      <tr><td><span class="sec-level sec-medium">KHUYẾN NGHỊ</span></td><td>RBAC CI/CD</td><td>Pipeline không dùng cluster-admin</td></tr>
+      <tr><td><span class="sec-level sec-medium">KHUYẾN NGHỊ</span></td><td>Auto security updates</td><td>unattended-upgrades cho OS</td></tr>
+      <tr><td><span class="sec-level sec-medium">KHUYẾN NGHỊ</span></td><td>Backup mã hóa</td><td>PostgreSQL backup + etcd snapshot</td></tr>
+    </table>
+
+    <h3><span class="phase-tag">SEC-1</span> SSH &amp; OS Hardening</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.1 Tắt đăng nhập SSH bằng mật khẩu <span class="sec-level sec-critical">BẮT BUỘC</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Chỉ cho phép SSH bằng private key — chặn brute-force password trên port 22.</p>
+        <p><span class="label">⚠️ Cảnh báo:</span> Đảm bảo SSH key đã copy lên VPS <strong>trước</strong> khi chạy, nếu không sẽ bị khóa ngoài.</p>
+        <p><span class="label">📍 Chạy tại:</span> VPS 110.172.29.72</p>
+      </div>
+      <pre class="cmd-code"># Kiểm tra đã có SSH key chưa
+grep -c "ssh-" ~/.ssh/authorized_keys
+
+# Hardening sshd
+sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*X11Forwarding.*/X11Forwarding no/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config
+sudo systemctl restart sshd</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">$ grep PasswordAuthentication /etc/ssh/sshd_config
+PasswordAuthentication <span class="ok">no</span>
+
+$ grep PermitRootLogin /etc/ssh/sshd_config
+PermitRootLogin <span class="ok">prohibit-password</span>
+
+<span class="comment"># Test từ terminal MỚI (không đóng session cũ):</span>
+ssh root@110.172.29.72   <span class="ok">→ vào được bằng key</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.2 Giới hạn K8s API (port 6443) theo IP <span class="sec-level sec-high">CAO</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Port 6443 (Kubernetes API) không nên mở toàn internet — chỉ cho IP máy admin remote kubectl.</p>
+        <p><span class="label">📋 Thay</span> <code>YOUR_HOME_IP</code> bằng IP public máy bạn (tra tại whatismyip.com).</p>
+      </div>
+      <pre class="cmd-code"># Xóa rule mở 6443 cho mọi người (nếu đã tạo ở Phase 1)
+sudo ufw delete allow 6443/tcp
+
+# Chỉ cho phép IP admin (thay YOUR_HOME_IP)
+sudo ufw allow from YOUR_HOME_IP to any port 6443 proto tcp comment 'K8s API admin only'
+sudo ufw status numbered</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">Rule deleted
+Rule added
+
+     To                         Action      From
+     --                         ------      ----
+[6] 6443/tcp                   ALLOW IN    <span class="ok">203.0.113.50</span>    # K8s API admin only</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.3 Tự động cập nhật bản vá bảo mật OS <span class="sec-level sec-medium">KHUYẾN NGHỊ</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Tự động cài security patch Ubuntu — giảm rủi ro lỗ hổng kernel, OpenSSL, sshd.</p>
+      </div>
+      <pre class="cmd-code">sudo apt install -y unattended-upgrades apt-listchanges
+sudo dpkg-reconfigure -plow unattended-upgrades
+
+# Xác nhận đã bật
+cat /etc/apt/apt.conf.d/20auto-upgrades</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";</pre>
+      </details>
+    </div>
+
+    <h3><span class="phase-tag">SEC-2</span> Kubernetes — NetworkPolicy &amp; Pod Security</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.4 Áp dụng hardening K8s (1 lệnh) <span class="sec-level sec-critical">BẮT BUỘC</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Triển khai NetworkPolicy (cô lập infra/shop), Pod Security Standards, RBAC CI/CD, và security headers ingress.</p>
+        <p><span class="label">📁 Manifests:</span> <code>k8s/base/security/</code> trong repo shopcaovanson.</p>
+        <p><span class="label">📋 Bao gồm:</span></p>
+        <ul>
+          <li><strong>infra</strong> — chỉ namespace <code>shop</code> kết nối được DB/Kafka</li>
+          <li><strong>shop</strong> — chỉ <code>ingress-nginx</code> gọi được frontend/api/chat</li>
+          <li><strong>PSS baseline</strong> — cấm privileged container</li>
+          <li><strong>Ingress</strong> — force HTTPS, TLS 1.2+, rate limit 50 req/s</li>
+        </ul>
+      </div>
+      <pre class="cmd-code">cd ~/shopcaovanson
+chmod +x scripts/apply-security.sh
+bash scripts/apply-security.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[apply-security] Applying Pod Security Standards + NetworkPolicy + RBAC...
+namespace/shop configured
+namespace/infra configured
+networkpolicy.networking.k8s.io/infra-allow-shop-only created
+networkpolicy.networking.k8s.io/shop-allow-ingress-controller created
+networkpolicy.networking.k8s.io/shop-egress-controlled created
+serviceaccount/cicd-deployer created
+[apply-security] Patching shop-ingress security annotations...
+ingress.networking.k8s.io/shop-ingress annotated
+
+$ kubectl get networkpolicy -A
+NAMESPACE   NAME                           POD-SELECTOR   AGE
+infra       <span class="ok">infra-allow-shop-only</span>          &lt;all&gt;          10s
+shop        <span class="ok">shop-allow-ingress-controller</span>    app in (...)   10s
+shop        <span class="ok">shop-egress-controlled</span>           &lt;all&gt;          10s</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.5 Kiểm tra NetworkPolicy hoạt động <span class="sec-level sec-high">CAO</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận policy đã active — pod ngoài shop không thể kết nối trực tiếp Postgres.</p>
+      </div>
+      <pre class="cmd-code">kubectl get networkpolicy -n shop -o wide
+kubectl get networkpolicy -n infra -o wide
+kubectl get ns shop infra --show-labels | grep pod-security
+
+# Test: từ pod debug trong default namespace → postgres phải TIMEOUT
+kubectl run nettest --rm -it --restart=Never --image=busybox:1.36 -- \
+  wget -qO- --timeout=3 postgres.infra.svc.cluster.local:5432 || echo "BLOCKED OK"</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAME                            POD-SELECTOR     AGE
+shop-allow-ingress-controller   app in (...)     2m
+shop-egress-controlled          &lt;none&gt;           2m
+
+infra   pod-security.kubernetes.io/enforce=baseline
+shop    pod-security.kubernetes.io/enforce=baseline
+
+wget: can't connect to remote host: Connection timed out
+<span class="ok">BLOCKED OK</span>   <span class="comment">← NetworkPolicy chặn đúng</span></pre>
+      </details>
+    </div>
+
+    <h3><span class="phase-tag">SEC-3</span> Ứng dụng &amp; Secrets</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.6 Đổi mật khẩu admin production <span class="sec-level sec-critical">BẮT BUỘC</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Vô hiệu hóa credential demo <code>Admin@123</code> — đổi qua API hoặc SQL trực tiếp.</p>
+      </div>
+      <pre class="cmd-code"># Cách 1: Đăng nhập https://shopcaovanson.xyz → Profile → Đổi mật khẩu
+
+# Cách 2: Qua API (cần token admin hiện tại)
+curl -s -X POST https://shopapicaovanson.xyz/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@shop.com","password":"Admin@123"}' | jq -r .token
+
+# Dùng token trả về để gọi đổi password (endpoint change-password nếu có)</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">{
+  "token": "<span class="ok">eyJhbGciOiJSUzI1NiIs...</span>",
+  "user": { "email": "admin@shop.com", "role": "admin" }
+}
+
+<span class="comment"># Sau khi đổi, login cũ Admin@123 phải trả 401:</span>
+{"error":"invalid credentials"}</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.7 Mã hóa backup PostgreSQL <span class="sec-level sec-high">CAO</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Backup DB được nén + mã hóa GPG — nếu file backup bị lộ vẫn không đọc được dữ liệu.</p>
+      </div>
+      <pre class="cmd-code"># Tạo khóa GPG (chỉ chạy 1 lần, lưu passphrase an toàn)
+gpg --batch --passphrase "$(openssl rand -base64 24)" \
+  --quick-gen-key "backup@shopcaovanson.xyz" default default
+
+# Backup mã hóa hàng ngày
+BACKUP_DIR="/var/backups/k8s/postgres"
+mkdir -p "$BACKUP_DIR"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+kubectl exec -n infra postgres-0 -- pg_dump -U shopcaovanson shopcaovanson \
+  | gzip | gpg --encrypt --recipient backup@shopcaovanson.xyz \
+  > "$BACKUP_DIR/shop_${TIMESTAMP}.sql.gz.gpg"
+ls -lh "$BACKUP_DIR" | tail -3</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">gpg: shop_20260623_020000.sql.gz.gpg: encryption with RSA key OK
+
+-rw-r--r-- 1 root root 2.1M Jun 23 02:00 <span class="ok">shop_20260623_020000.sql.gz.gpg</span>
+<span class="comment"># File .gpg không mở được nếu không có private key GPG</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.8 Giới hạn quyền file kubeconfig <span class="sec-level sec-critical">BẮT BUỘC</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> File <code>~/.kube/config</code> chứa cluster-admin token — chỉ owner đọc được (chmod 600).</p>
+      </div>
+      <pre class="cmd-code">chmod 600 ~/.kube/config
+ls -la ~/.kube/config
+
+# Không copy kubeconfig vào git, Slack, email
+# CI/CD: dùng ServiceAccount cicd-deployer (quyền hạn chế) thay cluster-admin</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">-rw------- 1 deploy deploy 5632 Jun 23 10:00 <span class="ok">/home/deploy/.kube/config</span>
+<span class="comment"># rw------- = chỉ user deploy đọc/ghi</span></pre>
+      </details>
+    </div>
+
+    <h3><span class="phase-tag">SEC-4</span> Giám sát &amp; Kiểm tra định kỳ</h3>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.9 Quét lỗ hổng nhanh (kube-bench CIS) <span class="sec-level sec-medium">KHUYẾN NGHỊ</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Kiểm tra cluster theo chuẩn CIS Kubernetes Benchmark — phát hiện cấu hình yếu.</p>
+        <p><span class="label">⏱ Thời gian:</span> ~2 phút.</p>
+      </div>
+      <pre class="cmd-code">kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job.yaml
+sleep 30
+kubectl logs job/kube-bench -n default | tail -40</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[INFO] 1 Master Node Security Configuration
+[PASS] 1.1.1 Ensure that the API server pod specification file permissions...
+[PASS] 1.2.1 Ensure that the --anonymous-auth argument is set to false
+[WARN] 1.2.6 Ensure that the --kubelet-certificate-authority argument is set
+...
+<span class="comment"># Xử lý các dòng [FAIL] theo hướng dẫn kube-bench</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.10 Kiểm tra TLS &amp; security headers từ internet <span class="sec-level sec-high">CAO</span></span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận HTTPS redirect, TLS version, và headers bảo mật từ bên ngoài.</p>
+        <p><span class="label">📍 Chạy tại:</span> Máy local hoặc VPS.</p>
+      </div>
+      <pre class="cmd-code"># HTTP phải redirect sang HTTPS
+curl -sI http://shopcaovanson.xyz | head -5
+
+# HTTPS headers
+curl -sI https://shopcaovanson.xyz | grep -iE 'HTTP|strict|x-frame|x-content'
+
+# Kiểm tra TLS (cần openssl)
+echo | openssl s_client -connect shopcaovanson.xyz:443 -servername shopcaovanson.xyz 2>/dev/null | openssl x509 -noout -dates -issuer</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">HTTP/1.1 <span class="ok">308 Permanent Redirect</span>
+Location: https://shopcaovanson.xyz/
+
+HTTP/2 <span class="ok">200</span>
+<span class="comment"># Server header bị ẩn (proxy-hide-headers)</span>
+
+notBefore=Jun 23 00:00:00 2026 GMT
+notAfter=Sep 21 23:59:59 2026 GMT
+issuer=C = US, O = Let's Encrypt, CN = R3</pre>
+      </details>
+    </div>
+
+    <div class="card ok">
+      <strong>🔒 Tóm tắt lớp bảo mật sau khi áp dụng:</strong>
+      <div class="arch">Internet
+   |
+   |  UFW (22/80/443) + Fail2ban
+   v
+110.172.29.72
+   |
+   |  nginx-ingress: TLS 1.2+, rate limit 50rps, force HTTPS
+   v
+namespace shop  &lt;──NetworkPolicy──&gt;  namespace infra
+(PSS baseline)      chỉ shop→infra       (DB không expose ra ngoài)</div>
+    </div>
+  </section>
+
+  <!-- TROUBLESHOOTING -->
+  <section id="sua-loi">
+    <h2>15. Xử lý lỗi thường gặp</h2>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">Pod Pending — thiếu RAM</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Chẩn đoán pod không schedule được — thường do RAM 16GB không đủ cho prod overlay.</p>
+        <p><span class="label">💡 Giải pháp:</span> Dùng <code>OVERLAY=dev</code> hoặc giảm resource limits Elasticsearch.</p>
+      </div>
+      <pre class="cmd-code">kubectl describe pod &lt;pod-name&gt; -n shop | grep -A8 Events
+kubectl top nodes
+free -h</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả khi LỖI</summary>
+        <pre class="output-preview">Events:
+  Type     Reason            Message
+  Warning  FailedScheduling  <span class="warn">0/1 nodes are available: 1 Insufficient memory</span>
+
+<span class="comment"># Giải pháp:</span>
+OVERLAY=dev bash scripts/deploy-all.sh</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">Ingress EXTERNAL-IP &lt;pending&gt;</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Kiểm tra MetalLB — thiếu MetalLB thì không có IP 110.172.29.72 cho ingress.</p>
+      </div>
+      <pre class="cmd-code">kubectl get svc -n ingress-nginx
+kubectl get pods -n metallb-system
+kubectl get ipaddresspool -n metallb-system</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả khi LỖI vs ĐÚNG</summary>
+        <pre class="output-preview"><span class="comment"># LỖI:</span>
+ingress-nginx-controller   LoadBalancer   <span class="warn">&lt;pending&gt;</span>
+
+<span class="comment"># ĐÚNG:</span>
+ingress-nginx-controller   LoadBalancer   <span class="ok">110.172.29.72</span></pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">SSL certificate không issued</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Debug Let's Encrypt — thường do DNS chưa trỏ 110.172.29.72 hoặc port 80 bị chặn.</p>
+      </div>
+      <pre class="cmd-code">kubectl describe certificate frontend-tls -n shop
+kubectl describe challenge -n shop
+kubectl logs -n cert-manager -l app=cert-manager --tail=30</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả khi LỖI</summary>
+        <pre class="output-preview">Reason: <span class="warn">Waiting for HTTP-01 challenge propagation</span>
+...
+<span class="comment"># Kiểm tra:</span>
+dig +short shopcaovanson.xyz    <span class="comment"># phải = 110.172.29.72</span>
+curl -I http://shopcaovanson.xyz/.well-known/acme-challenge/test</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- CHECKLIST -->
+  <section id="checklist">
+    <h2>16. Checklist triển khai + bảo mật + CI/CD</h2>
+    <div class="card">
+      <h4>Triển khai cơ bản</h4>
+      <ol>
+        <li>☐ SSH vào <code>root@110.172.29.72</code> thành công</li>
+        <li>☐ DNS 3 bản ghi A → 110.172.29.72</li>
+        <li>☐ Phase 1–8 hoàn tất, Certificate READY = True</li>
+        <li>☐ <code>bash scripts/verify-app.sh</code> — PASSED</li>
+      </ol>
+      <h4>CI/CD (mục 12)</h4>
+      <ol>
+        <li>☐ Repo GitHub + nhánh <code>prod</code> đã push</li>
+        <li>☐ Secret <code>KUBECONFIG_DATA</code> đã thêm trên GitHub</li>
+        <li>☐ <code>bash scripts/create-cicd-kubeconfig.sh</code> trên VPS</li>
+        <li>☐ Port 6443 mở cho GitHub Actions (hoặc self-hosted runner)</li>
+        <li>☐ Push <code>prod</code> → Actions deploy thành công</li>
+      </ol>
+      <h4>Bảo mật (mục 14)</h4>
+      <ol>
+        <li>☐ SSH PasswordAuthentication = no</li>
+        <li>☐ Port 6443 chỉ mở cho IP admin</li>
+        <li>☐ <code>bash scripts/apply-security.sh</code> — NetworkPolicy active</li>
+        <li>☐ Đổi mật khẩu admin (không dùng Admin@123)</li>
+        <li>☐ chmod 600 ~/.kube/config</li>
+        <li>☐ Backup PostgreSQL mã hóa GPG</li>
+        <li>☐ unattended-upgrades bật</li>
+        <li>☐ kube-bench quét — xử lý [FAIL] nếu có</li>
+      </ol>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  VPS: <strong>110.172.29.72</strong> · shopcaovanson · Cập nhật 23/06/2026
+</footer>
+
+</div>
+
+<script>
+(function () {
+  // Sidebar
+  const sidebar = document.getElementById('toc-sidebar');
+  const pageWrap = document.getElementById('page-wrap');
+  const toggle = document.getElementById('toc-toggle');
+  const links = sidebar.querySelectorAll('.toc-panel a');
+  let pinned = false;
+  const isMobile = () => window.innerWidth <= 768;
+
+  function setCollapsed(c) {
+    if (isMobile()) return;
+    sidebar.classList.toggle('collapsed', c && !pinned);
+    pageWrap.classList.toggle('sidebar-collapsed', c && !pinned);
+  }
+  window.addEventListener('scroll', () => { if (!pinned) setCollapsed(window.scrollY > 100); }, { passive: true });
+  toggle.addEventListener('click', () => { pinned = !pinned; sidebar.classList.toggle('pinned', pinned); setCollapsed(window.scrollY > 100); });
+
+  const sections = document.querySelectorAll('section[id]');
+  function updateActive() {
+    let cur = sections[0]?.id || '';
+    sections.forEach(s => { if (s.getBoundingClientRect().top <= 120) cur = s.id; });
+    links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + cur));
+  }
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+
+  // Copy buttons
+  document.querySelectorAll('.cmd-block').forEach(block => {
+    const btn = block.querySelector('.copy-btn');
+    const code = block.querySelector('.cmd-code');
+    if (!btn || !code) return;
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent.trim());
+        btn.textContent = '✓ Đã copy';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+      } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = code.textContent.trim();
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = '✓ Đã copy';
+        setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

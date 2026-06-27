@@ -48,7 +48,7 @@
           v-if="!botMessages.length"
           icon="mdi-robot-outline"
           title="Chưa có tin nhắn"
-          description="Hỏi về sản phẩm, đơn hàng, bảo hành hoặc giờ làm việc."
+          description="Hỏi về sản phẩm, đơn hàng, bảo hành — hoặc chat in English."
         />
         <template v-else>
           <ChatMessage
@@ -59,7 +59,20 @@
           />
           <div v-if="botLoading" class="text-caption text-grey pa-2 d-flex align-center ga-1">
             <v-progress-circular indeterminate size="14" width="2" />
-            Trợ lý đang trả lời...
+            {{ botLoadingLabel }}
+          </div>
+          <div v-if="!botLoading" class="chat-room__suggestions d-flex flex-wrap ga-2 mt-2">
+            <v-chip
+              v-for="s in botSuggestions"
+              :key="s"
+              size="small"
+              variant="outlined"
+              color="primary"
+              class="text-none"
+              @click="sendSuggestion(s)"
+            >
+              {{ s }}
+            </v-chip>
           </div>
         </template>
       </template>
@@ -79,22 +92,20 @@
         </div>
         <template v-else>
           <EmptyState
-            v-if="!adminMessages.length"
+            v-if="!adminMessages.length && !showTyping"
             icon="mdi-headset"
             title="Chưa có tin nhắn"
             description="Nhân viên sẽ phản hồi trong giờ làm việc. Bạn có thể hỏi về sản phẩm, đơn hàng hoặc đổi trả."
           />
-          <template v-else>
-            <ChatMessage
-              v-for="msg in adminMessages"
-              :key="msg.id"
-              :message="msg"
-              :current-user-id="auth.user.value?.id"
-              show-reactions
-              @react="onReact(msg.id, $event)"
-            />
-            <div v-if="typingText" class="text-caption text-grey pa-2">{{ typingText }}</div>
-          </template>
+          <ChatMessage
+            v-for="msg in adminMessages"
+            :key="msg.id"
+            :message="msg"
+            :current-user-id="auth.user.value?.id"
+            show-reactions
+            @react="onReact(msg.id, $event)"
+          />
+          <ChatTypingIndicator v-if="showTyping" :label="typingLabel" />
         </template>
       </template>
     </div>
@@ -171,11 +182,39 @@ const loginPath = computed(() => ({
 
 const showInput = computed(() => activeTab.value === 'bot' || auth.isLoggedIn.value)
 
-const inputPlaceholder = computed(() =>
-  activeTab.value === 'bot'
-    ? 'Hỏi trợ lý ảo...'
-    : 'Nhắn nhân viên tư vấn...',
+const botSuggestions = [
+  'Tìm laptop',
+  'Laptop dưới 10 triệu',
+  'Tai nghe bluetooth',
+  'Điện thoại từ 5–15 triệu',
+  'Hàng chính hãng không?',
+  'Giao hàng bao lâu?',
+  'Có mã giảm giá không?',
+  'Bảo hành bao lâu?',
+  'Giờ làm việc shop',
+  'Trạng thái đơn hàng',
+  'Tra đơn SĐT 09xxxxxxxx',
+  'Cách đặt hàng',
+  'Đơn hàng của tôi',
+  'Find headphones',
+  'Products under 5 million',
+  'Warranty policy',
+  'Business hours',
+  'Track order by email',
+]
+
+const botLoadingLabel = computed(() =>
+  chatbot.lang.value === 'en' ? 'Assistant is typing...' : 'Trợ lý đang trả lời...',
 )
+
+const inputPlaceholder = computed(() => {
+  if (activeTab.value === 'bot') {
+    return chatbot.lang.value === 'en'
+      ? 'Ask the virtual assistant...'
+      : 'Hỏi trợ lý ảo...'
+  }
+  return 'Nhắn nhân viên tư vấn...'
+})
 
 const inputDisabled = computed(() =>
   activeTab.value === 'bot' ? botLoading.value : !chat.connected.value,
@@ -183,28 +222,50 @@ const inputDisabled = computed(() =>
 
 const footerHint = computed(() => {
   if (activeTab.value === 'bot') {
-    return 'Trợ lý ảo trả lời 24/7 về sản phẩm, đơn hàng và chính sách shop.'
+    return chatbot.lang.value === 'en'
+      ? 'Virtual assistant available 24/7 — products, orders & shop policies. Vietnamese also supported.'
+      : 'Trợ lý ảo trả lời 24/7 — sản phẩm, đơn hàng, chính sách shop. Hỗ trợ cả tiếng Anh.'
   }
   return 'Nhân viên hỗ trợ trực tuyến trong giờ làm việc (8:00–21:00).'
 })
 
-const typingText = computed(() => {
+const sendSuggestion = async (text: string) => {
+  if (botLoading.value) {
+    return
+  }
+  await chatbot.sendMessage(text)
+  scrollToBottom()
+}
+
+const typingOthersCount = computed(() => {
   const roomId = chat.activeRoomId.value
   if (!roomId) {
-    return ''
+    return 0
   }
   const users = chat.typingUsers.value[roomId] || []
-  const others = users.filter((id) => id !== auth.user.value?.id)
-  if (!others.length) {
-    return ''
-  }
-  return 'Nhân viên đang nhập...'
+  return users.filter((id) => id !== auth.user.value?.id).length
 })
 
-const scrollToBottom = () => {
+const showTyping = computed(() => typingOthersCount.value > 0)
+
+const typingLabel = computed(() => getChatTypingLabel(typingOthersCount.value, false))
+
+const isNearBottom = () => {
+  const el = messagesEl.value
+  if (!el) {
+    return true
+  }
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 96
+}
+
+const scrollToBottom = (force = false) => {
   nextTick(() => {
-    if (messagesEl.value) {
-      messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+    const el = messagesEl.value
+    if (!el) {
+      return
+    }
+    if (force || isNearBottom()) {
+      el.scrollTop = el.scrollHeight
     }
   })
 }
@@ -220,6 +281,15 @@ const initAdmin = async () => {
   chat.connect()
   await chat.ensureSupportRoom()
 }
+
+watch(
+  () => typingOthersCount.value,
+  (count, prev) => {
+    if (activeTab.value === 'admin' && count > 0 && prev === 0) {
+      scrollToBottom()
+    }
+  },
+)
 
 watch(
   () => botMessages.value.length,
@@ -293,7 +363,7 @@ const send = async () => {
     return
   }
   chat.sendMessage(roomId, text)
-  scrollToBottom()
+  scrollToBottom(true)
 }
 
 const onSendImage = async (file: File) => {
@@ -339,6 +409,11 @@ const onTyping = () => {
 .chat-room__messages {
   min-height: 280px;
   background: var(--color-bg, #fff);
+  overscroll-behavior: contain;
+  overflow-anchor: auto;
+  scroll-behavior: auto;
+  contain: layout style;
+  padding-top: 28px;
 }
 
 .chat-room__login-prompt {

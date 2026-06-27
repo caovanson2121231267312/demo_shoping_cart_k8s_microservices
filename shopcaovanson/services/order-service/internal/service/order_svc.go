@@ -163,6 +163,7 @@ type OrderService struct {
 	cartRepo      repository.CartRepository
 	cartSvc       *CartService
 	productClient *client.ProductClient
+	authClient    *client.AuthClient
 	couponSvc     *CouponService
 	producer      *kafka.Producer
 }
@@ -172,6 +173,7 @@ func NewOrderService(
 	cartRepo repository.CartRepository,
 	cartSvc *CartService,
 	productClient *client.ProductClient,
+	authClient *client.AuthClient,
 	couponSvc *CouponService,
 	producer *kafka.Producer,
 ) *OrderService {
@@ -180,6 +182,7 @@ func NewOrderService(
 		cartRepo:      cartRepo,
 		cartSvc:       cartSvc,
 		productClient: productClient,
+		authClient:    authClient,
 		couponSvc:     couponSvc,
 		producer:      producer,
 	}
@@ -343,6 +346,74 @@ func (s *OrderService) TrackOrder(ctx context.Context, input domain.TrackOrderIn
 		return nil, ErrNotFound
 	}
 	return order, nil
+}
+
+func (s *OrderService) LookupOrders(ctx context.Context, input domain.LookupOrdersInput) (*domain.OrderListResult, error) {
+	orderNumber := strings.TrimSpace(input.OrderNumber)
+	phone := strings.TrimSpace(input.ShippingPhone)
+	email := strings.TrimSpace(strings.ToLower(input.Email))
+
+	if orderNumber != "" && phone != "" {
+		order, err := s.TrackOrder(ctx, domain.TrackOrderInput{
+			OrderNumber:   orderNumber,
+			ShippingPhone: phone,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &domain.OrderListResult{
+			Items:      []domain.Order{*order},
+			Total:      1,
+			Page:       1,
+			Limit:      1,
+			TotalPages: 1,
+		}, nil
+	}
+
+	if orderNumber != "" && email != "" {
+		if s.authClient == nil {
+			return nil, fmt.Errorf("%w: email lookup unavailable", ErrInvalidInput)
+		}
+		userID, err := s.authClient.GetUserIDByEmail(ctx, email)
+		if err != nil {
+			return nil, ErrNotFound
+		}
+		order, err := s.orderRepo.GetByOrderNumber(ctx, orderNumber)
+		if err != nil {
+			return nil, err
+		}
+		if order == nil || order.UserID != userID {
+			return nil, ErrNotFound
+		}
+		return &domain.OrderListResult{
+			Items:      []domain.Order{*order},
+			Total:      1,
+			Page:       1,
+			Limit:      1,
+			TotalPages: 1,
+		}, nil
+	}
+
+	if phone != "" {
+		return s.orderRepo.Search(ctx, domain.OrderSearchFilter{
+			Page:          1,
+			Limit:         10,
+			ShippingPhone: phone,
+		})
+	}
+
+	if email != "" {
+		if s.authClient == nil {
+			return nil, fmt.Errorf("%w: email lookup unavailable", ErrInvalidInput)
+		}
+		userID, err := s.authClient.GetUserIDByEmail(ctx, email)
+		if err != nil {
+			return nil, ErrNotFound
+		}
+		return s.orderRepo.ListByUser(ctx, userID, 1, 10)
+	}
+
+	return nil, fmt.Errorf("%w: provide order_number+phone, phone, or email", ErrInvalidInput)
 }
 
 func (s *OrderService) SearchOrders(ctx context.Context, filter domain.OrderSearchFilter) (*domain.OrderListResult, error) {

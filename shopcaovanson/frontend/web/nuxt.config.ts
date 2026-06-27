@@ -1,5 +1,7 @@
 import vuetify from 'vite-plugin-vuetify'
 
+const isDev = process.env.NODE_ENV !== 'production'
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-08-01',
   devtools: { enabled: true },
@@ -29,10 +31,16 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    apiProxyTarget: process.env.NUXT_API_PROXY_TARGET || 'https://shopapicaovanson.xyz',
+    apiProxyTarget:
+      process.env.NUXT_API_PROXY_TARGET
+      || (isDev ? 'http://localhost:8080' : 'https://shopapicaovanson.xyz'),
     public: {
-      apiUrl: process.env.NUXT_PUBLIC_API_URL ?? 'https://shopapicaovanson.xyz',
-      wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'wss://shopapicaovanson.xyz',
+      apiUrl:
+        process.env.NUXT_PUBLIC_API_URL
+        ?? (isDev ? 'http://localhost:8080' : 'https://shopapicaovanson.xyz'),
+      wsUrl:
+        process.env.NUXT_PUBLIC_WS_URL
+        || (isDev ? 'ws://localhost:8080' : 'wss://shopapicaovanson.xyz'),
     },
   },
 

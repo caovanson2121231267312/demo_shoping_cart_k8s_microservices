@@ -106,7 +106,7 @@ func RequireAuth() fiber.Handler {
 func IsPublicRoute(method, path string) bool {
 	method = strings.ToUpper(method)
 
-	if path == "/health" {
+	if path == "/health" || path == "/ws" {
 		return true
 	}
 
@@ -123,6 +123,8 @@ func IsPublicRoute(method, path string) bool {
 		return true
 	case path == "/api/orders/track" && method == "POST":
 		return true
+	case path == "/api/orders/lookup" && method == "POST":
+		return true
 	case path == "/api/coupons/validate" && method == "POST":
 		return true
 	case strings.HasPrefix(path, "/api/products") && method == "GET":
@@ -133,6 +135,8 @@ func IsPublicRoute(method, path string) bool {
 		return true
 	case path == "/api/categories" || strings.HasPrefix(path, "/api/categories/"):
 		return method == "GET"
+	case strings.HasPrefix(path, "/api/chat/media/") && method == "GET":
+		return true
 	default:
 		return false
 	}

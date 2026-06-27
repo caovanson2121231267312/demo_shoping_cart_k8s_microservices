@@ -2,29 +2,55 @@
   <div
     class="chat-message-wrap mb-3"
     :class="isOwn ? 'chat-message-wrap--own' : 'chat-message-wrap--other'"
-    @mouseenter="hover = true"
-    @mouseleave="hover = false"
   >
     <div class="chat-message-wrap__bubble-col">
-      <div class="pa-3 rounded-lg chat-message" :class="bubbleClass">
-        <div v-if="isBot" class="text-caption font-weight-bold mb-1 d-flex align-center ga-1">
-          <v-icon size="14">mdi-robot-outline</v-icon>
-          {{ BOT_DISPLAY_NAME }}
+      <div class="chat-message__bubble-wrap">
+        <div class="pa-3 rounded-lg chat-message" :class="bubbleClass">
+          <div v-if="isBot" class="text-caption font-weight-bold mb-1 d-flex align-center ga-1">
+            <v-icon size="14">mdi-robot-outline</v-icon>
+            {{ BOT_DISPLAY_NAME }}
+          </div>
+
+          <a
+            v-if="isImage"
+            :href="imageUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="chat-message__image-link d-block"
+          >
+            <img
+              :src="imageUrl"
+              alt="Ảnh đính kèm"
+              class="chat-message__image"
+              loading="lazy"
+            >
+          </a>
+          <template v-else>
+            <div v-if="message.content" class="text-body-2 chat-message__text">
+              {{ message.content }}
+            </div>
+            <ChatProductList
+              v-if="message.products?.length"
+              :products="message.products"
+            />
+          </template>
+
+          <div class="text-caption mt-1" :class="isOwn ? 'chat-message__time--own' : 'text-grey'">
+            {{ formattedTime }}
+          </div>
         </div>
 
-        <a
-          v-if="isImage"
-          :href="imageUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="chat-message__image-link d-block"
-        >
-          <img :src="imageUrl" alt="Ảnh đính kèm" class="chat-message__image" loading="lazy">
-        </a>
-        <div v-else class="text-body-2 chat-message__text">{{ message.content }}</div>
-
-        <div class="text-caption mt-1" :class="isOwn ? 'chat-message__time--own' : 'text-grey'">
-          {{ formattedTime }}
+        <div v-if="showReactions && !isBot" class="chat-message__quick-react">
+          <button
+            v-for="emoji in CHAT_REACTION_EMOJIS"
+            :key="emoji"
+            type="button"
+            class="chat-message__quick-react-btn"
+            :title="`Thả ${emoji}`"
+            @click="emit('react', emoji)"
+          >
+            {{ emoji }}
+          </button>
         </div>
       </div>
 
@@ -44,19 +70,6 @@
           <span class="chat-message__reaction-count">{{ users.length }}</span>
         </button>
       </div>
-
-      <div v-if="showReactions && hover && !isBot" class="chat-message__quick-react d-flex ga-1 mt-1">
-        <button
-          v-for="emoji in CHAT_REACTION_EMOJIS"
-          :key="emoji"
-          type="button"
-          class="chat-message__quick-react-btn"
-          :title="`Thả ${emoji}`"
-          @click="emit('react', emoji)"
-        >
-          {{ emoji }}
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -74,8 +87,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   react: [emoji: string]
 }>()
-
-const hover = ref(false)
 
 const isBot = computed(() => props.message.sender_id === BOT_USER_ID)
 const isOwn = computed(() => !isBot.value && props.message.sender_id === props.currentUserId)
@@ -106,6 +117,7 @@ const formattedTime = computed(() => {
 <style scoped>
 .chat-message-wrap {
   display: flex;
+  contain: layout style;
 }
 
 .chat-message-wrap--own {
@@ -117,7 +129,12 @@ const formattedTime = computed(() => {
 }
 
 .chat-message-wrap__bubble-col {
-  max-width: 80%;
+  position: relative;
+  max-width: min(92%, 360px);
+}
+
+.chat-message__bubble-wrap {
+  position: relative;
 }
 
 .chat-message--bot {
@@ -168,18 +185,47 @@ const formattedTime = computed(() => {
   color: var(--color-text-muted, #666);
 }
 
+.chat-message__quick-react {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+.chat-message-wrap--own .chat-message__quick-react {
+  left: auto;
+  right: 0;
+}
+
+.chat-message__bubble-wrap:hover .chat-message__quick-react,
+.chat-message__bubble-wrap:focus-within .chat-message__quick-react {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .chat-message__quick-react-btn {
   border: none;
-  background: var(--color-surface, #fff);
+  background: transparent;
   border-radius: 999px;
-  padding: 2px 6px;
-  font-size: 1rem;
+  padding: 2px 5px;
+  font-size: 0.9375rem;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  transition: transform 0.12s ease;
+  line-height: 1;
 }
 
 .chat-message__quick-react-btn:hover {
-  transform: scale(1.15);
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 </style>

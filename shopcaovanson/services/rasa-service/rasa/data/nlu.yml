@@ -4,44 +4,355 @@ nlu:
   - intent: greet
     examples: |
       - xin chào
+      - xin chao
       - chào shop
+      - chào bạn
+      - chao ban
+      - chào ad
+      - chào anh
+      - chào em
+      - shop ơi
       - hello
       - hi
+      - hi there
+      - hey
+      - yo
+      - good morning
+      - good afternoon
+      - good evening
+      - good day
+      - chào buổi sáng
+      - chào buổi tối
+      - alo shop
+      - shop có nghe không
+      - cho hỏi shop
+      - are you there
+      - anyone there
+
   - intent: goodbye
     examples: |
       - tạm biệt
-      - cảm ơn nhé
+      - tam biet
       - bye
+      - bye bye
+      - goodbye
+      - see you
+      - see ya
+      - hẹn gặp lại
+      - thôi vậy nhé
+      - cảm ơn thôi
+      - thanks bye
+      - ok bye
+      - kết thúc chat
+      - đi đây
+      - hết câu hỏi rồi
+
+  - intent: thank_you
+    examples: |
+      - cảm ơn
+      - cảm ơn nhiều
+      - cảm ơn shop
+      - cam on
+      - thank you
+      - thanks
+      - thanks a lot
+      - thank u
+      - tks
+      - appreciate it
+      - ok cảm ơn
+      - vậy cảm ơn nhé
+      - helpful thanks
+
+  - intent: ask_help
+    examples: |
+      - giúp mình với
+      - giúp tôi
+      - bạn làm được gì
+      - bạn biết gì
+      - hướng dẫn mình
+      - help me
+      - help
+      - what can you do
+      - what do you do
+      - menu
+      - chức năng
+      - lệnh gì
+      - hỗ trợ gì
+      - bạn hỗ trợ được gì
+
   - intent: ask_products
     examples: |
       - tìm [laptop](product_query)
+      - tìm giúp [laptop](product_query)
+      - tìm hộ [điện thoại](product_query)
       - có [tai nghe](product_query) không
+      - shop có [macbook](product_query) không
       - sản phẩm [điện thoại](product_query)
       - giá [macbook](product_query)
+      - cho mình xem [laptop](product_query)
+      - gợi ý [tai nghe](product_query)
+      - mua [iphone](product_query)
+      - muốn mua [tablet](product_query)
+      - cần mua [chuột](product_query)
+      - tìm kiếm [bàn phím](product_query)
+      - sản phẩm dưới 5 triệu
+      - laptop dưới 10 triệu
+      - tìm tai nghe từ 500k đến 2 triệu
+      - điện thoại trên 15 triệu
+      - khoảng 8 triệu
+      - hàng rẻ dưới 2 triệu
+      - find [laptop](product_query)
+      - search for [headphones](product_query)
+      - looking for [phone](product_query)
+      - show me [keyboard](product_query)
+      - i want [macbook](product_query)
+      - i need a [tablet](product_query)
+      - recommend [earbuds](product_query)
+      - products under 5 million
+      - laptop under 10 million VND
+      - headphones from 500k to 2 million
+      - phone over 15 million
+      - cheapest [laptop](product_query)
+      - best selling [phone](product_query)
+      - có [loa bluetooth](product_query) không
+      - tìm [ssd](product_query)
+      - [webcam](product_query) giá bao nhiêu
+
   - intent: ask_orders
     examples: |
       - đơn hàng của tôi
+      - don hang cua toi
       - xem đơn hàng
       - lịch sử mua hàng
+      - đơn mình đặt
+      - các đơn đã mua
+      - my orders
+      - order history
+      - show my orders
+      - orders i placed
+      - recent orders
+      - xem lịch sử đơn
+      - đơn của tôi ở đâu
+
   - intent: track_order
     examples: |
       - tra cứu đơn [ORD123456](order_number) sdt [0901234567](shipping_phone)
       - theo dõi đơn hàng
+      - kiểm tra đơn hàng
+      - đơn hàng đang ở đâu
+      - track order [ORD123456](order_number) phone [0901234567](shipping_phone)
+      - where is my order
+      - check order status
+      - order status please
+      - tra don ORD123456 0901234567
+      - đơn ORD123456 tới đâu rồi
+      - package tracking
+      - shipment status
+      - tìm đơn theo sdt [0901234567](shipping_phone)
+      - đơn hàng sdt [0912345678](shipping_phone)
+      - tra cứu đơn email [user@shop.com](email)
+      - tìm đơn [customer@email.com](email)
+      - order lookup phone [0901234567](shipping_phone)
+      - check orders for [buyer@shop.com](email)
+      - đơn hàng của số [0987654321](shipping_phone)
+      - ORD123456 [0901234567](shipping_phone)
+
+  - intent: ask_order_status
+    examples: |
+      - trạng thái đơn hàng là gì
+      - các trạng thái đơn hàng
+      - đơn pending là gì
+      - pending nghĩa là gì
+      - đang giao nghĩa là gì
+      - đơn đang giao khi nào tới
+      - bao giờ nhận được hàng
+      - đơn chờ xác nhận là sao
+      - đơn đã giao chưa
+      - order status meaning
+      - what does pending mean
+      - what does shipping mean
+      - order statuses explained
+      - khi nào shop giao hàng
+      - trang thai don hang la gi
+      - don dang giao khi nao toi
+
   - intent: ask_warranty
     examples: |
       - chính sách bảo hành
       - bảo hành bao lâu
+      - bảo hành thế nào
       - đổi trả thế nào
+      - bảo hành chính hãng không
+      - thời hạn bảo hành
+      - warranty policy
+      - how long is the warranty
+      - guarantee period
+      - warranty info
+      - bao hanh bao lau
+      - bảo hành laptop bao lâu
+      - phụ kiện bảo hành mấy tháng
+      - kích hoạt bảo hành thế nào
+      - gửi bảo hành ở đâu
+      - warranty claim process
+      - có bảo hành toàn quốc không
+
+  - intent: ask_return
+    examples: |
+      - chính sách đổi trả
+      - đổi hàng
+      - hoàn tiền
+      - trả hàng
+      - đổi size được không
+      - return policy
+      - can I return this
+      - refund
+      - exchange item
+      - doi tra the nao
+      - hoan tien bao lau
+
+  - intent: ask_authentic
+    examples: |
+      - hàng chính hãng không
+      - có phải hàng thật không
+      - hàng zin không
+      - authentic product
+      - genuine
+      - original
+      - fake or real
+      - hang chinh hang khong
+      - co phai hang that khong
+
+  - intent: ask_stock
+    examples: |
+      - còn hàng không
+      - hết hàng chưa
+      - kiểm tra tồn kho
+      - in stock
+      - out of stock
+      - available
+      - con hang khong
+      - het hang chua
+      - stock check
+
+  - intent: ask_cancel_order
+    examples: |
+      - hủy đơn
+      - hủy order
+      - muốn hủy đơn hàng
+      - cancel order
+      - cancel my order
+      - huy don duoc khong
+      - đơn chưa giao hủy được không
+
+  - intent: ask_installment
+    examples: |
+      - trả góp
+      - trả góp 0 phần trăm
+      - góp hàng tháng
+      - installment
+      - pay in installments
+      - tra gop duoc khong
+      - credit card installment
+
   - intent: ask_hours
     examples: |
       - giờ làm việc
+      - giờ mở cửa
       - mấy giờ mở cửa
+      - mấy giờ đóng cửa
       - hotline
+      - business hours
+      - opening hours
+      - when are you open
+      - gio lam viec
+      - shop mở cửa lúc mấy giờ
+      - làm việc chủ nhật không
+      - thời gian làm việc
+      - shop làm việc mấy giờ
+      - ngoài giờ có hỗ trợ không
+      - working hours
+      - what time do you close
+      - open on sunday
+      - staff available when
+
+  - intent: ask_contact
+    examples: |
+      - liên hệ shop
+      - số hotline
+      - email shop
+      - gọi shop
+      - địa chỉ shop
+      - contact info
+      - phone number
+      - how to contact you
+      - zalo shop
+      - facebook shop
+      - lien he nhu the nao
+
   - intent: ask_shipping
     examples: |
       - giao hàng mất bao lâu
+      - bao lâu nhận hàng
       - phí ship
+      - phí giao hàng
+      - freeship không
+      - miễn phí ship
+      - shipping time
+      - how long is delivery
+      - delivery fee
+      - ship nội thành bao lâu
+      - giao tỉnh mất mấy ngày
+      - có ship cod không
+
   - intent: ask_payment
     examples: |
       - thanh toán cod
       - hình thức thanh toán
+      - chuyển khoản được không
+      - quẹt thẻ được không
+      - payment methods
+      - can I pay on delivery
+      - bank transfer
+      - momo
+      - zalopay
+      - thanh toan sao
+      - cod là gì
+
+  - intent: ask_coupon
+    examples: |
+      - mã giảm giá
+      - voucher
+      - khuyến mãi
+      - giảm giá
+      - có sale không
+      - discount code
+      - any promotions
+      - coupon
+      - code giảm giá
+      - ma giam gia
+      - khuyen mai hom nay
+
+  - intent: ask_about
+    examples: |
+      - giới thiệu shop
+      - về shop
+      - shop là gì
+      - about the store
+      - who are you
+      - tell me about shop
+      - bạn là ai
+      - trợ lý là gì
+      - shop uy tín không
+
+  - intent: ask_how_to_order
+    examples: |
+      - cách đặt hàng
+      - làm sao mua hàng
+      - mua như thế nào
+      - đặt hàng sao
+      - how to order
+      - how to buy
+      - how do I checkout
+      - order process
+      - dat hang online sao
+      - mua trên web thế nào

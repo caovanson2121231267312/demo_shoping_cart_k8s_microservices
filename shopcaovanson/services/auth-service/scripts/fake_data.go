@@ -122,7 +122,7 @@ func seedUser(ctx context.Context, db *sqlx.DB, email, password, fullName, role 
 		return err
 	}
 	if exists {
-		_, _ = db.ExecContext(ctx, `UPDATE users SET role = $1, is_active = TRUE WHERE email = $2`, role, strings.ToLower(email))
+		_, _ = db.ExecContext(ctx, `UPDATE users SET role = $1, is_active = TRUE, email_verified = TRUE WHERE email = $2`, role, strings.ToLower(email))
 		log.Printf("skip/update staff: %s", email)
 		return nil
 	}
@@ -132,8 +132,8 @@ func seedUser(ctx context.Context, db *sqlx.DB, email, password, fullName, role 
 	}
 	now := time.Now().UTC()
 	_, err = db.ExecContext(ctx, `
-		INSERT INTO users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7)
+		INSERT INTO users (id, email, password_hash, full_name, role, is_active, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, TRUE, TRUE, $6, $7)
 	`, id, strings.ToLower(email), string(hash), fullName, role, now, now)
 	return err
 }

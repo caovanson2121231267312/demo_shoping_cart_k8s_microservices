@@ -3,36 +3,126 @@ version: "3.1"
 intents:
   - greet
   - goodbye
+  - thank_you
+  - ask_help
   - ask_products
   - ask_orders
   - track_order
+  - ask_order_status
   - ask_warranty
+  - ask_return
+  - ask_authentic
+  - ask_stock
+  - ask_cancel_order
+  - ask_installment
   - ask_hours
+  - ask_contact
   - ask_shipping
   - ask_payment
+  - ask_coupon
+  - ask_about
+  - ask_how_to_order
   - nlu_fallback
 
 entities:
   - product_query
   - order_number
   - shipping_phone
+  - email
 
 responses:
   utter_greet:
-    - text: "Xin chào! Mình là trợ lý Shop Cao Văn Sơn. Mình có thể hỗ trợ tìm sản phẩm, đơn hàng, bảo hành và giờ làm việc."
+    - text: "Xin chào! Mình là trợ lý Shop Cao Văn Sơn. Hỏi mình về sản phẩm, đơn hàng, bảo hành nhé."
+    - text: "Chào bạn! Rất vui hỗ trợ bạn hôm nay."
+    - text: "Shop Cao Văn Sơn xin chào! Cần tìm sản phẩm hay tra đơn?"
+    - text: "Hello! I'm the Shop Cao Van Son assistant."
+    - text: "Hi there! Ask me about products, orders, or policies."
+    - text: "Welcome! How can I help you shop today?"
+
   utter_goodbye:
     - text: "Cảm ơn bạn đã liên hệ Shop Cao Văn Sơn!"
+    - text: "Tạm biệt! Hẹn gặp lại nhé."
+    - text: "Thanks for contacting Shop Cao Van Son. Have a great day!"
+    - text: "Goodbye! Come back anytime."
+
+  utter_thank_you:
+    - text: "Không có gì! Cần hỗ trợ thêm cứ nhắn mình nhé."
+    - text: "Rất vui được giúp bạn!"
+    - text: "You're welcome! Let me know if you need anything else."
+    - text: "Happy to help!"
+
+  utter_help:
+    - text: "Mình có thể giúp: tìm sản phẩm, lọc giá, tra đơn, bảo hành, giao hàng, thanh toán, mã giảm giá."
+    - text: "Thử hỏi: tìm laptop, laptop dưới 10 triệu, giao hàng bao lâu, mã giảm giá."
+    - text: "I can help with: product search, order tracking, warranty, shipping, payment, coupons."
+
   utter_warranty:
-    - text: "Bảo hành chính hãng 12 tháng. Đổi trả trong 7 ngày nếu lỗi NSX. Hotline 1900 1234."
+    - text: "Bảo hành chính hãng 12 tháng (điện tử), 6 tháng (phụ kiện). Đổi trả 7 ngày nếu lỗi NSX. Hotline 1900 1234."
+    - text: "Hàng bảo hành đầy đủ. Mang hóa đơn + sản phẩm hoặc gọi 1900 1234."
+    - text: "Bảo hành điện tử 12 tháng, phụ kiện 6 tháng. Không bảo hành rơi vỡ, vào nước."
+    - text: "Official warranty: 12 months electronics, 6 months accessories. Hotline 1900 1234."
+
+  utter_return:
+    - text: "Đổi trả trong 7 ngày nếu lỗi NSX, sản phẩm còn seal. Hotline 1900 1234."
+    - text: "Hoàn tiền xử lý 3–7 ngày làm việc sau khi shop kiểm tra hàng."
+    - text: "7-day return for defects. Sealed products only."
+
+  utter_authentic:
+    - text: "Shop cam kết 100% hàng chính hãng, có tem bảo hành và hóa đơn."
+    - text: "All products are genuine from authorized sources."
+    - text: "Hàng chính hãng, bảo hành toàn quốc."
+
+  utter_stock:
+    - text: "Cho mình tên sản phẩm (vd: tìm iPhone 15) để kiểm tra tồn kho nhé!"
+    - text: "Search for the product — stock status shows in results."
+    - text: "Tồn kho cập nhật realtime trên web."
+
+  utter_cancel_order:
+    - text: "Hủy đơn: gọi 1900 1234 hoặc tab Nhân viên sớm nhất. Hoàn tiền 3–7 ngày."
+    - text: "Cancel via Staff tab or hotline 1900 1234 before shipping."
+
+  utter_installment:
+    - text: "Trả góp qua thẻ tín dụng một số ngân hàng. Hỏi tab Nhân viên hoặc 1900 1234."
+    - text: "Installment available for select products. Contact staff for details."
+
   utter_hours:
     - text: "T2–T7: 8h–21h. CN: 9h–18h. Hotline 1900 1234."
+    - text: "Trợ lý ảo 24/7. Nhân viên T2–T7 8h–21h, CN 9h–18h."
+    - text: "Shop làm việc T2–T7 8h–21h, CN 9h–18h. Ngoài giờ để lại tin nhắn."
+    - text: "Mon–Sat 8 AM–9 PM. Sun 9 AM–6 PM."
+
+  utter_contact:
+    - text: "Hotline 1900 1234. Email support@shopcaovanson.xyz"
+    - text: "Liên hệ: 1900 1234 hoặc tab Nhân viên."
+    - text: "Call 1900 1234 or email support@shopcaovanson.xyz"
+
+  utter_coupon:
+    - text: "Xem khuyến mãi trang chủ, nhập mã tại thanh toán."
+    - text: "Follow fanpage để nhận voucher độc quyền."
+    - text: "Check promotions on homepage. Enter code at checkout."
+
+  utter_about:
+    - text: "Shop Cao Văn Sơn — điện tử & phụ kiện chính hãng, giao hàng toàn quốc."
+    - text: "Trusted electronics store with genuine products and 24/7 chat support."
+    - text: "Mình là trợ lý ảo của Shop Cao Văn Sơn."
+
+  utter_how_to_order:
+    - text: "Chọn sản phẩm → Giỏ hàng → Thanh toán → Xác nhận đơn."
+    - text: "Browse → Add to cart → Checkout → Confirm."
+    - text: "Rất đơn giản: chọn hàng, thanh toán, shop gọi xác nhận."
+
   utter_fallback:
-    - text: "Mình chưa hiểu rõ. Bạn hỏi về sản phẩm, đơn hàng, bảo hành hoặc giờ làm việc nhé."
+    - text: "Mình chưa hiểu rõ. Thử: tìm laptop, giao hàng bao lâu, mã giảm giá."
+    - text: "Xin lỗi, chưa nắm ý bạn. Hỏi về sản phẩm, đơn hàng, bảo hành nhé."
+    - text: "I'm not sure I understood. Try: find phone, shipping time, discount code."
+    - text: "Could you rephrase? E.g. laptop under 10M or track my order."
+    - text: "Hmm, thử: tìm tai nghe | bảo hành | phí ship | đơn của tôi."
 
 actions:
   - action_search_products
   - action_user_orders
   - action_track_order
+  - action_order_status
   - action_shipping_info
   - action_payment_info
 

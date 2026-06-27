@@ -1,0 +1,1 @@
+-- No-op: cannot safely revert staff email verification.

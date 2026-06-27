@@ -79,11 +79,15 @@ export const useChatStore = defineStore('chat', () => {
   function setTyping(roomId: string, userId: string, isTyping: boolean) {
     const current = typingUsers.value[roomId] || []
     if (isTyping) {
-      if (!current.includes(userId)) {
-        typingUsers.value[roomId] = [...current, userId]
+      if (current.includes(userId)) {
+        return
       }
+      typingUsers.value = { ...typingUsers.value, [roomId]: [...current, userId] }
     } else {
-      typingUsers.value[roomId] = current.filter((id) => id !== userId)
+      if (!current.includes(userId)) {
+        return
+      }
+      typingUsers.value = { ...typingUsers.value, [roomId]: current.filter((id) => id !== userId) }
     }
   }
 

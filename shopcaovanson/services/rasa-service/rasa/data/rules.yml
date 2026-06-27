@@ -9,14 +9,58 @@ rules:
     steps:
       - intent: goodbye
       - action: utter_goodbye
+  - rule: thank_you
+    steps:
+      - intent: thank_you
+      - action: utter_thank_you
+  - rule: help
+    steps:
+      - intent: ask_help
+      - action: utter_help
   - rule: warranty
     steps:
       - intent: ask_warranty
       - action: utter_warranty
+  - rule: return
+    steps:
+      - intent: ask_return
+      - action: utter_return
+  - rule: authentic
+    steps:
+      - intent: ask_authentic
+      - action: utter_authentic
+  - rule: stock
+    steps:
+      - intent: ask_stock
+      - action: utter_stock
+  - rule: cancel_order
+    steps:
+      - intent: ask_cancel_order
+      - action: utter_cancel_order
+  - rule: installment
+    steps:
+      - intent: ask_installment
+      - action: utter_installment
   - rule: hours
     steps:
       - intent: ask_hours
       - action: utter_hours
+  - rule: contact
+    steps:
+      - intent: ask_contact
+      - action: utter_contact
+  - rule: coupon
+    steps:
+      - intent: ask_coupon
+      - action: utter_coupon
+  - rule: about
+    steps:
+      - intent: ask_about
+      - action: utter_about
+  - rule: how_to_order
+    steps:
+      - intent: ask_how_to_order
+      - action: utter_how_to_order
   - rule: products
     steps:
       - intent: ask_products
@@ -29,6 +73,10 @@ rules:
     steps:
       - intent: track_order
       - action: action_track_order
+  - rule: order_status
+    steps:
+      - intent: ask_order_status
+      - action: action_order_status
   - rule: shipping
     steps:
       - intent: ask_shipping

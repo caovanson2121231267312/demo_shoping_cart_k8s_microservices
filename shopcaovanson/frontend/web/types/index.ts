@@ -147,12 +147,23 @@ export interface ChatRoom {
   created_at: string
 }
 
+export interface ChatProductSuggestion {
+  id: string
+  name: string
+  slug: string
+  price: number
+  sale_price?: number | null
+  image_url?: string | null
+  stock?: number
+}
+
 export interface ChatMessage {
   id: string
   room_id: string
   sender_id: string
   content: string
   type: string
+  products?: ChatProductSuggestion[]
   reactions?: Record<string, string[]>
   read_by?: string[]
   created_at: string
@@ -173,7 +184,7 @@ export interface WSClientMessage {
 }
 
 export interface WSServerMessage {
-  type: 'message' | 'user_joined' | 'typing' | 'reaction'
+  type: 'message' | 'user_joined' | 'joined' | 'typing' | 'reaction'
   room_id?: string
   message_id?: string
   sender_id?: string

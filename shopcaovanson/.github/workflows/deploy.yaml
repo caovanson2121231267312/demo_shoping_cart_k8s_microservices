@@ -1,13 +1,15 @@
-name: Build and Deploy
+name: Build and Deploy (prod)
 
 on:
   push:
-    branches: [main]
+    branches: [prod]
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: caovanson
+  K8S_NAMESPACE: shop
+  K8S_OVERLAY: prod
 
 permissions:
   contents: write
@@ -25,6 +27,8 @@ jobs:
       notification-service: ${{ steps.filter.outputs.notification-service }}
       search-service: ${{ steps.filter.outputs.search-service }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      k8s-manifests: ${{ steps.filter.outputs.k8s-manifests }}
+      services_list: ${{ steps.services.outputs.list }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -47,6 +51,23 @@ jobs:
               - 'services/search-service/**'
             frontend:
               - 'frontend/web/**'
+            k8s-manifests:
+              - 'k8s/**'
+
+      - name: Build services list for deploy
+        id: services
+        run: |
+          list=""
+          add() { [[ "$1" == "true" ]] && list="${list} $2"; }
+          add "${{ steps.filter.outputs.api-gateway }}" api-gateway
+          add "${{ steps.filter.outputs.auth-service }}" auth-service
+          add "${{ steps.filter.outputs.product-service }}" product-service
+          add "${{ steps.filter.outputs.order-service }}" order-service
+          add "${{ steps.filter.outputs.chat-service }}" chat-service
+          add "${{ steps.filter.outputs.notification-service }}" notification-service
+          add "${{ steps.filter.outputs.search-service }}" search-service
+          add "${{ steps.filter.outputs.frontend }}" frontend
+          echo "list=${list# }" >> "$GITHUB_OUTPUT"
 
   build-api-gateway:
     needs: detect-changes
@@ -200,7 +221,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:latest
 
-  update-manifests:
+  deploy-k8s:
     needs:
       - detect-changes
       - build-api-gateway
@@ -211,14 +232,57 @@ jobs:
       - build-notification-service
       - build-search-service
       - build-frontend
-    if: always() && !cancelled() && !failure()
+    if: |
+      always() &&
+      !cancelled() &&
+      !failure() &&
+      (needs.detect-changes.outputs.services_list != '' ||
+       needs.detect-changes.outputs.k8s-manifests == 'true')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl cluster-info
+
+      - name: Deploy to VPS cluster (110.172.29.72)
+        env:
+          SHA: ${{ github.sha }}
+          SERVICES: ${{ needs.detect-changes.outputs.services_list }}
+          APPLY_MANIFESTS: ${{ needs.detect-changes.outputs.k8s-manifests }}
+        run: |
+          chmod +x scripts/ci-deploy.sh
+          bash scripts/ci-deploy.sh
+
+      - name: Verify application health
+        run: |
+          chmod +x scripts/verify-app.sh
+          API_URL=https://shopapicaovanson.xyz FRONTEND_URL=https://shopcaovanson.xyz \
+            bash scripts/verify-app.sh || true
+
+  update-manifests:
+    needs:
+      - detect-changes
+      - deploy-k8s
+    if: |
+      success() &&
+      needs.detect-changes.outputs.services_list != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update deployment image tags
+      - name: Update deployment image tags in git
         run: |
           SHA="${{ github.sha }}"
           update_image() {
@@ -230,39 +294,23 @@ jobs:
             fi
           }
 
-          if [[ "${{ needs.detect-changes.outputs.api-gateway }}" == "true" ]]; then
-            update_image api-gateway api-gateway
-          fi
-          if [[ "${{ needs.detect-changes.outputs.auth-service }}" == "true" ]]; then
-            update_image auth-service auth-service
-          fi
-          if [[ "${{ needs.detect-changes.outputs.product-service }}" == "true" ]]; then
-            update_image product-service product-service
-          fi
-          if [[ "${{ needs.detect-changes.outputs.order-service }}" == "true" ]]; then
-            update_image order-service order-service
-          fi
-          if [[ "${{ needs.detect-changes.outputs.chat-service }}" == "true" ]]; then
-            update_image chat-service chat-service
-          fi
-          if [[ "${{ needs.detect-changes.outputs.notification-service }}" == "true" ]]; then
-            update_image notification-service notification-service
-          fi
-          if [[ "${{ needs.detect-changes.outputs.search-service }}" == "true" ]]; then
-            update_image search-service search-service
-          fi
-          if [[ "${{ needs.detect-changes.outputs.frontend }}" == "true" ]]; then
-            update_image frontend frontend-web
-          fi
+          [[ "${{ needs.detect-changes.outputs.api-gateway }}" == "true" ]] && update_image api-gateway api-gateway
+          [[ "${{ needs.detect-changes.outputs.auth-service }}" == "true" ]] && update_image auth-service auth-service
+          [[ "${{ needs.detect-changes.outputs.product-service }}" == "true" ]] && update_image product-service product-service
+          [[ "${{ needs.detect-changes.outputs.order-service }}" == "true" ]] && update_image order-service order-service
+          [[ "${{ needs.detect-changes.outputs.chat-service }}" == "true" ]] && update_image chat-service chat-service
+          [[ "${{ needs.detect-changes.outputs.notification-service }}" == "true" ]] && update_image notification-service notification-service
+          [[ "${{ needs.detect-changes.outputs.search-service }}" == "true" ]] && update_image search-service search-service
+          [[ "${{ needs.detect-changes.outputs.frontend }}" == "true" ]] && update_image frontend frontend-web
 
-      - name: Commit and push manifest updates
+      - name: Commit manifest sync
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if git diff --quiet; then
-            echo "No manifest changes to commit."
+            echo "No manifest changes."
             exit 0
           fi
           git add k8s/base/*/deployment.yaml
-          git commit -m "ci: update image tags to ${{ github.sha }}"
+          git commit -m "ci(prod): sync image tags to ${GITHUB_SHA}"
           git push

@@ -108,6 +108,9 @@ func main() {
 
 	adminHandler.RegisterRoutes(app.Group("", middleware.JWTAuth(privateKey)))
 
+	internalHandler := handler.NewInternalHandler(userRepo)
+	app.Get("/internal/users/by-email", internalHandler.GetUserByEmail)
+
 	go func() {
 		addr := ":" + cfg.Port
 		log.Printf("auth-service listening on %s", addr)

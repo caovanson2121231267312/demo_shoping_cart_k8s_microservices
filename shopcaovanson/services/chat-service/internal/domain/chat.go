@@ -65,4 +65,5 @@ type WSServerMessage struct {
 	Emoji     string              `json:"emoji,omitempty"`
 	Reactions map[string][]string `json:"reactions,omitempty"`
 	CreatedAt string              `json:"created_at,omitempty"`
+	Error     string              `json:"error,omitempty"`
 }

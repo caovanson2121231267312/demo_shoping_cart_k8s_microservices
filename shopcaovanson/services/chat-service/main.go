@@ -54,6 +54,11 @@ func main() {
 	uploadHandler := handler.NewUploadHandler(cfg)
 
 	app := fiber.New(fiber.Config{AppName: "chat-service"})
+
+	// WebSocket must be registered before global middleware (recover/logger break WS frames).
+	app.Use("/ws", chatHandler.WebSocketUpgrade)
+	app.Get("/ws", websocket.New(chatHandler.WebSocket))
+
 	app.Use(recover.New())
 	app.Use(logger.New())
 
@@ -61,20 +66,19 @@ func main() {
 		return c.JSON(fiber.Map{"status": "ok", "service": "chat-service"})
 	})
 
+	// Public: img/video tags cannot send Authorization headers.
+	app.Get("/api/chat/media/:filename", uploadHandler.ServeMedia)
+
 	api := app.Group("/api/chat", middleware.JWTMiddleware(cfg.JWTPublicKey))
 	api.Get("/rooms", chatHandler.ListRooms)
 	api.Post("/rooms", chatHandler.CreateRoom)
 	api.Post("/rooms/support", chatHandler.CreateSupportRoom)
 	api.Post("/upload", uploadHandler.Upload)
-	api.Get("/media/:filename", uploadHandler.ServeMedia)
 	api.Get("/rooms/:id/messages", chatHandler.GetMessages)
 
 	admin := api.Group("/admin", middleware.RequireStaff())
 	admin.Get("/support-rooms", chatHandler.ListSupportRooms)
 	admin.Post("/support-rooms", chatHandler.CreateSupportRoomForCustomer)
-
-	app.Use("/ws", chatHandler.WebSocketUpgrade)
-	app.Get("/ws", websocket.New(chatHandler.WebSocket))
 
 	log.Printf("chat-service listening on :%s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {

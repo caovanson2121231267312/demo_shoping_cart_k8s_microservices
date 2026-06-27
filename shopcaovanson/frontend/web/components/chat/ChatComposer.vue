@@ -21,6 +21,7 @@
         size="small"
         variant="text"
         color="primary"
+        :ripple="false"
         :disabled="disabled || uploading"
         title="Gửi ảnh"
         @click="fileInput?.click()"
@@ -36,6 +37,7 @@
             size="small"
             variant="text"
             color="primary"
+            :ripple="false"
             :disabled="disabled"
             title="Emoji"
           >
@@ -75,6 +77,7 @@
         size="small"
         color="primary"
         variant="flat"
+        :ripple="false"
         :disabled="!canSend"
         :loading="uploading"
         @click="submit"
@@ -165,6 +168,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.chat-composer {
+  contain: layout style;
+}
+
 .chat-composer__preview {
   position: relative;
   display: inline-block;

@@ -33,6 +33,11 @@ spec:
       labels:
         app: postgres
     spec:
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 256Mi
       containers:
       - name: postgres
         image: postgres:15-alpine
@@ -56,6 +61,8 @@ spec:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
           subPath: pgdata
+        - name: dshm
+          mountPath: /dev/shm
         resources:
           requests:
             memory: "256Mi"

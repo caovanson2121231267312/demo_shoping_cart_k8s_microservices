@@ -56,11 +56,12 @@ func main() {
 	couponRepo := repository.NewCouponRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	productClient := client.NewProductClient(cfg.ProductServiceURL)
+	authClient := client.NewAuthClient(cfg.AuthServiceURL)
 	cartTTL := time.Duration(cfg.CartTTLHours) * time.Hour
 
 	cartSvc := service.NewCartService(cartRepo, productClient, cartTTL)
 	couponSvc := service.NewCouponService(couponRepo)
-	orderSvc := service.NewOrderService(orderRepo, cartRepo, cartSvc, productClient, couponSvc, producer)
+	orderSvc := service.NewOrderService(orderRepo, cartRepo, cartSvc, productClient, authClient, couponSvc, producer)
 	orderHandler := handler.NewOrderHandler(cartSvc, orderSvc)
 	couponHandler := handler.NewCouponHandler(couponSvc)
 

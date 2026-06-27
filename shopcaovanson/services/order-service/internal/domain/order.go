@@ -88,6 +88,12 @@ type TrackOrderInput struct {
 	ShippingPhone string `json:"shipping_phone"`
 }
 
+type LookupOrdersInput struct {
+	OrderNumber   string `json:"order_number,omitempty"`
+	ShippingPhone string `json:"shipping_phone,omitempty"`
+	Email         string `json:"email,omitempty"`
+}
+
 type OrderSearchFilter struct {
 	Page          int
 	Limit         int

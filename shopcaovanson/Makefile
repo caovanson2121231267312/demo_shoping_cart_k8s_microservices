@@ -73,6 +73,15 @@ status: ## Show pods, services, ingress in shop and infra
 	@echo "=== infra namespace ==="
 	kubectl get pods,svc -n infra
 
+verify-app: ## Full health check — pods, deployments, HTTP endpoints
+	bash scripts/verify-app.sh
+
+apply-security: ## Apply NetworkPolicy, PSS, RBAC hardening
+	bash scripts/apply-security.sh
+
+cicd-kubeconfig: ## Generate kubeconfig for GitHub Actions (run on VPS)
+	bash scripts/create-cicd-kubeconfig.sh
+
 # CI
 build: ## Build and push Docker image (make build svc=auth-service)
 	@if [ -z "$(svc)" ]; then echo "Usage: make build svc=auth-service"; exit 1; fi

@@ -142,6 +142,13 @@ function Start-FrontendDev() {
     $frontendDir = Join-Path $Root "frontend\web"
     if (-not (Test-Path (Join-Path $frontendDir "package.json"))) { return }
 
+    $frontendEnv = Join-Path $frontendDir ".env"
+    $frontendEnvExample = Join-Path $frontendDir ".env.example"
+    if (-not (Test-Path $frontendEnv) -and (Test-Path $frontendEnvExample)) {
+        Copy-Item $frontendEnvExample $frontendEnv
+        Write-Host "  + Tao frontend/.env tu .env.example" -ForegroundColor DarkGray
+    }
+
     $port = 3000
     if (Test-PortOpen $port) {
         Write-Host "  skip frontend (port $port dang dung)" -ForegroundColor DarkGray
@@ -182,6 +189,11 @@ function Wait-Health($Name, $Url, $MaxAttempts = 20) {
         if (Test-Health $Url) {
             Write-Host "  OK  $Name" -ForegroundColor Green
             return $true
+        }
+        if ($i -eq 1) {
+            Write-Host "  ... dang cho $Name (lan $i/$MaxAttempts)" -ForegroundColor DarkGray
+        } elseif ($i -lt $MaxAttempts) {
+            Write-Host "  ... dang cho $Name (lan $i/$MaxAttempts)" -ForegroundColor DarkGray
         }
         Start-Sleep -Seconds 2
     }
@@ -247,7 +259,7 @@ $services = @(
     @{ Name = "order-service";   Port = 8083; Health = "/health"; Dir = "$Root\services\order-service"; Warmup = 4;  HealthAttempts = 20 },
     @{ Name = "chat-service";    Port = 8084; Health = "/health"; Dir = "$Root\services\chat-service"; Warmup = 4;  HealthAttempts = 20 },
     @{ Name = "rasa-service"; Port = 8090; Health = "/health"; Dir = "$Root\services\rasa-service"; Warmup = 4; HealthAttempts = 15; Python = $true },
-    @{ Name = "notification-service"; Port = 8085; Health = "/health"; Dir = "$Root\services\notification-service"; Warmup = 5; HealthAttempts = 15; Python = $true },
+    @{ Name = "notification-service"; Port = 8085; Health = "/health"; Dir = "$Root\services\notification-service"; Warmup = 10; HealthAttempts = 20; Python = $true },
     @{ Name = "analytics-service"; Port = 8086; Health = "/health"; Dir = "$Root\services\analytics-service"; Warmup = 5; HealthAttempts = 15; Python = $true },
     @{ Name = "api-gateway";     Port = 8080; Health = "/health"; Dir = "$Root\services\api-gateway"; Warmup = 3;  HealthAttempts = 20 }
 )
@@ -269,6 +281,10 @@ foreach ($svc in ($services | Sort-Object Port -Descending)) {
         Stop-PortListener $svc.Port
     }
 }
+
+Write-Host ""
+Write-Host "Starting Rasa ML (Docker train + load model)..." -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot "start-rasa-stack.ps1")
 
 Write-Host ""
 Write-Host "Starting services..." -ForegroundColor Cyan
@@ -298,9 +314,21 @@ foreach ($svc in $services) {
     $allOk = $ok -and $allOk
 }
 
+$optionalServices = @('notification-service', 'analytics-service', 'rasa-service')
+$coreFailed = @($failed | Where-Object { $_ -notin $optionalServices })
+$canUseApp = ($coreFailed.Count -eq 0)
+
 Write-Host ""
 if ($allOk) {
     Write-Host "All services ready." -ForegroundColor Green
+} elseif ($canUseApp) {
+    $optionalDown = @($failed | Where-Object { $_ -in $optionalServices })
+    Write-Host "Core services ready. Tuy chon chua len: $($optionalDown -join ', ')" -ForegroundColor Yellow
+} else {
+    Write-Host "Mot so service chua len: $($failed -join ', ')" -ForegroundColor Yellow
+}
+
+if ($canUseApp) {
     if (-not $Background) {
         Write-Host ""
         Write-Host "Starting frontend..." -ForegroundColor Cyan
@@ -322,8 +350,7 @@ if ($allOk) {
         Write-Host "  Xem log:      Get-Content logs\product-service.log -Wait" -ForegroundColor DarkGray
         Write-Host "  Terminal mode: .\scripts\start-local-services.ps1" -ForegroundColor DarkGray
     }
-} else {
-    Write-Host "Mot so service chua len: $($failed -join ', ')" -ForegroundColor Yellow
+} elseif (-not $canUseApp) {
     if ($Background) {
         Write-Host "Xem log service loi:" -ForegroundColor Yellow
         foreach ($name in $failed) {

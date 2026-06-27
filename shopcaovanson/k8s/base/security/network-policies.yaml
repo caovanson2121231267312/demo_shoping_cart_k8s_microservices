@@ -1,0 +1,99 @@
+# Network Policies — cô lập namespace, chỉ cho phép traffic cần thiết
+# Yêu cầu CNI hỗ trợ NetworkPolicy (Calico ✓)
+
+# infra: chỉ nhận kết nối từ namespace shop (DB, cache, Kafka...)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-allow-shop-only
+  namespace: infra
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: shop
+
+---
+# shop: chỉ ingress-nginx được gọi vào frontend, api-gateway, chat
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shop-allow-ingress-controller
+  namespace: shop
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - frontend
+      - api-gateway
+      - chat-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+
+---
+# shop: egress — DNS, infra, và giao tiếp nội bộ giữa microservices
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shop-egress-controlled
+  namespace: shop
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: infra
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  - to:
+    - podSelector: {}
+
+---
+# notification-service: cho phép gửi email SMTP ra internet (Gmail, Mailtrap...)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shop-notification-smtp-egress
+  namespace: shop
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 587
+    - protocol: TCP
+      port: 465
+    - protocol: TCP
+      port: 2525

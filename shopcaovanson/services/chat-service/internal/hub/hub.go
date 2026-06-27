@@ -35,19 +35,32 @@ func NewHub(chatSvc *service.ChatService, redisClient *redis.Client) *Hub {
 	}
 }
 
-func (h *Hub) Register(conn *websocket.Conn, userID, roomID string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+func (h *Hub) RoomListenerCount(roomID string) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.rooms[roomID])
+}
 
+func (h *Hub) Register(conn *websocket.Conn, userID, roomID string) {
+	var listenCtx context.Context
+	startListen := false
+
+	h.mu.Lock()
 	if _, ok := h.rooms[roomID]; !ok {
 		h.rooms[roomID] = make(map[*websocket.Conn]string)
 	}
 	h.rooms[roomID][conn] = userID
 
 	if _, subscribed := h.subscribers[roomID]; !subscribed {
-		ctx, cancel := context.WithCancel(context.Background())
+		var cancel context.CancelFunc
+		listenCtx, cancel = context.WithCancel(context.Background())
 		h.subscribers[roomID] = cancel
-		go h.listenRedis(ctx, roomID)
+		startListen = true
+	}
+	h.mu.Unlock()
+
+	if startListen {
+		go h.listenRedis(listenCtx, roomID)
 	}
 
 	h.broadcastLocal(roomID, domain.WSServerMessage{
@@ -91,7 +104,9 @@ func (h *Hub) HandleMessage(ctx context.Context, userID, userRole string, msg do
 		if err != nil {
 			return err
 		}
+		log.Printf("[chat-hub] saved message id=%s room=%s sender=%s listeners=%d", saved.ID.Hex(), msg.RoomID, userID, h.RoomListenerCount(msg.RoomID))
 		if err := h.publishMessage(ctx, msg.RoomID, saved); err != nil {
+			log.Printf("[chat-hub] redis publish failed room=%s err=%v", msg.RoomID, err)
 			return err
 		}
 		if msgType == domain.MessageTypeText && userID != rasa.BotUserID && h.roomHasBotParticipant(ctx, msg.RoomID) {
@@ -227,6 +242,7 @@ func (h *Hub) listenRedis(ctx context.Context, roomID string) {
 				log.Printf("redis payload decode error: %v", err)
 				continue
 			}
+			log.Printf("[chat-hub] redis recv room=%s type=%s listeners=%d", roomID, out.Type, h.RoomListenerCount(roomID))
 			h.broadcastLocal(roomID, out, nil)
 		}
 	}
@@ -238,6 +254,7 @@ func (h *Hub) broadcastLocal(roomID string, msg domain.WSServerMessage, exclude 
 
 	room, ok := h.rooms[roomID]
 	if !ok {
+		log.Printf("[chat-hub] broadcast skipped — no listeners room=%s type=%s", roomID, msg.Type)
 		return
 	}
 
@@ -246,12 +263,16 @@ func (h *Hub) broadcastLocal(roomID string, msg domain.WSServerMessage, exclude 
 		return
 	}
 
+	sent := 0
 	for conn := range room {
 		if exclude != nil && conn == exclude {
 			continue
 		}
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-			log.Printf("websocket write error: %v", err)
+			log.Printf("[chat-hub] websocket write error room=%s user=%s err=%v", roomID, room[conn], err)
+			continue
 		}
+		sent++
 	}
+	log.Printf("[chat-hub] broadcast room=%s type=%s sent=%d total=%d", roomID, msg.Type, sent, len(room))
 }

@@ -58,7 +58,7 @@ export const useOrders = () => {
 
   const exportOrdersExcel = async (filters: Record<string, string> = {}) => {
     const job = await requestOrdersExport(filters)
-    const maxAttempts = 60
+    const maxAttempts = 600
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 1000))
       const status = await getOrdersExportStatus(job.job_id)
@@ -70,7 +70,7 @@ export const useOrders = () => {
         throw new Error(status.error || 'Xuất Excel thất bại')
       }
     }
-    throw new Error('Xuất Excel quá thời gian chờ — thử lại sau')
+    throw new Error('Xuất Excel quá thời gian chờ (10 phút) — thử lại sau')
   }
 
   return {
