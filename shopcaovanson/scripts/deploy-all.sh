@@ -149,7 +149,11 @@ wait_for_apps() {
       kubectl logs "${pod}" -n shop --tail=25 2>/dev/null || true
       kubectl logs "${pod}" -n shop --previous --tail=15 2>/dev/null || true
     fi
-    die "Application rollout failed at ${dep}. Run: bash scripts/diagnose-apps.sh  (ImagePullBackOff → bash scripts/build-images.sh)"
+    local hint="bash scripts/diagnose-apps.sh"
+    if [[ "${dep}" == "api-gateway" || "${dep}" == "auth-service" ]]; then
+      hint="bash scripts/fix-redis-secrets.sh  (log: ping redis [::1]:6379)"
+    fi
+    die "Application rollout failed at ${dep}. Run: ${hint}"
   done
 }
 

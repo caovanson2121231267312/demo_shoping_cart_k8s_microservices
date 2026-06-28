@@ -27,6 +27,17 @@ spec:
             name: api-gateway-config
         - secretRef:
             name: api-gateway-secret
+        env:
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: api-gateway-secret
+              key: REDIS_URL
+        - name: JWT_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-gateway-secret
+              key: JWT_PUBLIC_KEY
         resources:
           requests:
             memory: "128Mi"
