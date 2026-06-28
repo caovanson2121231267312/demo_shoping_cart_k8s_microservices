@@ -12,6 +12,18 @@ die() { echo "[fix-redis-secrets] ERROR: $*" >&2; exit 1; }
 
 command -v kubectl >/dev/null 2>&1 || die "kubectl not found"
 
+urlencode() {
+  python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$1" 2>/dev/null \
+    || die "python3 required to URL-encode Redis password (có ký tự / + = ...)"
+}
+
+build_redis_url() {
+  local db="$1"
+  local enc
+  enc=$(urlencode "${REDIS_PASS}")
+  echo "redis://:${enc}@redis.infra.svc.cluster.local:6379/${db}"
+}
+
 get_live_redis_password() {
   local pass=""
   if kubectl get pod redis-0 -n infra >/dev/null 2>&1; then
@@ -47,7 +59,9 @@ kubectl create secret generic redis-secret -n infra \
   --dry-run=client -o yaml | kubectl apply -f -
 log "✓ infra/redis-secret synced"
 
-REDIS_BASE="redis://:${REDIS_PASS}@redis.infra.svc.cluster.local:6379"
+REDIS_URL_0=$(build_redis_url 0)
+REDIS_URL_2=$(build_redis_url 2)
+log "REDIS_URL (encoded): redis://:***@redis.infra.svc.cluster.local:6379/0"
 
 patch_secret() {
   local name="$1"
@@ -65,13 +79,13 @@ db_pass=$(kubectl get secret auth-service-secret -n shop -o jsonpath='{.data.DB_
 [[ -n "${jwt_pub}" ]] || die "Missing JWT_PUBLIC_KEY — chạy: bash scripts/create-secrets.sh --force"
 
 patch_secret api-gateway-secret \
-  --from-literal=REDIS_URL="${REDIS_BASE}/0" \
+  --from-literal=REDIS_URL="${REDIS_URL_0}" \
   --from-literal=JWT_PUBLIC_KEY="${jwt_pub}"
 
 if [[ -n "${jwt_priv}" && -n "${db_pass}" ]]; then
   patch_secret auth-service-secret \
     --from-literal=DB_PASSWORD="${db_pass}" \
-    --from-literal=REDIS_URL="${REDIS_BASE}/0" \
+    --from-literal=REDIS_URL="${REDIS_URL_0}" \
     --from-literal=JWT_PRIVATE_KEY="${jwt_priv}" \
     --from-literal=JWT_PUBLIC_KEY="${jwt_pub_auth:-${jwt_pub}}"
 fi
@@ -83,7 +97,7 @@ if [[ -n "${mongo_uri}" ]]; then
   patch_secret chat-service-secret \
     --from-literal=MONGO_PASSWORD="${mongo_pass}" \
     --from-literal=MONGODB_URI="${mongo_uri}" \
-    --from-literal=REDIS_URL="${REDIS_BASE}/2" \
+    --from-literal=REDIS_URL="${REDIS_URL_2}" \
     --from-literal=JWT_PUBLIC_KEY="${chat_jwt:-${jwt_pub}}"
 fi
 
@@ -94,10 +108,18 @@ if [[ -n "${order_db}" ]]; then
     --from-literal=REDIS_PASSWORD="${REDIS_PASS}"
 fi
 
-# Cập nhật .env.production nếu có
+# Cập nhật .env.production nếu có (tránh sed lỗi khi password có /)
 ENV_FILE="${ENV_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env.production}"
-if [[ -f "${ENV_FILE}" ]] && grep -q '^REDIS_PASSWORD=' "${ENV_FILE}"; then
-  sed -i "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=${REDIS_PASS}/" "${ENV_FILE}" 2>/dev/null || true
+if [[ -f "${ENV_FILE}" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 - "${ENV_FILE}" "${REDIS_PASS}" <<'PY'
+import pathlib, re, sys
+path = pathlib.Path(sys.argv[1])
+val = sys.argv[2]
+text = path.read_text(encoding="utf-8")
+if re.search(r"^REDIS_PASSWORD=", text, re.M):
+    text = re.sub(r"^REDIS_PASSWORD=.*$", f"REDIS_PASSWORD={val}", text, count=1, flags=re.M)
+    path.write_text(text, encoding="utf-8")
+PY
   log "✓ .env.production REDIS_PASSWORD synced"
 fi
 
