@@ -22,11 +22,31 @@ die() { echo "[build-images] ERROR: $*" >&2; exit 1; }
 detect_builder() {
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     echo "docker"
-  elif command -v nerdctl >/dev/null 2>&1; then
+    return 0
+  fi
+  if command -v nerdctl >/dev/null 2>&1; then
     echo "nerdctl"
-  else
+    return 0
+  fi
+  return 1
+}
+
+require_builder() {
+  if ! detect_builder >/dev/null 2>&1; then
     die "Chưa có công cụ build. Chạy: sudo bash scripts/install-build-tools.sh"
   fi
+}
+
+ensure_buildkit() {
+  export BUILDKIT_HOST="${BUILDKIT_HOST:-unix:///run/buildkit/buildkitd.sock}"
+  if [[ -S "/run/buildkit/buildkitd.sock" ]]; then
+    return 0
+  fi
+  if systemctl is-active buildkit >/dev/null 2>&1; then
+    sleep 2
+    [[ -S "/run/buildkit/buildkitd.sock" ]] && return 0
+  fi
+  log "WARN: buildkit socket missing — chạy: sudo systemctl start buildkit"
 }
 
 build_image() {
@@ -38,6 +58,7 @@ build_image() {
   [[ -d "${ctx}" ]] || die "Missing context: ${ctx}"
 
   log "Building ${ref} (${builder})..."
+  ensure_buildkit
   export BUILDKIT_HOST="${BUILDKIT_HOST:-unix:///run/buildkit/buildkitd.sock}"
 
   case "${builder}" in
@@ -107,6 +128,9 @@ main() {
   fi
 
   command -v kubectl >/dev/null 2>&1 || log "WARN: kubectl not in PATH"
+
+  require_builder
+  ensure_buildkit
 
   local targets=()
   if [[ $# -gt 0 ]]; then
