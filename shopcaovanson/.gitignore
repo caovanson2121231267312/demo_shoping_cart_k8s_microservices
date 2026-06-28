@@ -16,7 +16,8 @@ frontend/web/.output/
 
 # Env files — KHÔNG commit
 **/.env
-# .env.example thì ĐƯỢC commit
+.env.production
+# .env.example / .env.production.example thì ĐƯỢC commit
 
 # K8s secrets — KHÔNG commit
 k8s/**/*-secret.yaml

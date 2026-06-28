@@ -82,6 +82,12 @@ apply-security: ## Apply NetworkPolicy, PSS, RBAC hardening
 cicd-kubeconfig: ## Generate kubeconfig for GitHub Actions (run on VPS)
 	bash scripts/create-cicd-kubeconfig.sh
 
+create-secrets: ## Generate .env.production + K8s secrets (run before deploy)
+	bash scripts/create-secrets.sh
+
+create-secrets-env: ## Only create .env.production file (no kubectl)
+	bash scripts/create-secrets.sh --env-only
+
 # CI
 build: ## Build and push Docker image (make build svc=auth-service)
 	@if [ -z "$(svc)" ]; then echo "Usage: make build svc=auth-service"; exit 1; fi

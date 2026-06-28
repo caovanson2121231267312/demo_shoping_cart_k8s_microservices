@@ -87,19 +87,23 @@ spec:
             memory: "1Gi"
             cpu: "1000m"
         livenessProbe:
-          httpGet:
-            path: /_cluster/health
-            port: 9200
-            scheme: HTTP
-          initialDelaySeconds: 90
+          exec:
+            command:
+            - sh
+            - -c
+            - curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://localhost:9200/_cluster/health" >/dev/null
+          initialDelaySeconds: 120
           periodSeconds: 20
+          timeoutSeconds: 10
         readinessProbe:
-          httpGet:
-            path: /_cluster/health?wait_for_status=yellow&timeout=5s
-            port: 9200
-            scheme: HTTP
-          initialDelaySeconds: 60
-          periodSeconds: 10
+          exec:
+            command:
+            - sh
+            - -c
+            - curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" >/dev/null
+          initialDelaySeconds: 90
+          periodSeconds: 15
+          timeoutSeconds: 10
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data

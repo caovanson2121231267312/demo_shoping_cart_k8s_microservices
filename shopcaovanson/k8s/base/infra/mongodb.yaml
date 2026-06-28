@@ -63,19 +63,21 @@ spec:
         livenessProbe:
           exec:
             command:
-            - mongosh
-            - --eval
-            - "db.adminCommand('ping')"
-          initialDelaySeconds: 30
+            - sh
+            - -c
+            - mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping')" --quiet
+          initialDelaySeconds: 45
           periodSeconds: 20
+          timeoutSeconds: 10
         readinessProbe:
           exec:
             command:
-            - mongosh
-            - --eval
-            - "db.adminCommand('ping')"
-          initialDelaySeconds: 10
+            - sh
+            - -c
+            - mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping')" --quiet
+          initialDelaySeconds: 20
           periodSeconds: 10
+          timeoutSeconds: 10
   volumeClaimTemplates:
   - metadata:
       name: mongodb-data
