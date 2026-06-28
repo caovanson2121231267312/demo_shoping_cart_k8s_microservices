@@ -33,14 +33,14 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiProxyTarget:
       process.env.NUXT_API_PROXY_TARGET
-      || (isDev ? 'http://localhost:8080' : 'https://shopapicaovanson.xyz'),
+      || (isDev ? 'http://localhost:8080' : 'https://vocabee.cloud'),
     public: {
       apiUrl:
         process.env.NUXT_PUBLIC_API_URL
-        ?? (isDev ? 'http://localhost:8080' : 'https://shopapicaovanson.xyz'),
+        ?? (isDev ? 'http://localhost:8080' : 'https://vocabee.cloud'),
       wsUrl:
         process.env.NUXT_PUBLIC_WS_URL
-        || (isDev ? 'ws://localhost:8080' : 'wss://shopapicaovanson.xyz'),
+        || (isDev ? 'ws://localhost:8080' : 'wss://vocabee.cloud'),
     },
   },
 

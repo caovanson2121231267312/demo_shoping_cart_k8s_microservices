@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - cert-manager/cluster-issuer.yaml
+  - ingress/ingress.yaml
+  - infra/postgres.yaml
+  - infra/mongodb.yaml
+  - infra/redis.yaml
+  - infra/zookeeper.yaml
+  - infra/kafka.yaml
+  - infra/elasticsearch.yaml
+  - api-gateway/deployment.yaml
+  - api-gateway/service.yaml
+  - api-gateway/configmap.yaml
+  - api-gateway/hpa.yaml
+  - auth-service/deployment.yaml
+  - auth-service/service.yaml
+  - auth-service/configmap.yaml
+  - product-service/deployment.yaml
+  - product-service/service.yaml
+  - product-service/configmap.yaml
+  - product-service/hpa.yaml
+  - order-service/deployment.yaml
+  - order-service/service.yaml
+  - order-service/configmap.yaml
+  - chat-service/deployment.yaml
+  - chat-service/service.yaml
+  - chat-service/configmap.yaml
+  - notification-service/deployment.yaml
+  - notification-service/service.yaml
+  - notification-service/configmap.yaml
+  - search-service/deployment.yaml
+  - search-service/service.yaml
+  - search-service/configmap.yaml
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  - frontend/configmap.yaml

@@ -2,20 +2,4 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../base/namespace.yaml
-  - ../../base/cert-manager/cluster-issuer.yaml
-  - ../../base/ingress/ingress.yaml
-  - ../../base/infra/postgres.yaml
-  - ../../base/infra/mongodb.yaml
-  - ../../base/infra/redis.yaml
-  - ../../base/infra/zookeeper.yaml
-  - ../../base/infra/kafka.yaml
-  - ../../base/infra/elasticsearch.yaml
-  - ../../base/api-gateway
-  - ../../base/auth-service
-  - ../../base/product-service
-  - ../../base/order-service
-  - ../../base/chat-service
-  - ../../base/notification-service
-  - ../../base/search-service
-  - ../../base/frontend
+  - ../../base

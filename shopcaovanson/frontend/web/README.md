@@ -2,7 +2,7 @@
 
 ## Trách nhiệm
 
-Ứng dụng web NuxtJS 3 + Vuetify 3 cho cửa hàng trực tuyến Shop Cao Van Son. Cung cấp giao diện mua sắm, quản trị, chat hỗ trợ và tích hợp với backend API tại `shopapicaovanson.xyz`.
+Ứng dụng web NuxtJS 3 + Vuetify 3 cho cửa hàng trực tuyến Shop Cao Van Son. Cung cấp giao diện mua sắm, quản trị, chat hỗ trợ và tích hợp với backend API tại `vocabee.cloud`.
 
 ## Tech stack
 
@@ -18,9 +18,9 @@
 
 | Biến | Mô tả | Giá trị mặc định |
 |------|-------|------------------|
-| `NUXT_PUBLIC_API_URL` | Base URL backend API | `https://shopapicaovanson.xyz` |
-| `NUXT_PUBLIC_WS_URL` | WebSocket URL (chat) | `wss://shopapicaovanson.xyz` |
-| `NUXT_API_PROXY_TARGET` | Target proxy cho dev server `/api/*` | `https://shopapicaovanson.xyz` |
+| `NUXT_PUBLIC_API_URL` | Base URL backend API | `https://vocabee.cloud` |
+| `NUXT_PUBLIC_WS_URL` | WebSocket URL (chat) | `wss://vocabee.cloud` |
+| `NUXT_API_PROXY_TARGET` | Target proxy cho dev server `/api/*` | `https://vocabee.cloud` |
 
 ## Chạy local
 

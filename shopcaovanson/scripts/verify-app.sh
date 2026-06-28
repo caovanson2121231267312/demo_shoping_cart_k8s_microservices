@@ -2,7 +2,7 @@
 # Kiểm tra toàn bộ container và health endpoints ứng dụng
 set -euo pipefail
 
-API_URL="${API_URL:-https://shopapicaovanson.xyz}"
+API_URL="${API_URL:-https://vocabee.cloud}"
 FRONTEND_URL="${FRONTEND_URL:-https://shopcaovanson.xyz}"
 NAMESPACE_SHOP="${NAMESPACE_SHOP:-shop}"
 NAMESPACE_INFRA="${NAMESPACE_INFRA:-infra}"

@@ -7,8 +7,8 @@ RUN npm ci
 
 COPY . .
 
-ARG NUXT_PUBLIC_API_URL=https://shopapicaovanson.xyz
-ARG NUXT_PUBLIC_WS_URL=wss://shopapicaovanson.xyz
+ARG NUXT_PUBLIC_API_URL=https://vocabee.cloud
+ARG NUXT_PUBLIC_WS_URL=wss://vocabee.cloud
 
 ENV NUXT_PUBLIC_API_URL=$NUXT_PUBLIC_API_URL
 ENV NUXT_PUBLIC_WS_URL=$NUXT_PUBLIC_WS_URL

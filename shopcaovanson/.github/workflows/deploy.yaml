@@ -266,7 +266,7 @@ jobs:
       - name: Verify application health
         run: |
           chmod +x scripts/verify-app.sh
-          API_URL=https://shopapicaovanson.xyz FRONTEND_URL=https://shopcaovanson.xyz \
+          API_URL=https://vocabee.cloud FRONTEND_URL=https://shopcaovanson.xyz \
             bash scripts/verify-app.sh || true
 
   update-manifests:

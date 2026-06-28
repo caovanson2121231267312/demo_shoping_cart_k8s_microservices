@@ -69,7 +69,7 @@ frontend/web/
 │   └── vuetify.ts
 ├── server/                     # Nuxt server routes (proxy)
 │   └── api/
-│       └── [...].ts            # proxy all /api/* to shopapicaovanson.xyz
+│       └── [...].ts            # proxy all /api/* to vocabee.cloud
 ├── stores/
 │   ├── auth.ts                 # Pinia: user, token, isLoggedIn
 │   ├── cart.ts                 # Pinia: items, count, total
@@ -80,7 +80,7 @@ frontend/web/
 
 ### Key implementation details:
 
-**nuxt.config.ts**: configure Vuetify module, runtimeConfig with NUXT_PUBLIC_API_URL=https://shopapicaovanson.xyz, NUXT_PUBLIC_WS_URL=wss://shopapicaovanson.xyz
+**nuxt.config.ts**: configure Vuetify module, runtimeConfig with NUXT_PUBLIC_API_URL=https://vocabee.cloud, NUXT_PUBLIC_WS_URL=wss://vocabee.cloud
 
 **useAuth.ts composable**: 
 - stores JWT in httpOnly cookie via server route (not localStorage)
@@ -88,7 +88,7 @@ frontend/web/
 - on 401 response, redirect to /login
 
 **useChat.ts composable**:
-- connects WebSocket to wss://shopapicaovanson.xyz/ws?token={jwt}
+- connects WebSocket to wss://vocabee.cloud/ws?token={jwt}
 - auto-reconnect with exponential backoff (1s, 2s, 4s, max 30s)
 - stores messages in Pinia chat store
 - shows typing indicator with 3s timeout
@@ -219,7 +219,7 @@ spec:
     - www.shopcaovanson.xyz
     secretName: frontend-tls
   - hosts:
-    - shopapicaovanson.xyz
+    - vocabee.cloud
     secretName: backend-tls
   rules:
   - host: shopcaovanson.xyz
@@ -232,7 +232,7 @@ spec:
             name: frontend-service
             port:
               number: 80
-  - host: shopapicaovanson.xyz
+  - host: vocabee.cloud
     http:
       paths:
       - path: /ws
@@ -265,7 +265,7 @@ Complete README covering:
 1. System architecture diagram (ASCII art)
 2. Prerequisites (VPS 6CPU/12GB, domain DNS setup)
 3. Quick start: clone -> setup cluster -> deploy infra -> migrate -> seed -> deploy services -> verify
-4. Domain DNS records to configure (A records for shopcaovanson.xyz and shopapicaovanson.xyz pointing to VPS IP)
+4. Domain DNS records to configure (A records for shopcaovanson.xyz and vocabee.cloud pointing to VPS IP)
 5. How to access: frontend URL, API docs URL, Grafana URL, how to login as admin
 6. Development: how to run any single service locally with docker-compose
 7. Troubleshooting common issues

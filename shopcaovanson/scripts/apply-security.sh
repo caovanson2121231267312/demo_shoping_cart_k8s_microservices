@@ -36,7 +36,7 @@ verify() {
   kubectl get networkpolicy -n infra
   log "Namespace PSS labels:"
   kubectl get ns shop infra --show-labels | grep -E 'NAME|pod-security' || kubectl get ns shop infra --show-labels
-  log "Done. Run smoke test: curl https://shopapicaovanson.xyz/api/health"
+  log "Done. Run smoke test: curl https://vocabee.cloud/api/health"
 }
 
 main() {

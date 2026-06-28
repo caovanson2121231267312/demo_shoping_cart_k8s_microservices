@@ -5,8 +5,8 @@ Demo e-commerce platform with NuxtJS 3 frontend and Go/Python microservices, dep
 | Component | URL |
 |-----------|-----|
 | Frontend | https://shopcaovanson.xyz |
-| Backend API | https://shopapicaovanson.xyz |
-| WebSocket Chat | wss://shopapicaovanson.xyz/ws |
+| Backend API | https://vocabee.cloud |
+| WebSocket Chat | wss://vocabee.cloud/ws |
 
 ## Architecture
 
@@ -23,7 +23,7 @@ Demo e-commerce platform with NuxtJS 3 frontend and Go/Python microservices, dep
                  nginx-ingress + cert-manager
               +-------------+-------------+
               |                           |
-     shopcaovanson.xyz          shopapicaovanson.xyz
+     shopcaovanson.xyz          vocabee.cloud
               |                           |
          +----+----+              +-------+--------+
          | frontend |              | /api  /ws     |
@@ -65,7 +65,7 @@ See [docs/architecture.md](docs/architecture.md) for detailed system design and 
 - **Domain DNS**: A records pointing to VPS public IP
   - `shopcaovanson.xyz` → VPS IP
   - `www.shopcaovanson.xyz` → VPS IP
-  - `shopapicaovanson.xyz` → VPS IP
+  - `vocabee.cloud` → VPS IP
 - **Host tools**: KVM/libvirt, kubectl, helm, docker, git, SSH key pair
 - **GitHub Container Registry**: Images at `ghcr.io/caovanson/{service}:latest`
 
@@ -181,8 +181,8 @@ kubectl get certificates -n shop
 | Resource | URL / Credentials |
 |----------|-------------------|
 | Frontend | https://shopcaovanson.xyz |
-| API base | https://shopapicaovanson.xyz/api |
-| WebSocket | wss://shopapicaovanson.xyz/ws |
+| API base | https://vocabee.cloud/api |
+| WebSocket | wss://vocabee.cloud/ws |
 | API docs | [docs/api-spec.md](docs/api-spec.md) |
 | Admin login | `admin@shop.com` / `Admin@123` |
 | Monitoring | Grafana không nằm trong scope demo này |
@@ -274,7 +274,7 @@ Point these A records to your VPS public IP:
 |--------|------|-------|
 | shopcaovanson.xyz | A | `<VPS_IP>` |
 | www.shopcaovanson.xyz | A | `<VPS_IP>` |
-| shopapicaovanson.xyz | A | `<VPS_IP>` |
+| vocabee.cloud | A | `<VPS_IP>` |
 
 ## Troubleshooting
 

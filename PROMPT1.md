@@ -2,7 +2,7 @@ You are a senior DevOps + backend architect. Create a complete e-commerce projec
 
 ## PROJECT OVERVIEW
 - Frontend: shopcaovanson.xyz (NuxtJS 3 + Vuetify 3)
-- Backend API: shopapicaovanson.xyz (Go microservices)
+- Backend API: vocabee.cloud (Go microservices)
 - SSL: cert-manager with Let's Encrypt (production ClusterIssuer)
 - K8s: multi-node setup (1 master + 2 workers via KVM on single VPS)
 - Chat feature: real-time WebSocket
@@ -116,8 +116,8 @@ spec:
 ### ingress/ingress.yaml
 Single ingress covering both domains:
 - shopcaovanson.xyz -> frontend service
-- shopapicaovanson.xyz/api/* -> api-gateway service  
-- shopapicaovanson.xyz/ws/* -> chat-service (with WebSocket annotations)
+- vocabee.cloud/api/* -> api-gateway service  
+- vocabee.cloud/ws/* -> chat-service (with WebSocket annotations)
 - TLS for both domains using cert-manager annotation
 
 ### infra/ - create StatefulSets for:

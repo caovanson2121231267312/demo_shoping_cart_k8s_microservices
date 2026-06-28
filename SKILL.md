@@ -19,7 +19,7 @@ hay bất kỳ tính năng phức tạp nào khác — chỉ cần những thứ
 | Mục          | Giá trị                                      |
 |--------------|----------------------------------------------|
 | Frontend     | https://shopcaovanson.xyz                    |
-| Backend API  | https://shopapicaovanson.xyz                 |
+| Backend API  | https://vocabee.cloud                 |
 | SSL          | cert-manager + Let's Encrypt (letsencrypt-prod) |
 | K8s          | Multi-node: 1 master + 2 worker (KVM trên 1 VPS) |
 | VPS spec     | 6 CPU · 12 GB RAM · 150 GB NVMe             |
@@ -507,7 +507,7 @@ export const formatVND = (amount: number) =>
 ```typescript
 // Reconnect với exponential backoff
 const delays = [1000, 2000, 4000, 8000, 16000, 30000]
-// Gửi JWT qua query param: wss://shopapicaovanson.xyz/ws?token=xxx
+// Gửi JWT qua query param: wss://vocabee.cloud/ws?token=xxx
 // Typing indicator: debounce 500ms, tự tắt sau 3s không có keystroke
 ```
 

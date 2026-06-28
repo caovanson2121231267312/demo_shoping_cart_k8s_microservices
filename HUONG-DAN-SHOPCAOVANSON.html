@@ -299,7 +299,7 @@
   <p>E-commerce demo: NuxtJS 3 + Go microservices + Python + Kubernetes multi-node</p>
   <div class="badges">
     <span class="badge">Frontend: shopcaovanson.xyz</span>
-    <span class="badge">API: shopapicaovanson.xyz</span>
+    <span class="badge">API: vocabee.cloud</span>
     <span class="badge">K8s 1 master + 2 workers</span>
   </div>
 </header>
@@ -321,7 +321,7 @@
                  nginx-ingress + cert-manager (Let's Encrypt)
               +-------------+-------------+
               |                           |
-     shopcaovanson.xyz          shopapicaovanson.xyz
+     shopcaovanson.xyz          vocabee.cloud
      (NuxtJS Frontend)          /api → api-gateway
                                 /ws  → chat-service (WebSocket)
                                            |
@@ -338,11 +338,11 @@
     <table>
       <tr><th>Thành phần</th><th>Công nghệ</th><th>URL production</th></tr>
       <tr><td>Frontend</td><td>NuxtJS 3.12 + Vuetify 3.6</td><td>https://shopcaovanson.xyz</td></tr>
-      <tr><td>API Gateway</td><td>Go 1.22 + Fiber v2</td><td>https://shopapicaovanson.xyz/api</td></tr>
+      <tr><td>API Gateway</td><td>Go 1.22 + Fiber v2</td><td>https://vocabee.cloud/api</td></tr>
       <tr><td>Auth Service</td><td>Go + PostgreSQL + Redis</td><td>/api/auth/*</td></tr>
       <tr><td>Product Service</td><td>Go + PostgreSQL + MongoDB + ES</td><td>/api/products/*</td></tr>
       <tr><td>Order Service</td><td>Go + PostgreSQL + Redis (cart)</td><td>/api/cart, /api/orders/*</td></tr>
-      <tr><td>Chat Service</td><td>Go + MongoDB + WebSocket</td><td>wss://shopapicaovanson.xyz/ws</td></tr>
+      <tr><td>Chat Service</td><td>Go + MongoDB + WebSocket</td><td>wss://vocabee.cloud/ws</td></tr>
       <tr><td>Notification</td><td>Python 3.12 + Kafka</td><td>Gửi email (nội bộ)</td></tr>
       <tr><td>Search</td><td>Python + Kafka + Elasticsearch</td><td>Index sản phẩm (nội bộ)</td></tr>
     </table>
@@ -367,7 +367,7 @@
       <tr><th>Hạng mục</th><th>Thông số</th></tr>
       <tr><td>VPS</td><td>6 CPU · 12 GB RAM · 150 GB NVMe · Ubuntu 22.04</td></tr>
       <tr><td>Hypervisor</td><td>KVM / libvirt (3 VM: 1 master + 2 worker)</td></tr>
-      <tr><td>Domain</td><td>shopcaovanson.xyz + shopapicaovanson.xyz</td></tr>
+      <tr><td>Domain</td><td>shopcaovanson.xyz + vocabee.cloud</td></tr>
       <tr><td>Công cụ trên VPS</td><td>kubectl, helm, docker, git, SSH key</td></tr>
       <tr><td>Registry</td><td>ghcr.io/caovanson/{service}:latest</td></tr>
     </table>
@@ -525,7 +525,7 @@ docker compose exec -T order-service /app/migrate up</code></pre>
       <tr><th>Bản ghi</th><th>Loại</th><th>Giá trị</th></tr>
       <tr><td>shopcaovanson.xyz</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
       <tr><td>www.shopcaovanson.xyz</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
-      <tr><td>shopapicaovanson.xyz</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
+      <tr><td>vocabee.cloud</td><td>A</td><td>&lt;IP_VPS&gt;</td></tr>
     </table>
     <div class="card warn">
       cert-manager dùng HTTP-01 challenge — <strong>port 80 phải mở</strong> và DNS phải resolve đúng IP trước khi cấp SSL Let's Encrypt (đợi 2–5 phút sau deploy).
@@ -733,8 +733,8 @@ bash scripts/seed-data.sh</code></pre>
     <table>
       <tr><th>Tài nguyên</th><th>URL / Thông tin</th></tr>
       <tr><td>Frontend</td><td><a href="https://shopcaovanson.xyz" style="color:var(--primary-light)">https://shopcaovanson.xyz</a></td></tr>
-      <tr><td>API</td><td><a href="https://shopapicaovanson.xyz/api" style="color:var(--primary-light)">https://shopapicaovanson.xyz/api</a></td></tr>
-      <tr><td>WebSocket Chat</td><td>wss://shopapicaovanson.xyz/ws?token=&lt;JWT&gt;</td></tr>
+      <tr><td>API</td><td><a href="https://vocabee.cloud/api" style="color:var(--primary-light)">https://vocabee.cloud/api</a></td></tr>
+      <tr><td>WebSocket Chat</td><td>wss://vocabee.cloud/ws?token=&lt;JWT&gt;</td></tr>
       <tr><td>Admin</td><td><code>admin@shop.com</code> / <code>Admin@123</code></td></tr>
       <tr><td>API docs</td><td><code>shopcaovanson/docs/api-spec.md</code></td></tr>
       <tr><td>Local frontend</td><td><a href="http://localhost:3000" style="color:var(--primary-light)">http://localhost:3000</a></td></tr>

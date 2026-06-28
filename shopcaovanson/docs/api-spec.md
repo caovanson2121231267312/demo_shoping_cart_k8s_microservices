@@ -1,6 +1,6 @@
 # shopcaovanson — API Specification
 
-Base URL: `https://shopapicaovanson.xyz`
+Base URL: `https://vocabee.cloud`
 
 All authenticated endpoints require header: `Authorization: Bearer <access_token>`
 

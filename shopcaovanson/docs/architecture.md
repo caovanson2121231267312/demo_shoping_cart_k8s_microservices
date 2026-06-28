@@ -9,7 +9,7 @@ shopcaovanson is a demo e-commerce platform deployed on a multi-node Kubernetes 
 | Domain | Purpose |
 |--------|---------|
 | https://shopcaovanson.xyz | NuxtJS 3 frontend (Vuetify 3) |
-| https://shopapicaovanson.xyz | Backend API + WebSocket |
+| https://vocabee.cloud | Backend API + WebSocket |
 
 SSL is provisioned automatically via cert-manager ClusterIssuer `letsencrypt-prod`.
 
@@ -32,7 +32,7 @@ SSL is provisioned automatically via cert-manager ClusterIssuer `letsencrypt-pro
                          (TLS: cert-manager)
                     +---------+----------+---------+
                     |         |          |         |
-            shopcaovanson.xyz |   shopapicaovanson.xyz
+            shopcaovanson.xyz |   vocabee.cloud
                     |         |          |
               +-----v-----+   |    +-----v------------------+
               | frontend  |   |    | /api -> api-gateway     |
@@ -101,7 +101,7 @@ SSL is provisioned automatically via cert-manager ClusterIssuer `letsencrypt-pro
 ### User browses products
 
 1. Browser loads `shopcaovanson.xyz` → nginx-ingress → frontend pods
-2. Frontend calls `shopapicaovanson.xyz/api/products` → ingress → api-gateway
+2. Frontend calls `vocabee.cloud/api/products` → ingress → api-gateway
 3. api-gateway validates JWT (if required), proxies to product-service
 4. product-service queries PostgreSQL; search uses Elasticsearch with Postgres ILIKE fallback
 
@@ -114,7 +114,7 @@ SSL is provisioned automatically via cert-manager ClusterIssuer `letsencrypt-pro
 
 ### Real-time chat
 
-1. Frontend opens WebSocket `wss://shopapicaovanson.xyz/ws?token=JWT`
+1. Frontend opens WebSocket `wss://vocabee.cloud/ws?token=JWT`
 2. Ingress routes to chat-service with 3600s timeout annotations
 3. chat-service uses `sessionAffinity: ClientIP` for sticky sessions
 4. Messages broadcast across pods via Redis pub/sub channel `chat:{room_id}`
