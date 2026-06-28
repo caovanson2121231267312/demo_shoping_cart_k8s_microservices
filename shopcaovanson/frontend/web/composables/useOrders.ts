@@ -1,4 +1,6 @@
+import type { FetchOptions } from 'ofetch'
 import type { Order, OrderListResult, TrackOrderInput } from '~/types'
+import { downloadBlob } from '~/utils/downloadFile'
 
 export interface OrderExportJob {
   job_id: string
@@ -20,8 +22,6 @@ export interface OrderExportProgress {
 
 export const useOrders = () => {
   const { apiFetch } = useAuth()
-  const authStore = useAuthStore()
-  const config = useRuntimeConfig()
 
   const fetchMyOrders = (page = 1, limit = 20) =>
     apiFetch<OrderListResult>('/api/orders', { query: { page, limit } })
@@ -47,26 +47,22 @@ export const useOrders = () => {
     apiFetch<OrderExportJob>(`/api/admin/orders/export/${jobId}`)
 
   const downloadOrdersExport = async (jobId: string, fileName?: string | null) => {
-    const base = (config.public.apiUrl as string) || ''
-    const url = `${base}/api/admin/orders/export/${jobId}/file`
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${authStore.accessToken}` },
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(text || 'Tải file Excel thất bại')
+    const blob = await apiFetch<Blob>(`/api/admin/orders/export/${jobId}/file`, {
+      responseType: 'blob',
+    } as FetchOptions<'json'>)
+
+    if (!blob?.size) {
+      throw new Error('File Excel trống hoặc chưa sẵn sàng — thử lại sau vài giây')
     }
-    const blob = await res.blob()
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = fileName || `don-hang-${jobId.slice(0, 8)}.xlsx`
-    a.click()
-    URL.revokeObjectURL(a.href)
+
+    const safeName = (fileName || `don-hang-${jobId.slice(0, 8)}.xlsx`).replace(/[\\/:*?"<>|]/g, '-')
+    downloadBlob(blob, safeName)
   }
 
   const exportOrdersExcel = async (
     filters: Record<string, string> = {},
     onProgress?: (progress: OrderExportProgress) => void,
+    onBeforeDownload?: () => void | Promise<void>,
   ) => {
     const emit = (status: OrderExportJob) => {
       onProgress?.({
@@ -85,7 +81,8 @@ export const useOrders = () => {
       const status = await getOrdersExportStatus(job.job_id)
       emit(status)
       if (status.status === 'completed') {
-        emit({ ...status, progress: 99, progress_message: 'Đang tải file về...' })
+        onProgress?.({ progress: 99, message: 'Đang tải file về...', status: 'completed' })
+        await onBeforeDownload?.()
         await downloadOrdersExport(job.job_id, status.file_name)
         onProgress?.({ progress: 100, message: 'Hoàn tất', status: 'completed' })
         return status

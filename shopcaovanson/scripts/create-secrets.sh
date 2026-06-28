@@ -341,6 +341,12 @@ main() {
   kubectl cluster-info >/dev/null 2>&1 || die "Cannot connect to Kubernetes cluster"
 
   apply_infra_secrets
+  if [[ "${FORCE}" == "true" && "${APPLY_ONLY}" != "true" ]]; then
+    log "Restarting infra pods to apply new passwords (redis/postgres/mongo/elastic)..."
+    for sts in redis postgres mongodb elasticsearch; do
+      kubectl rollout restart statefulset/"${sts}" -n infra 2>/dev/null || true
+    done
+  fi
   apply_shop_secrets
   verify_secrets
   print_summary

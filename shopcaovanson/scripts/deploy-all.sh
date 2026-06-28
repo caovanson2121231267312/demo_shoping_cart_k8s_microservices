@@ -151,7 +151,7 @@ wait_for_apps() {
     fi
     local hint="bash scripts/diagnose-apps.sh"
     if [[ "${dep}" == "api-gateway" || "${dep}" == "auth-service" ]]; then
-      hint="bash scripts/fix-redis-secrets.sh  (log: ping redis [::1]:6379)"
+      hint="bash scripts/fix-redis-secrets.sh  (WRONGPASS / redis localhost)"
     fi
     die "Application rollout failed at ${dep}. Run: ${hint}"
   done

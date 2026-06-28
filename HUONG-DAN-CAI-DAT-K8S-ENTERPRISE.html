@@ -2574,6 +2574,30 @@ OVERLAY=dev bash scripts/deploy-all.sh</pre>
 
     <div class="cmd-block">
       <div class="cmd-header">
+        <span class="cmd-title">15.4c Elasticsearch timeout / connection refused :9200</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> <code>elasticsearch-0</code> Running nhưng không Ready, nhiều RESTARTS, probe <code>connection refused</code> hoặc <code>httpGet .../_cluster/health</code> không auth.</p>
+        <p><span class="label">💡 Nguyên nhân:</span> RAM limit 1Gi quá thấp (OOM restart) hoặc manifest cũ dùng httpGet không có password.</p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+kubectl apply -k k8s/overlays/dev
+kubectl delete pod elasticsearch-0 -n infra
+kubectl rollout status statefulset/elasticsearch -n infra --timeout=900s
+
+# Kiểm tra auth + health
+kubectl exec elasticsearch-0 -n infra -- sh -c \
+  'curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://127.0.0.1:9200/_cluster/health?pretty"'
+
+# Vẫn lỗi — reset PVC (xóa index search)
+bash scripts/reset-elasticsearch.sh --yes
+OVERLAY=dev bash scripts/deploy-all.sh</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
         <span class="cmd-title">15.5 PVC Pending — thiếu StorageClass</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
@@ -2619,6 +2643,32 @@ kubectl get secrets -n shop</pre>
       </div>
       <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 bash scripts/diagnose-infra.sh</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">15.8 api-gateway / app — progress deadline / ImagePullBackOff</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> Infra OK nhưng <code>deployment "api-gateway" exceeded its progress deadline</code>.</p>
+        <p><span class="label">💡 Nguyên nhân thường gặp:</span> Chưa có image trên GHCR. VPS K8s dùng <code>containerd.io</code> — <strong>không</strong> cài <code>docker.io</code> (conflict).</p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+bash scripts/diagnose-apps.sh
+
+# Bước 1: Cài nerdctl + buildkit (một lần, cần sudo)
+sudo bash scripts/install-build-tools.sh
+
+# Bước 2: Build tất cả image vào containerd (~20–40 phút)
+bash scripts/build-images.sh
+
+# Hoặc build thử 1 service trước:
+# bash scripts/build-images.sh api-gateway
+
+kubectl get pods -n shop -w
+bash scripts/diagnose-apps.sh</pre>
     </div>
   </section>
 

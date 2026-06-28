@@ -241,10 +241,17 @@ const onExportExcel = async () => {
     if (searchQuery.value?.trim()) filters.search = searchQuery.value.trim()
     if (dateFilter.createdFrom) filters.created_from = dateFilter.createdFrom
     if (dateFilter.createdTo) filters.created_to = dateFilter.createdTo
-    await exportOrdersExcel(filters, ({ progress, message }) => {
-      exportProgress.value = progress
-      exportProgressMessage.value = message
-    })
+    await exportOrdersExcel(
+      filters,
+      ({ progress, message }) => {
+        exportProgress.value = progress
+        exportProgressMessage.value = message
+      },
+      async () => {
+        exportDialog.value = false
+        await nextTick()
+      },
+    )
     snackbar.show('Đã xuất file Excel đơn hàng', 'success')
   } catch (e: unknown) {
     snackbar.show(e instanceof Error ? e.message : 'Xuất Excel thất bại', 'error')
