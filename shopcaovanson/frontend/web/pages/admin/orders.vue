@@ -95,6 +95,26 @@
         </div>
       </template>
     </AdminDataTable>
+
+    <v-dialog v-model="exportDialog" persistent max-width="440">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center ga-2">
+          <v-icon color="success">mdi-microsoft-excel</v-icon>
+          Đang xuất Excel
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-3">{{ exportProgressMessage }}</p>
+          <v-progress-linear
+            :model-value="exportProgress"
+            color="success"
+            height="10"
+            rounded
+            striped
+          />
+          <p class="text-caption text-medium-emphasis mt-2 text-end">{{ exportProgress }}%</p>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -112,6 +132,9 @@ const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
 const orders = ref<Order[]>([])
 const loading = ref(false)
 const exporting = ref(false)
+const exportDialog = ref(false)
+const exportProgress = ref(0)
+const exportProgressMessage = ref('Đang khởi tạo...')
 const statusFilter = ref<string | null>(null)
 const searchQuery = ref('')
 
@@ -209,18 +232,25 @@ const updateStatus = async (orderId: string, status: string) => {
 
 const onExportExcel = async () => {
   exporting.value = true
+  exportDialog.value = true
+  exportProgress.value = 0
+  exportProgressMessage.value = 'Đang khởi tạo...'
   try {
     const filters: Record<string, string> = {}
     if (statusFilter.value) filters.status = statusFilter.value
     if (searchQuery.value?.trim()) filters.search = searchQuery.value.trim()
-    if (dateFilter.createdFrom.value) filters.created_from = dateFilter.createdFrom.value
-    if (dateFilter.createdTo.value) filters.created_to = dateFilter.createdTo.value
-    await exportOrdersExcel(filters)
+    if (dateFilter.createdFrom) filters.created_from = dateFilter.createdFrom
+    if (dateFilter.createdTo) filters.created_to = dateFilter.createdTo
+    await exportOrdersExcel(filters, ({ progress, message }) => {
+      exportProgress.value = progress
+      exportProgressMessage.value = message
+    })
     snackbar.show('Đã xuất file Excel đơn hàng', 'success')
   } catch (e: unknown) {
     snackbar.show(e instanceof Error ? e.message : 'Xuất Excel thất bại', 'error')
   } finally {
     exporting.value = false
+    exportDialog.value = false
   }
 }
 </script>

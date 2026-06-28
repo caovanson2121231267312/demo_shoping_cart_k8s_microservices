@@ -112,6 +112,9 @@ wait_for_statefulset() {
   if [[ "${name}" == "zookeeper" ]]; then
     hint="${hint}  (git pull — probe TCP; kubectl delete pod zookeeper-0 -n infra)"
   fi
+  if [[ "${name}" == "elasticsearch" ]]; then
+    hint="${hint}  (git pull — tăng RAM + startupProbe; bash scripts/reset-elasticsearch.sh --yes nếu vẫn lỗi)"
+  fi
   die "Infrastructure rollout failed at ${name}. Run: ${hint}"
 }
 

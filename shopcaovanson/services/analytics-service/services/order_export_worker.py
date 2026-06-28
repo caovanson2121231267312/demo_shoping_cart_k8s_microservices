@@ -11,11 +11,30 @@ logger = logging.getLogger(__name__)
 EXPORTS_DIR = Path(os.getenv("ORDER_EXPORTS_DIR", "exports"))
 
 
+def _make_progress_updater(job_id: str):
+    last_pct = -1
+
+    def update(pct: int, message: str) -> None:
+        nonlocal last_pct
+        pct = max(0, min(100, pct))
+        if pct - last_pct >= 2 or pct in (0, 100):
+            export_jobs.update_job(job_id, progress=pct, progress_message=message)
+            last_pct = pct
+
+    return update
+
+
 def process_order_export(job_id: str, filters: dict) -> None:
-    export_jobs.update_job(job_id, status="processing")
+    progress = _make_progress_updater(job_id)
+    export_jobs.update_job(
+        job_id,
+        status="processing",
+        progress=5,
+        progress_message="Đang tải dữ liệu đơn hàng...",
+    )
     try:
         EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        content = build_orders_excel(filters)
+        content = build_orders_excel(filters, progress)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         file_name = f"don-hang-{stamp}.xlsx"
         file_path = EXPORTS_DIR / f"{job_id}.xlsx"
@@ -23,6 +42,8 @@ def process_order_export(job_id: str, filters: dict) -> None:
         export_jobs.update_job(
             job_id,
             status="completed",
+            progress=100,
+            progress_message="Hoàn tất",
             file_name=file_name,
             completed_at=datetime.now(timezone.utc).isoformat(),
             error=None,

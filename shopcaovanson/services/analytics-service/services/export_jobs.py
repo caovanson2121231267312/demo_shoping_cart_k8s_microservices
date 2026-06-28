@@ -21,6 +21,8 @@ def create_job(filters: dict[str, Any], requested_by: str | None) -> dict[str, A
     job = {
         "job_id": job_id,
         "status": "pending",
+        "progress": 0,
+        "progress_message": "Đang chờ xử lý",
         "created_at": now,
         "completed_at": None,
         "error": None,

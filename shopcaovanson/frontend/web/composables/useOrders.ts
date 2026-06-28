@@ -3,11 +3,19 @@ import type { Order, OrderListResult, TrackOrderInput } from '~/types'
 export interface OrderExportJob {
   job_id: string
   status: 'pending' | 'processing' | 'completed' | 'failed'
+  progress?: number
+  progress_message?: string | null
   created_at?: string
   completed_at?: string | null
   error?: string | null
   file_name?: string | null
   filters?: Record<string, string>
+}
+
+export interface OrderExportProgress {
+  progress: number
+  message: string
+  status: OrderExportJob['status']
 }
 
 export const useOrders = () => {
@@ -56,14 +64,30 @@ export const useOrders = () => {
     URL.revokeObjectURL(a.href)
   }
 
-  const exportOrdersExcel = async (filters: Record<string, string> = {}) => {
+  const exportOrdersExcel = async (
+    filters: Record<string, string> = {},
+    onProgress?: (progress: OrderExportProgress) => void,
+  ) => {
+    const emit = (status: OrderExportJob) => {
+      onProgress?.({
+        progress: status.progress ?? (status.status === 'pending' ? 5 : 50),
+        message: status.progress_message || 'Đang xử lý...',
+        status: status.status,
+      })
+    }
+
     const job = await requestOrdersExport(filters)
+    emit({ ...job, status: job.status, progress: 0, progress_message: 'Đã tạo yêu cầu xuất...' })
+
     const maxAttempts = 600
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 1000))
       const status = await getOrdersExportStatus(job.job_id)
+      emit(status)
       if (status.status === 'completed') {
+        emit({ ...status, progress: 99, progress_message: 'Đang tải file về...' })
         await downloadOrdersExport(job.job_id, status.file_name)
+        onProgress?.({ progress: 100, message: 'Hoàn tất', status: 'completed' })
         return status
       }
       if (status.status === 'failed') {

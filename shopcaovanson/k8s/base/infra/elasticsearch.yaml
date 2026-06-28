@@ -66,44 +66,51 @@ spec:
           value: "false"
         - name: xpack.security.transport.ssl.enabled
           value: "false"
+        - name: xpack.ml.enabled
+          value: "false"
         - name: ELASTIC_PASSWORD
           valueFrom:
             secretKeyRef:
               name: elasticsearch-secret
               key: ELASTIC_PASSWORD
-        # Create secret before deploy:
-        # kubectl create secret generic elasticsearch-secret -n infra \
-        #   --from-literal=ELASTIC_PASSWORD='CHANGE_ME_STRONG_PASSWORD'
+        # Heap 384m + ~600m off-heap → cần limit ≥1.5Gi (1Gi gây OOM/restart liên tục)
         - name: ES_JAVA_OPTS
-          value: "-Xms512m -Xmx512m"
+          value: "-Xms384m -Xmx384m"
         volumeMounts:
         - name: elasticsearch-data
           mountPath: /usr/share/elasticsearch/data
         resources:
           requests:
-            memory: "512Mi"
+            memory: "1Gi"
             cpu: "300m"
           limits:
-            memory: "1Gi"
+            memory: "1536Mi"
             cpu: "1000m"
+        startupProbe:
+          tcpSocket:
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          failureThreshold: 40
+          timeoutSeconds: 5
         livenessProbe:
           exec:
             command:
             - sh
             - -c
-            - curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://localhost:9200/_cluster/health" >/dev/null
-          initialDelaySeconds: 120
-          periodSeconds: 20
+            - curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://127.0.0.1:9200/_cluster/health" >/dev/null
+          periodSeconds: 30
           timeoutSeconds: 10
+          failureThreshold: 3
         readinessProbe:
           exec:
             command:
             - sh
             - -c
-            - curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" >/dev/null
-          initialDelaySeconds: 90
+            - curl -sf -u "elastic:${ELASTIC_PASSWORD}" "http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=10s" >/dev/null
           periodSeconds: 15
-          timeoutSeconds: 10
+          timeoutSeconds: 15
+          failureThreshold: 6
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data
