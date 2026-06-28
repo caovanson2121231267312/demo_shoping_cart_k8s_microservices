@@ -88,6 +88,12 @@ create-secrets: ## Generate .env.production + K8s secrets (run before deploy)
 create-secrets-env: ## Only create .env.production file (no kubectl)
 	bash scripts/create-secrets.sh --env-only
 
+install-monitoring: ## Install Prometheus + Grafana (optional, after deploy)
+	bash scripts/install-monitoring.sh
+
+monitoring-access: ## Show Grafana URL, credentials, port-forward commands
+	bash scripts/monitoring-access.sh
+
 # CI
 build: ## Build and push Docker image (make build svc=auth-service)
 	@if [ -z "$(svc)" ]; then echo "Usage: make build svc=auth-service"; exit 1; fi

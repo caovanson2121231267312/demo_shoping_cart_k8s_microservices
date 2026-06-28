@@ -109,6 +109,9 @@ wait_for_statefulset() {
   if [[ "${name}" == "mongodb" ]]; then
     hint="${hint}  (hoặc bash scripts/reset-mongodb.sh nếu đổi password / CrashLoopBackOff)"
   fi
+  if [[ "${name}" == "zookeeper" ]]; then
+    hint="${hint}  (git pull — probe TCP; kubectl delete pod zookeeper-0 -n infra)"
+  fi
   die "Infrastructure rollout failed at ${name}. Run: ${hint}"
 }
 

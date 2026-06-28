@@ -118,6 +118,54 @@
     .sec-high { background: rgba(251,140,0,0.2); color: #ffcc80; border: 1px solid #fb8c00; }
     .sec-medium { background: rgba(30,136,229,0.2); color: #90caf9; border: 1px solid #1e88e5; }
 
+    /* ── Component tabs ── */
+    .comp-tabs { margin: 1.5rem 0; }
+    .comp-tab-bar {
+      display: flex; flex-wrap: wrap; gap: 0.35rem;
+      border-bottom: 2px solid var(--border); padding-bottom: 0;
+      margin-bottom: 0;
+    }
+    .comp-tab-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-bottom: none; color: var(--muted);
+      padding: 0.55rem 1rem; border-radius: 8px 8px 0 0;
+      font-size: 0.84rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .comp-tab-btn:hover { color: var(--primary-light); background: var(--surface); }
+    .comp-tab-btn.active {
+      background: var(--surface); color: var(--accent);
+      border-color: var(--accent); border-bottom: 2px solid var(--surface);
+      margin-bottom: -2px; z-index: 1; position: relative;
+    }
+    .comp-tab-panel {
+      display: none; background: var(--surface);
+      border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 1.2rem 1.4rem 1.4rem;
+    }
+    .comp-tab-panel.active { display: block; }
+    .comp-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.9rem; margin-top: 0.5rem;
+    }
+    .comp-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.1rem;
+      border-left: 3px solid var(--primary);
+    }
+    .comp-card h4 { color: var(--primary-light); font-size: 0.95rem; margin: 0 0 0.35rem; }
+    .comp-card .meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .comp-card .meta span { display: inline-block; margin-right: 0.6rem; }
+    .comp-card p { font-size: 0.88rem; margin: 0; line-height: 1.55; color: var(--text); }
+    .comp-card .used-by { margin-top: 0.5rem; font-size: 0.8rem; color: var(--accent); }
+    .comp-flow {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0;
+      font-size: 0.84rem; line-height: 1.7; color: var(--muted);
+    }
+    .comp-flow strong { color: var(--primary-light); }
+
     footer { text-align: center; padding: 2rem; color: var(--muted); border-top: 1px solid var(--border); font-size: 0.85rem; }
     @media (max-width: 768px) {
       .compare-grid { grid-template-columns: 1fr; }
@@ -136,6 +184,7 @@
     <ol>
       <li><a href="#vps-info">0. Thông tin VPS</a></li>
       <li><a href="#tong-quan">1. Tổng quan</a></li>
+      <li><a href="#thanh-phan">1b. Thành phần &amp; công dụng</a></li>
       <li><a href="#dns">2. DNS</a></li>
       <li><a href="#phase1">3. Phase 1 — Chuẩn bị VPS</a></li>
       <li><a href="#phase2">4. Phase 2 — containerd</a></li>
@@ -150,7 +199,8 @@
       <li><a href="#van-hanh">13. Vận hành &amp; kiểm tra app</a></li>
       <li><a href="#bao-mat">14. Bảo mật nâng cao</a></li>
       <li><a href="#sua-loi">15. Xử lý lỗi</a></li>
-      <li><a href="#checklist">16. Checklist</a></li>
+      <li><a href="#monitoring">16. Monitoring — Grafana</a></li>
+      <li><a href="#checklist">17. Checklist</a></li>
     </ol>
   </nav>
 </aside>
@@ -185,6 +235,8 @@
         <tr><td>Hostname K8s</td><td><code>k8s-master</code></td></tr>
         <tr><td>Frontend</td><td>https://shopcaovanson.xyz → 110.172.29.72</td></tr>
         <tr><td>API</td><td>https://vocabee.cloud → 110.172.29.72</td></tr>
+        <tr><td>Monitoring (Grafana)</td><td>https://monitor.shopcaovanson.xyz → 110.172.29.72</td></tr>
+        <tr><td>Thư mục dự án trên VPS</td><td><code>/home/demo_shoping_cart_k8s_microservices/shopcaovanson</code></td></tr>
       </table>
     </div>
 
@@ -237,17 +289,294 @@ root@k8s-master:~#</pre>
     <div class="card info">
       <strong>Mô hình khuyến nghị:</strong> Single-node kubeadm trực tiếp trên VPS (không dùng KVM) — tiết kiệm RAM, phù hợp 16 GB.
     </div>
+    <p style="margin-top:1rem">→ Xem chi tiết từng phần mềm được cài: <a href="#thanh-phan"><strong>Mục 1b — Thành phần &amp; công dụng</strong></a></p>
+  </section>
+
+  <!-- THÀNH PHẦN -->
+  <section id="thanh-phan">
+    <h2>1b. Giải thích các thành phần cài đặt</h2>
+    <p>Mỗi tab mô tả <strong>công dụng</strong>, <strong>phase cài</strong>, <strong>namespace</strong> và <strong>ai sử dụng</strong> trong hệ thống shopcaovanson.</p>
+
+    <div class="comp-flow">
+      <strong>Luồng request người dùng:</strong>
+      Trình duyệt → DNS → <strong>MetalLB</strong> (IP 110.172.29.72) → <strong>nginx-ingress</strong> (HTTPS do <strong>cert-manager</strong>)
+      → <strong>frontend</strong> (shopcaovanson.xyz) hoặc <strong>api-gateway</strong> (vocabee.cloud/api)
+      → microservices → <strong>PostgreSQL / MongoDB / Redis / Kafka / Elasticsearch</strong> (namespace infra)
+    </div>
+
+    <div class="comp-tabs" id="comp-tabs">
+      <div class="comp-tab-bar" role="tablist">
+        <button type="button" class="comp-tab-btn active" data-tab="tab-os" role="tab">🖥️ OS &amp; nền tảng</button>
+        <button type="button" class="comp-tab-btn" data-tab="tab-k8s" role="tab">☸️ Cluster K8s</button>
+        <button type="button" class="comp-tab-btn" data-tab="tab-ingress" role="tab">🌐 Ingress &amp; SSL</button>
+        <button type="button" class="comp-tab-btn" data-tab="tab-infra" role="tab">🗄️ Hạ tầng dữ liệu</button>
+        <button type="button" class="comp-tab-btn" data-tab="tab-app" role="tab">🛒 Ứng dụng</button>
+        <button type="button" class="comp-tab-btn" data-tab="tab-sec" role="tab">🔒 Bảo mật &amp; CI/CD</button>
+        <button type="button" class="comp-tab-btn" data-tab="tab-mon" role="tab">📊 Monitoring</button>
+      </div>
+
+      <div id="tab-os" class="comp-tab-panel active" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>Ubuntu 22.04 LTS</h4>
+            <div class="meta"><span>Phase 1</span><span>Hệ điều hành VPS</span></div>
+            <p>Nền tảng chạy toàn bộ cluster. Bản LTS được hỗ trợ bảo mật lâu dài, phù hợp production.</p>
+          </div>
+          <div class="comp-card">
+            <h4>UFW (Firewall)</h4>
+            <div class="meta"><span>Phase 1</span><span>OS</span></div>
+            <p>Chỉ mở port cần thiết: 22 (SSH), 80/443 (web), 6443 (K8s API). Chặn truy cập trái phép từ internet.</p>
+          </div>
+          <div class="comp-card">
+            <h4>Fail2ban</h4>
+            <div class="meta"><span>Phase 1</span><span>OS</span></div>
+            <p>Tự động chặn IP brute-force SSH sau nhiều lần đăng nhập sai — giảm nguy cơ bị scan/tấn công.</p>
+          </div>
+          <div class="comp-card">
+            <h4>containerd</h4>
+            <div class="meta"><span>Phase 2</span><span>Container runtime</span></div>
+            <p>Phần mềm thực sự chạy container (image Docker). Kubernetes gọi containerd để start/stop pod — không cần Docker daemon.</p>
+            <div class="used-by">→ Mọi pod trong cluster</div>
+          </div>
+          <div class="comp-card">
+            <h4>Helm 3</h4>
+            <div class="meta"><span>Phase 3</span><span>Package manager</span></div>
+            <p>Cài các stack phức tạp bằng chart: cert-manager, nginx-ingress, kube-prometheus-stack — thay vì viết hàng trăm dòng YAML thủ công.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-k8s" class="comp-tab-panel" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>Kubernetes (kubeadm)</h4>
+            <div class="meta"><span>Phase 3</span><span>Toàn cluster</span></div>
+            <p>Bộ não điều phối: schedule pod lên node, tự heal khi container chết, rolling update, service discovery nội bộ (<code>*.svc.cluster.local</code>).</p>
+          </div>
+          <div class="comp-card">
+            <h4>Calico (CNI)</h4>
+            <div class="meta"><span>Phase 3</span><span>kube-system</span></div>
+            <p>Mạng giữa các pod — mỗi pod có IP riêng, pod ở namespace khác nhau giao tiếp được. Hỗ trợ NetworkPolicy (cô lập infra/shop).</p>
+          </div>
+          <div class="comp-card">
+            <h4>metrics-server</h4>
+            <div class="meta"><span>Phase 3.5</span><span>kube-system</span></div>
+            <p>Thu thập CPU/RAM thực tế của pod và node → lệnh <code>kubectl top</code> và HPA (auto-scale api-gateway, product-service).</p>
+          </div>
+          <div class="comp-card">
+            <h4>MetalLB</h4>
+            <div class="meta"><span>Phase 4</span><span>metallb-system</span></div>
+            <p>Gán IP public <strong>110.172.29.72</strong> cho Service type LoadBalancer (nginx-ingress). VPS single-node không có cloud LB nên cần MetalLB.</p>
+            <div class="used-by">→ ingress-nginx-controller nhận IP này</div>
+          </div>
+          <div class="comp-card">
+            <h4>local-path-provisioner</h4>
+            <div class="meta"><span>Phase 4</span><span>local-path-storage</span></div>
+            <p>Tạo ổ đĩa (PVC) cho StatefulSet: Postgres, MongoDB, Redis, Elasticsearch, Prometheus — lưu data trên disk VPS, không mất khi pod restart.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-ingress" class="comp-tab-panel" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>nginx-ingress</h4>
+            <div class="meta"><span>Phase 5 / deploy-all</span><span>ingress-nginx</span></div>
+            <p>Reverse proxy HTTP/HTTPS — nhận request từ internet, route theo domain/path: <code>shopcaovanson.xyz</code> → frontend, <code>vocabee.cloud/api</code> → api-gateway, <code>/ws</code> → chat WebSocket.</p>
+          </div>
+          <div class="comp-card">
+            <h4>cert-manager</h4>
+            <div class="meta"><span>Phase 5 / deploy-all</span><span>cert-manager</span></div>
+            <p>Tự động xin và gia hạn chứng chỉ SSL Let's Encrypt. Tạo Certificate resource → Secret TLS dùng cho Ingress.</p>
+          </div>
+          <div class="comp-card">
+            <h4>ClusterIssuer (letsencrypt-prod)</h4>
+            <div class="meta"><span>Phase 5</span><span>Cluster-wide</span></div>
+            <p>Cấu hình cert-manager dùng ACME production — cấp SSL hợp lệ cho shopcaovanson.xyz, vocabee.cloud, monitor.shopcaovanson.xyz.</p>
+          </div>
+          <div class="comp-card">
+            <h4>Ingress (shop-ingress)</h4>
+            <div class="meta"><span>Phase 7</span><span>namespace shop</span></div>
+            <p>Manifest định nghĩa rule routing + TLS + rate limit (50 req/s), force HTTPS, timeout WebSocket 3600s cho chat realtime.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-infra" class="comp-tab-panel" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>PostgreSQL 15</h4>
+            <div class="meta"><span>Phase 7</span><span>infra / postgres-0</span></div>
+            <p>Database quan hệ (SQL) — lưu user, sản phẩm, đơn hàng. Mỗi service dùng database riêng: <code>auth_db</code>, <code>product_db</code>, <code>order_db</code>.</p>
+            <div class="used-by">→ auth, product, order services</div>
+          </div>
+          <div class="comp-card">
+            <h4>MongoDB 7</h4>
+            <div class="meta"><span>Phase 7</span><span>infra / mongodb-0</span></div>
+            <p>Database document (NoSQL) — linh hoạt schema cho catalog sản phẩm mở rộng và dữ liệu chat (phòng, tin nhắn).</p>
+            <div class="used-by">→ product-service, chat-service</div>
+          </div>
+          <div class="comp-card">
+            <h4>Redis 7</h4>
+            <div class="meta"><span>Phase 7</span><span>infra / redis-0</span></div>
+            <p>Cache in-memory cực nhanh — session JWT blacklist, cache API, rate limit gateway, presence chat. Data có thể mất khi restart (chấp nhận được cho cache).</p>
+            <div class="used-by">→ auth, api-gateway, order, chat</div>
+          </div>
+          <div class="comp-card">
+            <h4>Elasticsearch</h4>
+            <div class="meta"><span>Phase 7</span><span>infra / elasticsearch-0</span></div>
+            <p>Full-text search — index sản phẩm để tìm kiếm nhanh theo tên, mô tả, filter. Product service ghi index, search service đọc query.</p>
+            <div class="used-by">→ product-service, search-service</div>
+          </div>
+          <div class="comp-card">
+            <h4>Zookeeper + Kafka</h4>
+            <div class="meta"><span>Phase 7</span><span>infra</span></div>
+            <p>Hàng đợi sự kiện (message broker) — giao tiếp bất đồng bộ: đặt hàng → gửi email, cập nhật tồn kho, analytics. Zookeeper điều phối Kafka cluster.</p>
+            <div class="used-by">→ order, notification, analytics</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-app" class="comp-tab-panel" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>frontend (Nuxt.js)</h4>
+            <div class="meta"><span>Phase 7</span><span>shop</span></div>
+            <p>Giao diện web người dùng — trang chủ, sản phẩm, giỏ hàng, thanh toán. Gọi API qua <code>https://vocabee.cloud/api</code> (cross-origin).</p>
+            <div class="used-by">→ https://shopcaovanson.xyz</div>
+          </div>
+          <div class="comp-card">
+            <h4>api-gateway</h4>
+            <div class="meta"><span>Phase 7</span><span>shop</span></div>
+            <p>Cổng vào duy nhất cho REST API — xác thực JWT, route tới microservice phía sau, CORS, rate limit Redis. Client không gọi thẳng từng service.</p>
+            <div class="used-by">→ https://vocabee.cloud/api</div>
+          </div>
+          <div class="comp-card">
+            <h4>auth-service</h4>
+            <div class="meta"><span>Phase 7</span><span>shop · Go</span></div>
+            <p>Đăng ký, đăng nhập, JWT (RSA), refresh token, phân quyền user/admin. Lưu user trong PostgreSQL, session blacklist trong Redis.</p>
+          </div>
+          <div class="comp-card">
+            <h4>product-service</h4>
+            <div class="meta"><span>Phase 7</span><span>shop · Go</span></div>
+            <p>CRUD sản phẩm, danh mục, đánh giá. PostgreSQL + MongoDB + đồng bộ index Elasticsearch.</p>
+          </div>
+          <div class="comp-card">
+            <h4>order-service</h4>
+            <div class="meta"><span>Phase 7</span><span>shop · Go</span></div>
+            <p>Giỏ hàng, đặt hàng, thanh toán. Publish event Kafka khi order tạo → notification và các service khác xử lý.</p>
+          </div>
+          <div class="comp-card">
+            <h4>chat-service</h4>
+            <div class="meta"><span>Phase 7</span><span>shop · Python</span></div>
+            <p>Chat realtime WebSocket — phòng chat buyer/seller, lưu tin nhắn MongoDB, presence Redis.</p>
+            <div class="used-by">→ wss://vocabee.cloud/ws</div>
+          </div>
+          <div class="comp-card">
+            <h4>notification-service</h4>
+            <div class="meta"><span>Phase 7</span><span>shop · Python</span></div>
+            <p>Gửi email SMTP (xác nhận đơn, reset password) — consume event từ Kafka. Cần cấu hình SMTP trong secret.</p>
+          </div>
+          <div class="comp-card">
+            <h4>search-service</h4>
+            <div class="meta"><span>Phase 7</span><span>shop · Python</span></div>
+            <p>API tìm kiếm sản phẩm — query Elasticsearch, trả kết quả có phân trang và filter.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-sec" class="comp-tab-panel" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>Kubernetes Secrets</h4>
+            <div class="meta"><span>Phase 6</span><span>infra + shop</span></div>
+            <p>Lưu mật khẩu DB, JWT keys, SMTP, GHCR — inject vào pod qua env/volume. Tách biệt khỏi git và ConfigMap (ConfigMap không mã hóa).</p>
+            <div class="used-by">→ <code>bash scripts/create-secrets.sh</code></div>
+          </div>
+          <div class="comp-card">
+            <h4>ConfigMap</h4>
+            <div class="meta"><span>Phase 7</span><span>shop</span></div>
+            <p>Cấu hình không nhạy cảm: host DB, port, tên database, CORS domain, URL API frontend. Thay đổi ConfigMap + restart pod để cập nhật.</p>
+          </div>
+          <div class="comp-card">
+            <h4>NetworkPolicy</h4>
+            <div class="meta"><span>Mục 14</span><span>infra + shop</span></div>
+            <p>Firewall nội bộ cluster — infra chỉ nhận kết nối từ shop; chỉ ingress-nginx gọi được frontend/api/chat; notification được egress SMTP ra internet.</p>
+            <div class="used-by">→ <code>bash scripts/apply-security.sh</code></div>
+          </div>
+          <div class="comp-card">
+            <h4>Pod Security Standards</h4>
+            <div class="meta"><span>Mục 14</span><span>infra + shop</span></div>
+            <p>Chính sách bảo mật pod: cấm privileged container, hạn chế leo quyền — giảm rủi ro nếu app bị khai thác.</p>
+          </div>
+          <div class="comp-card">
+            <h4>GitHub Actions + GHCR</h4>
+            <div class="meta"><span>Mục 12</span><span>CI/CD</span></div>
+            <p>Push nhánh <code>prod</code> → build image Docker → push ghcr.io → deploy lên VPS qua kubeconfig. Tự động hóa release không cần SSH thủ công.</p>
+          </div>
+          <div class="comp-card">
+            <h4>RBAC cicd-deployer</h4>
+            <div class="meta"><span>Mục 12</span><span>Cluster</span></div>
+            <p>ServiceAccount quyền hạn chế cho pipeline — chỉ deploy namespace shop, không dùng cluster-admin trong CI.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-mon" class="comp-tab-panel" role="tabpanel">
+        <div class="comp-grid">
+          <div class="comp-card">
+            <h4>Prometheus</h4>
+            <div class="meta"><span>Mục 16</span><span>monitoring</span></div>
+            <p>Thu thập metrics theo thời gian (CPU, RAM, số pod, request rate) — lưu time-series, query bằng PromQL. Admin truy cập qua port-forward.</p>
+          </div>
+          <div class="comp-card">
+            <h4>Grafana</h4>
+            <div class="meta"><span>Mục 16</span><span>monitoring</span></div>
+            <p>Dashboard trực quan — biểu đồ pod/node, cảnh báo trực quan. Truy cập HTTPS công khai (nên đổi password mạnh).</p>
+            <div class="used-by">→ https://monitor.shopcaovanson.xyz</div>
+          </div>
+          <div class="comp-card">
+            <h4>node-exporter</h4>
+            <div class="meta"><span>Mục 16</span><span>monitoring</span></div>
+            <p>Export metrics phần cứng node: CPU, disk, RAM, network — Prometheus scrape để biết VPS có quá tải không.</p>
+          </div>
+          <div class="comp-card">
+            <h4>kube-state-metrics</h4>
+            <div class="meta"><span>Mục 16</span><span>monitoring</span></div>
+            <p>Export trạng thái object K8s: pod Running/Pending, deployment replica, PVC — hiển thị sức khỏe cluster trên Grafana.</p>
+          </div>
+          <div class="comp-card">
+            <h4>kubectl top / verify-app</h4>
+            <div class="meta"><span>Phase 3.5 / 13</span><span>Không cần Grafana</span></div>
+            <p>Giám sát tối thiểu — <code>kubectl top</code> xem RAM/CPU; <code>verify-app.sh</code> kiểm tra HTTP health API + frontend một lệnh.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Bảng tra cứu nhanh — Namespace</h3>
+    <table>
+      <tr><th>Namespace</th><th>Chứa gì</th><th>Ai truy cập từ ngoài</th></tr>
+      <tr><td><code>shop</code></td><td>7 microservices + frontend + Ingress</td><td>✅ Qua nginx (80/443)</td></tr>
+      <tr><td><code>infra</code></td><td>Postgres, Mongo, Redis, Kafka, ES, ZK</td><td>❌ Chỉ pod trong shop</td></tr>
+      <tr><td><code>ingress-nginx</code></td><td>nginx-ingress controller</td><td>✅ IP 110.172.29.72</td></tr>
+      <tr><td><code>cert-manager</code></td><td>cert-manager pods</td><td>❌ Nội bộ</td></tr>
+      <tr><td><code>metallb-system</code></td><td>MetalLB speaker/controller</td><td>❌ Nội bộ</td></tr>
+      <tr><td><code>monitoring</code></td><td>Prometheus, Grafana (tùy chọn)</td><td>Grafana qua monitor.shopcaovanson.xyz</td></tr>
+      <tr><td><code>kube-system</code></td><td>Core K8s, Calico, metrics-server</td><td>❌ Admin kubectl</td></tr>
+    </table>
   </section>
 
   <!-- 2. DNS -->
   <section id="dns">
     <h2>2. Cấu hình DNS (làm TRƯỚC khi cài SSL)</h2>
-    <p>Vào trang quản lý domain, tạo 3 bản ghi A trỏ về <strong>110.172.29.72</strong>.</p>
+    <p>Vào trang quản lý domain, tạo <strong>4 bản ghi A</strong> trỏ về <strong>110.172.29.72</strong>.</p>
     <table>
-      <tr><th>Bản ghi</th><th>Loại</th><th>Giá trị</th></tr>
-      <tr><td>shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td></tr>
-      <tr><td>www.shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td></tr>
-      <tr><td>vocabee.cloud</td><td>A</td><td>110.172.29.72</td></tr>
+      <tr><th>Bản ghi</th><th>Loại</th><th>Giá trị</th><th>Dùng cho</th></tr>
+      <tr><td>shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td><td>Frontend</td></tr>
+      <tr><td>www.shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td><td>Frontend (www)</td></tr>
+      <tr><td>vocabee.cloud</td><td>A</td><td>110.172.29.72</td><td>API + WebSocket</td></tr>
+      <tr><td>monitor.shopcaovanson.xyz</td><td>A</td><td>110.172.29.72</td><td>Grafana dashboard (sau mục 16)</td></tr>
     </table>
 
     <div class="cmd-block">
@@ -260,7 +589,8 @@ root@k8s-master:~#</pre>
         <p><span class="label">📍 Chạy tại:</span> Máy local hoặc VPS đều được.</p>
       </div>
       <pre class="cmd-code">dig +short shopcaovanson.xyz
-dig +short vocabee.cloud</pre>
+dig +short vocabee.cloud
+dig +short monitor.shopcaovanson.xyz</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
         <pre class="output-preview"><span class="ok">110.172.29.72</span>
@@ -715,6 +1045,8 @@ speaker-xxxxx                 <span class="ok">1/1</span>     Running   0</pre>
       </div>
       <pre class="cmd-code">cd ~
 git clone https://github.com/caovanson/shopcaovanson.git
+# Hoặc nếu đã clone vào thư mục dự án:
+# cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 cd shopcaovanson
 export KUBECONFIG=$HOME/.kube/config</pre>
       <details class="cmd-output">
@@ -787,17 +1119,148 @@ ingress-nginx-controller-admission     ClusterIP      &lt;none&gt;
   <section id="phase6">
     <h2><span class="phase-tag">PHASE 6</span> Kubernetes Secrets</h2>
     <div class="card danger">
-      <strong>🔒 Quan trọng:</strong> Lưu mật khẩu vào password manager. Không commit secrets vào git.
+      <strong>🔒 Quan trọng:</strong> Lưu mật khẩu vào password manager. File <code>.env.production</code> <strong>không</strong> được commit vào git.
+    </div>
+    <div class="card ok">
+      <strong>✅ Khuyến nghị:</strong> Dùng script <code>scripts/create-secrets.sh</code> — tự sinh mật khẩu, tạo đủ secrets infra + shop, sinh khóa JWT RSA, build sẵn <code>REDIS_URL</code>, <code>MONGO_URI</code>, <code>ELASTICSEARCH_URL</code>. Chạy <strong>trước</strong> Phase 7.
     </div>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">6.1 Tạo mật khẩu ngẫu nhiên</span>
+        <span class="cmd-title">6.1 Tạo secrets tự động (khuyến nghị)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Sinh mật khẩu mạnh cho Postgres, MongoDB, Redis, Elasticsearch — dùng chung cho infra và app secrets.</p>
-        <p><span class="label">⚠️ Bắt buộc:</span> Copy và lưu output — mất mật khẩu = phải tạo lại secrets và redeploy.</p>
+        <p><span class="label">🎯 Mục đích:</span> Một lệnh tạo file <code>.env.production</code> + toàn bộ Kubernetes Secrets cần cho deploy.</p>
+        <p><span class="label">📋 Điều kiện:</span> Đã clone repo (Phase 5.1), <code>kubectl</code> kết nối được cluster, có <code>openssl</code>.</p>
+        <p><span class="label">📍 Thư mục:</span> <code>/home/demo_shoping_cart_k8s_microservices/shopcaovanson</code></p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+
+# Lần đầu — sinh password + apply secrets
+bash scripts/create-secrets.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[create-secrets] Creating .env.production from .env.production.example
+[create-secrets] Saved: .../.env.production
+[create-secrets] Creating infra secrets (namespace: infra)...
+[create-secrets] ✓ secret/postgres-secret -n infra
+[create-secrets] ✓ secret/mongodb-secret -n infra
+[create-secrets] ✓ secret/redis-secret -n infra
+[create-secrets] ✓ secret/elasticsearch-secret -n infra
+[create-secrets] Creating shop secrets (namespace: shop)...
+[create-secrets] ✓ secret/auth-service-secret -n shop
+...
+[create-secrets] All required secrets OK
+
+  File lưu mật khẩu:  .env.production
+  (chmod 600 — backup vào password manager!)
+
+  Bước tiếp theo:
+    OVERLAY=dev bash scripts/deploy-all.sh</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">6.2 Tùy chọn script create-secrets</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Linh hoạt khi muốn sửa SMTP/GHCR trước khi apply, hoặc cập nhật secrets đã có.</p>
+      </div>
+      <pre class="cmd-code"># Chỉ tạo file .env.production (chưa kubectl)
+bash scripts/create-secrets.sh --env-only
+
+# Sửa SMTP, GHCR trong .env.production rồi apply
+nano .env.production
+bash scripts/create-secrets.sh --apply-only
+
+# Ghi đè secrets đã tồn tại (sau khi đổi SMTP / password)
+bash scripts/create-secrets.sh --force
+
+# Qua Makefile
+make create-secrets
+make create-secrets-env</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Biến trong .env.production</summary>
+        <pre class="output-preview">POSTGRES_PASSWORD=...     <span class="comment"># infra postgres</span>
+MONGO_PASSWORD=...        <span class="comment"># infra mongodb</span>
+REDIS_PASSWORD=...        <span class="comment"># infra redis</span>
+ELASTIC_PASSWORD=...      <span class="comment"># infra elasticsearch</span>
+
+SMTP_HOST=smtp.gmail.com   <span class="comment"># notification-service (để trống = không gửi mail)</span>
+SMTP_USERNAME=
+SMTP_PASSWORD=
+
+GHCR_USERNAME=             <span class="comment"># chỉ cần nếu image private trên ghcr.io</span>
+GHCR_TOKEN=
+
+API_DOMAIN=vocabee.cloud
+FRONTEND_DOMAIN=shopcaovanson.xyz</pre>
+      </details>
+    </div>
+
+    <h3>6.3 Danh sách secrets được tạo</h3>
+    <table>
+      <tr><th>Namespace</th><th>Secret</th><th>Nội dung chính</th></tr>
+      <tr><td>infra</td><td>postgres-secret</td><td>POSTGRES_PASSWORD</td></tr>
+      <tr><td>infra</td><td>mongodb-secret</td><td>MONGO_PASSWORD</td></tr>
+      <tr><td>infra</td><td>redis-secret</td><td>REDIS_PASSWORD</td></tr>
+      <tr><td>infra</td><td>elasticsearch-secret</td><td>ELASTIC_PASSWORD</td></tr>
+      <tr><td>shop</td><td>auth-service-secret</td><td>DB_PASSWORD, REDIS_URL, JWT keys</td></tr>
+      <tr><td>shop</td><td>api-gateway-secret</td><td>REDIS_URL, JWT public key</td></tr>
+      <tr><td>shop</td><td>product-service-secret</td><td>DB/MONGO/ELASTIC passwords + URLs</td></tr>
+      <tr><td>shop</td><td>order-service-secret</td><td>DB_PASSWORD, REDIS_PASSWORD</td></tr>
+      <tr><td>shop</td><td>chat-service-secret</td><td>MONGODB_URI, REDIS_URL, JWT public key</td></tr>
+      <tr><td>shop</td><td>notification-service-secret</td><td>SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD...</td></tr>
+      <tr><td>shop</td><td>search-service-secret</td><td>ELASTICSEARCH_URL</td></tr>
+      <tr><td>shop</td><td>ghcr-secret</td><td>(tùy chọn) pull image private từ GHCR</td></tr>
+    </table>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">6.4 Kiểm tra secrets đã tạo</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xác nhận đủ secrets trước khi chạy <code>deploy-all.sh</code> — thiếu secret sẽ bị script chặn.</p>
+      </div>
+      <pre class="cmd-code">kubectl get secrets -n infra
+kubectl get secrets -n shop
+
+# deploy-all.sh tự kiểm tra; nếu thiếu sẽ báo:
+# Missing secret mongodb-secret in infra. Run: bash scripts/create-secrets.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAMESPACE infra
+NAME                   TYPE     DATA   AGE
+<span class="ok">elasticsearch-secret</span>   Opaque   1      2m
+<span class="ok">mongodb-secret</span>         Opaque   1      2m
+<span class="ok">postgres-secret</span>        Opaque   1      2m
+<span class="ok">redis-secret</span>           Opaque   1      2m
+
+NAMESPACE shop
+NAME                          TYPE     DATA   AGE
+<span class="ok">auth-service-secret</span>           Opaque   4      2m
+<span class="ok">api-gateway-secret</span>            Opaque   2      2m
+...</pre>
+      </details>
+    </div>
+
+    <h3>6.5 Phương án B — Tạo secrets thủ công (kubectl)</h3>
+    <div class="card warn">
+      Chỉ dùng khi không chạy được script. Lưu ý: secret app cần đúng tên key (<code>SMTP_USERNAME</code> không phải <code>SMTP_USER</code>) và URI đầy đủ cho Redis/Mongo/Elastic.
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">6.5.1 Tạo mật khẩu ngẫu nhiên</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Sinh mật khẩu mạnh cho Postgres, MongoDB, Redis, Elasticsearch.</p>
       </div>
       <pre class="cmd-code">export PG_PASS=$(openssl rand -base64 32)
 export MONGO_PASS=$(openssl rand -base64 32)
@@ -808,24 +1271,12 @@ echo "PG_PASS=$PG_PASS"
 echo "MONGO_PASS=$MONGO_PASS"
 echo "REDIS_PASS=$REDIS_PASS"
 echo "ES_PASS=$ES_PASS"</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">=== LƯU LẠI NGAY ===
-PG_PASS=<span class="ok">xK9mP2vL8nQ4wR7tY1uI3oP5aS6dF0gH==</span>
-MONGO_PASS=<span class="ok">aB3cD5eF7gH9iJ1kL2mN4oP6qR8sT0uV==</span>
-REDIS_PASS=<span class="ok">...</span>
-ES_PASS=<span class="ok">...</span></pre>
-      </details>
     </div>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">6.2 Tạo secrets hạ tầng (namespace: infra)</span>
+        <span class="cmd-title">6.5.2 Tạo secrets hạ tầng (namespace: infra)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
-      </div>
-      <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Cung cấp mật khẩu cho PostgreSQL, MongoDB, Redis, Elasticsearch StatefulSets.</p>
-        <p><span class="label">📋 Chạy sau:</span> Bước 6.1 (biến $PG_PASS... phải còn trong session).</p>
       </div>
       <pre class="cmd-code">kubectl create namespace infra
 
@@ -839,33 +1290,13 @@ kubectl create secret generic redis-secret -n infra \
   --from-literal=REDIS_PASSWORD="$REDIS_PASS"
 
 kubectl create secret generic elasticsearch-secret -n infra \
-  --from-literal=ELASTIC_PASSWORD="$ES_PASS"
-
-kubectl get secrets -n infra</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">namespace/infra created
-secret/postgres-secret created
-secret/mongodb-secret created
-secret/redis-secret created
-secret/elasticsearch-secret created
-
-NAME                   TYPE     DATA   AGE
-<span class="ok">elasticsearch-secret</span>   Opaque   1      5s
-<span class="ok">mongodb-secret</span>         Opaque   1      5s
-<span class="ok">postgres-secret</span>        Opaque   1      5s
-<span class="ok">redis-secret</span>           Opaque   1      5s</pre>
-      </details>
+  --from-literal=ELASTIC_PASSWORD="$ES_PASS"</pre>
     </div>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">6.3 Tạo secrets ứng dụng + JWT keys (namespace: shop)</span>
+        <span class="cmd-title">6.5.3 Tạo secrets ứng dụng + JWT (namespace: shop)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
-      </div>
-      <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Cấp DB password, Redis password, cặp khóa RSA JWT cho auth-service và api-gateway.</p>
-        <p><span class="label">📧 SMTP:</span> Thay <code>your-smtp@gmail.com</code> bằng email thật nếu cần gửi mail.</p>
       </div>
       <pre class="cmd-code">kubectl create namespace shop
 
@@ -874,54 +1305,20 @@ openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem
 
 kubectl create secret generic auth-service-secret -n shop \
   --from-literal=DB_PASSWORD="$PG_PASS" \
-  --from-literal=REDIS_PASSWORD="$REDIS_PASS" \
+  --from-literal=REDIS_URL="redis://:$REDIS_PASS@redis.infra.svc.cluster.local:6379/0" \
   --from-file=JWT_PRIVATE_KEY=jwt-private.pem \
   --from-file=JWT_PUBLIC_KEY=jwt-public.pem
 
-kubectl create secret generic api-gateway-secret -n shop \
-  --from-literal=REDIS_PASSWORD="$REDIS_PASS" \
-  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
-
-kubectl create secret generic product-service-secret -n shop \
-  --from-literal=DB_PASSWORD="$PG_PASS" \
-  --from-literal=MONGO_PASSWORD="$MONGO_PASS" \
-  --from-literal=ELASTIC_PASSWORD="$ES_PASS"
-
-kubectl create secret generic order-service-secret -n shop \
-  --from-literal=DB_PASSWORD="$PG_PASS" \
-  --from-literal=REDIS_PASSWORD="$REDIS_PASS"
-
-kubectl create secret generic chat-service-secret -n shop \
-  --from-literal=MONGO_PASSWORD="$MONGO_PASS" \
-  --from-literal=REDIS_PASSWORD="$REDIS_PASS" \
-  --from-file=JWT_PUBLIC_KEY=jwt-public.pem
-
 kubectl create secret generic notification-service-secret -n shop \
-  --from-literal=SMTP_USER='your-smtp@gmail.com' \
-  --from-literal=SMTP_PASSWORD='your-gmail-app-password'
-
-kubectl create secret generic search-service-secret -n shop \
-  --from-literal=ELASTIC_PASSWORD="$ES_PASS"
+  --from-literal=SMTP_HOST='smtp.gmail.com' \
+  --from-literal=SMTP_PORT='587' \
+  --from-literal=SMTP_USERNAME='your-smtp@gmail.com' \
+  --from-literal=SMTP_PASSWORD='your-gmail-app-password' \
+  --from-literal=SMTP_FROM='noreply@shopcaovanson.xyz' \
+  --from-literal=SMTP_USE_TLS='true'
 
 rm -f jwt-private.pem jwt-public.pem
 kubectl get secrets -n shop</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">Generating RSA private key, 2048 bit...
-writing RSA key
-secret/auth-service-secret created
-...
-secret/search-service-secret created
-
-NAME                          TYPE     DATA   AGE
-<span class="ok">api-gateway-secret</span>          Opaque   2      10s
-<span class="ok">auth-service-secret</span>           Opaque   4      10s
-<span class="ok">chat-service-secret</span>           Opaque   3      10s
-<span class="ok">notification-service-secret</span>   Opaque   2      10s
-<span class="ok">order-service-secret</span>          Opaque   2      10s
-<span class="ok">product-service-secret</span>        Opaque   3      10s
-<span class="ok">search-service-secret</span>         Opaque   1      10s</pre>
-      </details>
     </div>
   </section>
 
@@ -939,7 +1336,8 @@ NAME                          TYPE     DATA   AGE
         <p><span class="label">⏱ Thời gian:</span> 10–20 phút (chờ Elasticsearch, Kafka khởi động).</p>
         <p><span class="label">📋 Script tự động:</span> Kiểm tra secrets → apply manifests → chờ pods ready.</p>
       </div>
-      <pre class="cmd-code">cd ~/shopcaovanson
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
 OVERLAY=dev bash scripts/deploy-all.sh</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
@@ -951,18 +1349,23 @@ OVERLAY=dev bash scripts/deploy-all.sh</pre>
 [deploy-all] Checking application secrets in namespace shop...
 [deploy-all] Deploying manifests from overlay: dev
 [deploy-all] Waiting for infrastructure pods...
-statefulset rolling update complete postgres
-statefulset rolling update complete mongodb
+[deploy-all] Waiting for statefulset/postgres (timeout 600s)...
+[deploy-all] ✓ statefulset/postgres ready
+[deploy-all] Waiting for statefulset/mongodb (timeout 600s)...
+[deploy-all] ✓ statefulset/mongodb ready
 ...
-statefulset rolling update complete elasticsearch
+[deploy-all] ✓ statefulset/elasticsearch ready
 [deploy-all] Waiting for application pods...
 deployment "api-gateway" successfully rolled out
-deployment "auth-service" successfully rolled out
 ...
 <span class="ok">[deploy-all] Deploy complete.</span>
 [deploy-all] Run migrations: bash scripts/migrate-all.sh
 [deploy-all] Seed data:       bash scripts/seed-data.sh</pre>
       </details>
+    </div>
+
+    <div class="card warn">
+      <strong>⚠️ MongoDB timeout / CrashLoopBackOff?</strong> Xem mục <a href="#sua-loi-mongodb">15.4 MongoDB không ready</a>. Thường do chưa <code>git pull</code> bản manifest mới hoặc password PVC cũ ≠ secret mới.
     </div>
 
     <div class="cmd-block">
@@ -1013,7 +1416,7 @@ shop-ingress  nginx   shopcaovanson.xyz,vocabee.cloud   <span class="ok">110.172
       <div class="cmd-meta">
         <p><span class="label">🎯 Mục đích:</span> Tạo bảng database cho auth, product, order services — bắt buộc trước khi app hoạt động.</p>
       </div>
-      <pre class="cmd-code">cd ~/shopcaovanson
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 bash scripts/migrate-all.sh</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
@@ -1037,7 +1440,7 @@ job.batch/migrate-auth-service-xxxxx condition met
         <p><span class="label">🎯 Mục đích:</span> Tạo 50 users, 200 sản phẩm, 300 đơn hàng, dữ liệu chat — để test ngay trên production.</p>
         <p><span class="label">👤 Admin:</span> <code>admin@shop.com</code> / <code>Admin@123</code></p>
       </div>
-      <pre class="cmd-code">cd ~/shopcaovanson
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 bash scripts/seed-data.sh</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
@@ -1245,7 +1648,7 @@ Jobs:
         <p><span class="label">📍 Chạy tại:</span> SSH <code>root@110.172.29.72</code></p>
         <p><span class="label">📋 Điều kiện:</span> Đã chạy <code>bash scripts/apply-security.sh</code></p>
       </div>
-      <pre class="cmd-code">cd ~/shopcaovanson
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 bash scripts/apply-security.sh
 chmod +x scripts/create-cicd-kubeconfig.sh
 bash scripts/create-cicd-kubeconfig.sh
@@ -1339,7 +1742,7 @@ kubectl describe pod -l app=auth-service -n shop | grep -A2 "Pulling"
       <pre class="cmd-code"># GitHub → Actions → "Build and Deploy (prod)" → Run workflow → Branch: prod
 
 # Hoặc trên VPS deploy thủ công 1 service:
-cd ~/shopcaovanson
+cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 SHA=$(git rev-parse HEAD)
 SERVICES="auth-service" SHA="${SHA}" bash scripts/ci-deploy.sh</pre>
       <details class="cmd-output">
@@ -1374,7 +1777,7 @@ Waiting for deployment "auth-service" rollout to finish: 1 of 2 updated replicas
       <div class="cmd-meta">
         <p><span class="label">🎯 Mục đích:</span> Kiểm tra nodes, pods, deployments, infra, HTTP health API + frontend — báo PASS/FAIL.</p>
       </div>
-      <pre class="cmd-code">cd ~/shopcaovanson
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 chmod +x scripts/verify-app.sh
 bash scripts/verify-app.sh
 
@@ -1674,8 +2077,27 @@ Waiting for deployment "product-service" rollout to finish: 1 of 2 updated repli
       </details>
     </div>
 
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">13.11 Chẩn đoán infra khi deploy timeout</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Khi MongoDB/Postgres/Kafka/ES không ready — in PVC, events, logs từng StatefulSet.</p>
+        <p><span class="label">🔗 Xem thêm:</span> <a href="#sua-loi-mongodb">15.4 MongoDB CrashLoopBackOff</a></p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+bash scripts/diagnose-infra.sh
+
+# MongoDB vẫn lỗi — reset PVC (XÓA dữ liệu MongoDB)
+bash scripts/reset-mongodb.sh --yes</pre>
+    </div>
+
     <table>
       <tr><th>Lệnh Makefile</th><th>Mô tả</th></tr>
+      <tr><td><code>make install-monitoring</code></td><td>Cài Prometheus + Grafana</td></tr>
+      <tr><td><code>make monitoring-access</code></td><td>URL Grafana + lệnh port-forward</td></tr>
+      <tr><td><code>make create-secrets</code></td><td>Tạo .env.production + K8s secrets</td></tr>
       <tr><td><code>make status</code></td><td>Pods + services + ingress</td></tr>
       <tr><td><code>make verify-app</code></td><td>Kiểm tra toàn bộ health</td></tr>
       <tr><td><code>make logs svc=auth-service</code></td><td>Tail log service</td></tr>
@@ -1808,7 +2230,7 @@ APT::Periodic::AutocleanInterval "7";</pre>
           <li><strong>Ingress</strong> — force HTTPS, TLS 1.2+, rate limit 50 req/s</li>
         </ul>
       </div>
-      <pre class="cmd-code">cd ~/shopcaovanson
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 chmod +x scripts/apply-security.sh
 bash scripts/apply-security.sh</pre>
       <details class="cmd-output">
@@ -2078,18 +2500,306 @@ dig +short shopcaovanson.xyz    <span class="comment"># phải = 110.172.29.72</
 curl -I http://shopcaovanson.xyz/.well-known/acme-challenge/test</pre>
       </details>
     </div>
+
+    <div class="cmd-block" id="sua-loi-mongodb">
+      <div class="cmd-header">
+        <span class="cmd-title">15.4 MongoDB CrashLoopBackOff / timeout 600s</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> <code>mongodb-0</code> RESTARTS cao, probe <code>mongosh</code> timeout, log có <code>SignalHandler</code> / <code>mongod shutdown complete</code> (kubelet kill do liveness fail).</p>
+        <p><span class="label">💡 Nguyên nhân thường gặp:</span></p>
+        <ul>
+          <li>Manifest cũ dùng probe <code>mongosh</code> quá nặng trên VPS 16GB → timeout</li>
+          <li>Đổi <code>mongodb-secret</code> sau lần deploy đầu — PVC vẫn giữ password cũ (<code>MONGO_INITDB_*</code> chỉ chạy khi disk trống)</li>
+          <li>Thiếu StorageClass → PVC Pending (xem 15.5)</li>
+        </ul>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+
+# Bước 1: Chẩn đoán
+bash scripts/diagnose-infra.sh
+kubectl describe pod mongodb-0 -n infra | tail -30
+kubectl logs mongodb-0 -n infra --tail=40
+
+# Bước 2: Cập nhật manifest (TCP probe + startupProbe ~10 phút)
+git pull
+kubectl apply -k k8s/overlays/dev
+kubectl delete pod mongodb-0 -n infra
+kubectl rollout status statefulset/mongodb -n infra --timeout=600s
+
+# Bước 3: Nếu vẫn CrashLoop — reset PVC (XÓA dữ liệu MongoDB!)
+bash scripts/reset-mongodb.sh --yes
+
+# Bước 4: Kiểm tra auth
+kubectl exec mongodb-0 -n infra -- mongosh \
+  -u shopcaovanson \
+  -p "$(kubectl get secret mongodb-secret -n infra -o jsonpath='{.data.MONGO_PASSWORD}' | base64 -d)" \
+  --authenticationDatabase admin \
+  --eval "db.adminCommand('ping')"
+
+# Deploy lại
+OVERLAY=dev bash scripts/deploy-all.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả khi ĐÚNG vs LỖI</summary>
+        <pre class="output-preview"><span class="comment"># LỖI (manifest cũ):</span>
+Warning  Unhealthy  Liveness probe failed: command "mongosh --eval db.adminCommand('ping')" <span class="warn">timed out</span>
+mongodb-0   0/1   <span class="warn">CrashLoopBackOff</span>
+
+<span class="comment"># ĐÚNG (sau git pull + TCP probe):</span>
+mongodb-0   <span class="ok">1/1</span>   Running   0   5m
+
+<span class="comment"># Auth OK:</span>
+{ ok: <span class="ok">1</span> }</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">15.4b Zookeeper CrashLoopBackOff — Ncat / ruok probe</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> <code>zookeeper-0</code> CrashLoopBackOff, log có <code>enabled four letter word commands is : [[srvr]]</code> — lệnh <code>ruok</code> bị tắt từ ZK 3.6+.</p>
+        <p><span class="label">💡 Giải pháp:</span> Manifest mới dùng TCP probe port 2181 thay vì <code>echo ruok | nc</code>.</p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+kubectl apply -k k8s/overlays/dev
+kubectl delete pod zookeeper-0 -n infra
+kubectl rollout status statefulset/zookeeper -n infra --timeout=600s
+kubectl rollout status statefulset/kafka -n infra --timeout=600s
+OVERLAY=dev bash scripts/deploy-all.sh</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">15.5 PVC Pending — thiếu StorageClass</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Pod infra không tạo được volume — Postgres/MongoDB/Es mãi Pending.</p>
+      </div>
+      <pre class="cmd-code">kubectl get pvc -n infra
+kubectl get storageclass
+
+# Cài local-path-provisioner (single-node VPS)
+kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
+kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả khi LỖI</summary>
+        <pre class="output-preview">mongodb-data-mongodb-0   Pending   <span class="warn">no StorageClass</span>
+...
+<span class="comment"># Sau khi cài local-path:</span>
+mongodb-data-mongodb-0   <span class="ok">Bound</span>   pvc-xxxxx   15Gi   RWO   local-path</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">15.6 Thiếu secrets khi deploy</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> <code>deploy-all.sh</code> dừng với <code>Missing secret ... Run: bash scripts/create-secrets.sh</code></p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+bash scripts/create-secrets.sh
+kubectl get secrets -n infra
+kubectl get secrets -n shop</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">15.7 Chẩn đoán infra tổng hợp</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> In trạng thái tất cả pod infra, PVC, events, logs — dùng khi bất kỳ StatefulSet nào timeout.</p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+bash scripts/diagnose-infra.sh</pre>
+    </div>
+  </section>
+
+  <!-- MONITORING -->
+  <section id="monitoring">
+    <h2>16. Monitoring — Grafana &amp; Prometheus</h2>
+    <p>Cài <strong>sau khi app chạy ổn định</strong> (Phase 7–8 xong). Stack gồm <strong>Grafana</strong> (dashboard) + <strong>Prometheus</strong> (thu thập metrics) + node-exporter. Tối ưu cho VPS 16GB — không bật Alertmanager.</p>
+
+    <div class="card info">
+      <strong>Truy cập nhanh:</strong>
+      <table style="margin-top:0.8rem">
+        <tr><th>Thành phần</th><th>Cách xem</th><th>URL / lệnh</th></tr>
+        <tr><td><strong>Grafana</strong></td><td>Trình duyệt (HTTPS)</td><td><code>https://monitor.shopcaovanson.xyz</code></td></tr>
+        <tr><td><strong>Prometheus</strong></td><td>Port-forward (admin)</td><td><code>kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090</code> → <code>http://localhost:9090</code></td></tr>
+        <tr><td><strong>kubectl top</strong></td><td>Terminal VPS</td><td><code>kubectl top nodes</code> / <code>kubectl top pods -n shop</code></td></tr>
+      </table>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">16.1 DNS cho Grafana</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Domain <code>monitor.shopcaovanson.xyz</code> trỏ về VPS để cert-manager cấp SSL Let's Encrypt.</p>
+        <p><span class="label">📋 Làm trước:</span> Thêm bản ghi A (mục 2) rồi mới cài monitoring.</p>
+      </div>
+      <pre class="cmd-code">dig +short monitor.shopcaovanson.xyz
+# Phải trả về: 110.172.29.72</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">16.2 Cài Prometheus + Grafana</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cài kube-prometheus-stack qua Helm — Grafana có sẵn dashboard Kubernetes / Node / Pod.</p>
+        <p><span class="label">⏱ Thời gian:</span> 5–15 phút.</p>
+        <p><span class="label">💾 RAM thêm:</span> ~1–1.5 GB (chạy sau khi infra + app đã Running).</p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+
+bash scripts/install-monitoring.sh
+# Hoặc: make install-monitoring</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[install-monitoring] Installing kube-prometheus-stack...
+STATUS: deployed
+
+[install-monitoring] MONITORING ĐÃ CÀI
+
+  Grafana (trình duyệt):
+    URL:      <span class="ok">https://monitor.shopcaovanson.xyz</span>
+    User:     admin
+    Password: <span class="ok">xK9mP2vL8nQ4wR7tY1u</span>
+
+  Lưu mật khẩu: .monitoring-credentials</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">16.3 Truy cập Grafana (dashboard)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Xem CPU/RAM pod, trạng thái cluster, metrics node — giao diện đồ thị.</p>
+        <p><span class="label">🌐 URL:</span> <a href="https://monitor.shopcaovanson.xyz">https://monitor.shopcaovanson.xyz</a></p>
+      </div>
+      <pre class="cmd-code"># Xem lại URL + mật khẩu
+bash scripts/monitoring-access.sh
+
+# Hoặc lấy password từ secret
+kubectl get secret kube-prometheus-stack-grafana -n monitoring \
+  -o jsonpath='{.data.admin-password}' | base64 -d; echo</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Đăng nhập Grafana</summary>
+        <pre class="output-preview"><span class="comment"># Trình duyệt → https://monitor.shopcaovanson.xyz</span>
+Username: <span class="ok">admin</span>
+Password: <span class="ok">(in ra khi chạy install-monitoring.sh)</span>
+
+<span class="comment"># Dashboard gợi ý (menu trái → Dashboards):</span>
+- Kubernetes / Compute Resources / Namespace (Pods)
+- Kubernetes / Compute Resources / Node (Pods)
+- Node Exporter / Nodes
+
+<span class="comment"># Certificate SSL:</span>
+kubectl get certificate grafana-tls -n monitoring
+NAME          READY   SECRET
+grafana-tls   <span class="ok">True</span>    grafana-tls</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">16.4 Truy cập Prometheus (query metrics)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Query PromQL trực tiếp — dùng cho admin, <strong>không</strong> expose ra internet (chỉ port-forward).</p>
+        <p><span class="label">📍 Chạy tại:</span> VPS (SSH) hoặc máy local có <code>kubectl</code> + kubeconfig.</p>
+      </div>
+      <pre class="cmd-code"># Trên VPS
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+
+# Mở trình duyệt (máy có port-forward):
+# http://localhost:9090
+
+# Ví dụ query PromQL:
+#   up                          — target đang scrape được không
+#   kube_pod_status_phase       — trạng thái pod
+#   container_memory_working_set_bytes — RAM container</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Port-forward từ máy Windows (SSH tunnel)</summary>
+        <pre class="output-preview"><span class="comment"># PowerShell — tunnel qua SSH (thay user@110.172.29.72):</span>
+ssh -L 9090:localhost:9090 root@110.172.29.72
+
+<span class="comment"># Trên VPS (session SSH đó) chạy:</span>
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+
+<span class="comment"># Máy Windows mở:</span>
+http://localhost:9090</pre>
+      </details>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">16.5 Monitoring cơ bản (không cần Grafana)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Kiểm tra nhanh hàng ngày — không cần cài thêm stack (dùng metrics-server từ Phase 3.5).</p>
+      </div>
+      <pre class="cmd-code">kubectl top nodes
+kubectl top pods -n shop --sort-by=memory
+kubectl top pods -n infra
+
+bash scripts/verify-app.sh
+bash scripts/diagnose-infra.sh</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">NAME         CPU(cores)   MEMORY(bytes)
+k8s-master   1200m        <span class="ok">8200Mi</span>
+
+NAMESPACE  NAME                    CPU(cores)   MEMORY(bytes)
+shop       product-service-xxx     45m          <span class="ok">256Mi</span>
+infra      elasticsearch-0         200m         <span class="ok">1024Mi</span></pre>
+      </details>
+    </div>
+
+    <div class="card warn">
+      <strong>🔒 Bảo mật monitoring:</strong>
+      <ul style="margin-top:0.5rem">
+        <li>Đổi mật khẩu Grafana ngay sau lần đăng nhập đầu (Profile → Change password)</li>
+        <li>Không share URL <code>monitor.shopcaovanson.xyz</code> công khai — cân nhắc giới hạn IP qua UFW hoặc VPN</li>
+        <li>Prometheus chỉ dùng qua <code>port-forward</code>, không tạo Ingress public</li>
+        <li>File <code>.monitoring-credentials</code> chmod 600 — không commit git</li>
+      </ul>
+    </div>
   </section>
 
   <!-- CHECKLIST -->
   <section id="checklist">
-    <h2>16. Checklist triển khai + bảo mật + CI/CD</h2>
+    <h2>17. Checklist triển khai + bảo mật + CI/CD</h2>
     <div class="card">
       <h4>Triển khai cơ bản</h4>
       <ol>
         <li>☐ SSH vào <code>root@110.172.29.72</code> thành công</li>
-        <li>☐ DNS 3 bản ghi A → 110.172.29.72</li>
+        <li>☐ DNS 4 bản ghi A → 110.172.29.72 (gồm <code>monitor.shopcaovanson.xyz</code>)</li>
+        <li>☐ <code>bash scripts/create-secrets.sh</code> — đủ secrets infra + shop, backup <code>.env.production</code></li>
         <li>☐ Phase 1–8 hoàn tất, Certificate READY = True</li>
+        <li>☐ <code>mongodb-0</code> Running (nếu lỗi → mục 15.4)</li>
         <li>☐ <code>bash scripts/verify-app.sh</code> — PASSED</li>
+      </ol>
+      <h4>Monitoring (mục 16 — tùy chọn)</h4>
+      <ol>
+        <li>☐ <code>bash scripts/install-monitoring.sh</code></li>
+        <li>☐ Truy cập <code>https://monitor.shopcaovanson.xyz</code> — đăng nhập Grafana OK</li>
+        <li>☐ Backup <code>.monitoring-credentials</code></li>
       </ol>
       <h4>CI/CD (mục 12)</h4>
       <ol>
@@ -2116,7 +2826,7 @@ curl -I http://shopcaovanson.xyz/.well-known/acme-challenge/test</pre>
 </div>
 
 <footer>
-  VPS: <strong>110.172.29.72</strong> · shopcaovanson · Cập nhật 23/06/2026
+  VPS: <strong>110.172.29.72</strong> · shopcaovanson · Cập nhật 28/06/2026
 </footer>
 
 </div>
@@ -2169,6 +2879,21 @@ curl -I http://shopcaovanson.xyz/.well-known/acme-challenge/test</pre>
         btn.textContent = '✓ Đã copy';
         setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
       }
+    });
+  });
+})();
+
+// Component explanation tabs
+(function () {
+  const root = document.getElementById('comp-tabs');
+  if (!root) return;
+  const btns = root.querySelectorAll('.comp-tab-btn');
+  const panels = root.querySelectorAll('.comp-tab-panel');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-tab');
+      btns.forEach(b => b.classList.toggle('active', b === btn));
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
     });
   });
 })();

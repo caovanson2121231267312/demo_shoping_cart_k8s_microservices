@@ -1,0 +1,57 @@
+# kube-prometheus-stack — tối ưu cho VPS single-node 16GB RAM
+# Cài qua: bash scripts/install-monitoring.sh
+
+alertmanager:
+  enabled: false
+
+grafana:
+  enabled: true
+  defaultDashboardsEnabled: true
+  adminUser: admin
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  grafana.ini:
+    server:
+      root_url: https://monitor.shopcaovanson.xyz/
+      serve_from_sub_path: false
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 5d
+    retentionSize: 2GB
+    scrapeInterval: 30s
+    resources:
+      requests:
+        cpu: 200m
+        memory: 400Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true

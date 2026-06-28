@@ -1,0 +1,20 @@
+# Cho phép Prometheus (namespace monitoring) scrape metrics từ infra
+# Áp dụng sau khi cài monitoring — không ảnh hưởng nếu chưa có NetworkPolicy infra
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-allow-monitoring-scrape
+  namespace: infra
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: shop
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring

@@ -17,6 +17,7 @@ frontend/web/.output/
 # Env files — KHÔNG commit
 **/.env
 .env.production
+.monitoring-credentials
 # .env.example / .env.production.example thì ĐƯỢC commit
 
 # K8s secrets — KHÔNG commit
