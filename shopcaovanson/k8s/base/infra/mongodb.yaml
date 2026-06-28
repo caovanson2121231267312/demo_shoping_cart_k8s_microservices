@@ -55,29 +55,31 @@ spec:
           mountPath: /data/db
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "200m"
-          limits:
             memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping')" --quiet
-          initialDelaySeconds: 45
-          periodSeconds: 20
-          timeoutSeconds: 10
-        readinessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping')" --quiet
-          initialDelaySeconds: 20
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        # TCP probes — mongosh mỗi lần probe rất nặng, dễ timeout/OOM trên VPS 16GB
+        startupProbe:
+          tcpSocket:
+            port: 27017
+          initialDelaySeconds: 5
           periodSeconds: 10
-          timeoutSeconds: 10
+          failureThreshold: 60
+          timeoutSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: 27017
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 27017
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
   volumeClaimTemplates:
   - metadata:
       name: mongodb-data

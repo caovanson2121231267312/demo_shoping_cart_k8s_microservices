@@ -105,7 +105,11 @@ wait_for_statefulset() {
   kubectl get pods -n infra -l "app=${name}" -o wide 2>/dev/null || kubectl get pod "${name}-0" -n infra -o wide 2>/dev/null || true
   kubectl describe pod "${name}-0" -n infra 2>/dev/null | tail -25 || true
   kubectl logs "${name}-0" -n infra --tail=40 2>/dev/null || true
-  die "Infrastructure rollout failed at ${name}. Run: bash scripts/diagnose-infra.sh"
+  local hint="bash scripts/diagnose-infra.sh"
+  if [[ "${name}" == "mongodb" ]]; then
+    hint="${hint}  (hoặc bash scripts/reset-mongodb.sh nếu đổi password / CrashLoopBackOff)"
+  fi
+  die "Infrastructure rollout failed at ${name}. Run: ${hint}"
 }
 
 wait_for_infra() {
