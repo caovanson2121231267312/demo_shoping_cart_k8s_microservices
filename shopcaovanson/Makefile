@@ -97,6 +97,9 @@ monitoring-access: ## Show Grafana URL, credentials, port-forward commands
 build-images: ## Build all service images on VPS and import to containerd
 	bash scripts/build-images.sh
 
+install-build-tools: ## Install nerdctl+buildkit (no docker.io — safe for K8s containerd)
+	sudo bash scripts/install-build-tools.sh
+
 diagnose-apps: ## Diagnose app pod failures (ImagePullBackOff, CrashLoop)
 	bash scripts/diagnose-apps.sh
 

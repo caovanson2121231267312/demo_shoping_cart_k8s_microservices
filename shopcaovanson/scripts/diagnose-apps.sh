@@ -51,7 +51,8 @@ fi
 
 echo ""
 echo "Gợi ý nhanh:"
-echo "  ImagePullBackOff     → bash scripts/build-images.sh  (hoặc push GHCR + ghcr-secret)"
+echo "  ImagePullBackOff     → sudo bash scripts/install-build-tools.sh && bash scripts/build-images.sh"
+echo "                         (KHÔNG apt install docker.io — conflict containerd.io)"
 echo "  CrashLoop + redis    → kiểm tra REDIS_URL trong secret, redis-0 Running"
 echo "  JWT_PUBLIC_KEY       → bash scripts/create-secrets.sh --force"
 echo "  progress deadline    → kubectl describe deployment api-gateway -n shop"

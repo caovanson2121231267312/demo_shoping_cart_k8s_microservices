@@ -1,58 +1,59 @@
 #!/usr/bin/env bash
-# Build Docker images trên VPS và import vào containerd (K8s)
-# Dùng khi chưa push image lên GHCR hoặc ImagePullBackOff
+# Build container images trên VPS và đưa vào containerd namespace k8s.io
+#
+# VPS K8s dùng containerd (không có Docker daemon):
+#   sudo bash scripts/install-build-tools.sh   # một lần
+#   bash scripts/build-images.sh
 #
 # Usage:
-#   bash scripts/build-images.sh              # build tất cả
-#   bash scripts/build-images.sh api-gateway  # build 1 service
-#   bash scripts/build-images.sh --list
+#   bash scripts/build-images.sh              # tất cả services (~20–40 phút)
+#   bash scripts/build-images.sh api-gateway  # một service
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REGISTRY="${REGISTRY:-ghcr.io/caovanson}"
 TAG="${TAG:-latest}"
+CONTAINERD_NS="${CONTAINERD_NS:-k8s.io}"
 
 log() { echo "[build-images] $*"; }
 die() { echo "[build-images] ERROR: $*" >&2; exit 1; }
 
-import_image() {
-  local ref="$1"
-  if command -v ctr >/dev/null 2>&1; then
-    docker save "${ref}" | ctr -n k8s.io images import -
+detect_builder() {
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    echo "docker"
   elif command -v nerdctl >/dev/null 2>&1; then
-    nerdctl -n k8s.io load -i <(docker save "${ref}")
+    echo "nerdctl"
   else
-    die "Need ctr or nerdctl to import images into containerd"
+    die "Chưa có công cụ build. Chạy: sudo bash scripts/install-build-tools.sh"
   fi
-  log "✓ imported ${ref}"
 }
 
-build_go() {
-  local svc="$1"
-  local ctx="${PROJECT_ROOT}/services/${svc}"
-  [[ -d "${ctx}" ]] || die "Missing ${ctx}"
-  local ref="${REGISTRY}/${svc}:${TAG}"
-  log "Building ${ref}..."
-  docker build -t "${ref}" "${ctx}"
-  import_image "${ref}"
-}
+build_image() {
+  local ctx="$1"
+  local ref="$2"
+  local builder
+  builder=$(detect_builder)
 
-build_python() {
-  local svc="$1"
-  local ctx="${PROJECT_ROOT}/services/${svc}"
-  [[ -d "${ctx}" ]] || die "Missing ${ctx}"
-  local ref="${REGISTRY}/${svc}:${TAG}"
-  log "Building ${ref}..."
-  docker build -t "${ref}" "${ctx}"
-  import_image "${ref}"
-}
+  [[ -d "${ctx}" ]] || die "Missing context: ${ctx}"
 
-build_frontend() {
-  local ref="${REGISTRY}/frontend-web:${TAG}"
-  log "Building ${ref}..."
-  docker build -t "${ref}" "${PROJECT_ROOT}/frontend/web"
-  import_image "${ref}"
+  log "Building ${ref} (${builder})..."
+  export BUILDKIT_HOST="${BUILDKIT_HOST:-unix:///run/buildkit/buildkitd.sock}"
+
+  case "${builder}" in
+    docker)
+      docker build -t "${ref}" "${ctx}"
+      if command -v ctr >/dev/null 2>&1; then
+        docker save "${ref}" | ctr -n "${CONTAINERD_NS}" images import -
+      else
+        die "ctr not found — cannot import docker image into containerd"
+      fi
+      ;;
+    nerdctl)
+      nerdctl --namespace "${CONTAINERD_NS}" build -t "${ref}" "${ctx}"
+      ;;
+  esac
+  log "✓ ${ref}"
 }
 
 ALL_SERVICES=(
@@ -66,17 +67,46 @@ ALL_SERVICES=(
   frontend-web
 )
 
-list_services() {
-  printf '%s\n' "${ALL_SERVICES[@]}"
+build_service() {
+  local svc="$1"
+  case "${svc}" in
+    api-gateway|auth-service|product-service|order-service)
+      build_image "${PROJECT_ROOT}/services/${svc}" "${REGISTRY}/${svc}:${TAG}"
+      ;;
+    chat-service|notification-service|search-service)
+      build_image "${PROJECT_ROOT}/services/${svc}" "${REGISTRY}/${svc}:${TAG}"
+      ;;
+    frontend|frontend-web)
+      build_image "${PROJECT_ROOT}/frontend/web" "${REGISTRY}/frontend-web:${TAG}"
+      ;;
+    *)
+      die "Unknown service: ${svc} (available: ${ALL_SERVICES[*]})"
+      ;;
+  esac
+}
+
+restart_deployments() {
+  log "Setting imagePullPolicy=IfNotPresent (dùng image local, không pull GHCR)..."
+  for dep in api-gateway auth-service product-service order-service \
+             chat-service notification-service search-service frontend; do
+    kubectl patch deployment "${dep}" -n shop --type=json \
+      -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' \
+      2>/dev/null || true
+  done
+
+  log "Restarting shop deployments..."
+  kubectl rollout restart deployment -n shop \
+    api-gateway auth-service product-service order-service \
+    chat-service notification-service search-service frontend 2>/dev/null || true
 }
 
 main() {
-  command -v docker >/dev/null 2>&1 || die "docker not found — cài: apt install docker.io"
-
   if [[ "${1:-}" == "--list" ]]; then
-    list_services
+    printf '%s\n' "${ALL_SERVICES[@]}"
     exit 0
   fi
+
+  command -v kubectl >/dev/null 2>&1 || log "WARN: kubectl not in PATH"
 
   local targets=()
   if [[ $# -gt 0 ]]; then
@@ -85,27 +115,26 @@ main() {
     targets=("${ALL_SERVICES[@]}")
   fi
 
+  log "Builder: $(detect_builder) | namespace: ${CONTAINERD_NS}"
+  log "Building ${#targets[@]} image(s)..."
+
   for svc in "${targets[@]}"; do
-    case "${svc}" in
-      api-gateway|auth-service|product-service|order-service)
-        build_go "${svc}"
-        ;;
-      chat-service|notification-service|search-service)
-        build_python "${svc}"
-        ;;
-      frontend|frontend-web)
-        build_frontend
-        ;;
-      *)
-        die "Unknown service: ${svc} (use --list)"
-        ;;
-    esac
+    build_service "${svc}"
   done
 
   echo ""
-  log "Done. Restart deployments:"
-  echo "  kubectl rollout restart deployment -n shop api-gateway auth-service product-service order-service chat-service notification-service search-service frontend"
-  echo "  OVERLAY=dev bash scripts/deploy-all.sh   # hoặc chờ rollout"
+  log "Listing images on node:"
+  if command -v nerdctl >/dev/null 2>&1; then
+    nerdctl --namespace "${CONTAINERD_NS}" images | grep -E 'ghcr.io/caovanson|REPOSITORY' || true
+  elif command -v crictl >/dev/null 2>&1; then
+    crictl images | grep ghcr.io/caovanson || true
+  fi
+
+  restart_deployments
+  echo ""
+  log "Done. Kiểm tra:"
+  echo "  kubectl get pods -n shop"
+  echo "  bash scripts/diagnose-apps.sh"
 }
 
 main "$@"
