@@ -94,6 +94,12 @@ install-monitoring: ## Install Prometheus + Grafana (optional, after deploy)
 monitoring-access: ## Show Grafana URL, credentials, port-forward commands
 	bash scripts/monitoring-access.sh
 
+build-images: ## Build all service images on VPS and import to containerd
+	bash scripts/build-images.sh
+
+diagnose-apps: ## Diagnose app pod failures (ImagePullBackOff, CrashLoop)
+	bash scripts/diagnose-apps.sh
+
 # CI
 build: ## Build and push Docker image (make build svc=auth-service)
 	@if [ -z "$(svc)" ]; then echo "Usage: make build svc=auth-service"; exit 1; fi

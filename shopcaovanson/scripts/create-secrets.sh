@@ -219,12 +219,12 @@ apply_shop_secrets() {
   apply_secret shop auth-service-secret \
     --from-literal=DB_PASSWORD="${POSTGRES_PASSWORD}" \
     --from-literal=REDIS_URL="${REDIS_URL}/0" \
-    --from-file=JWT_PRIVATE_KEY="${JWT_DIR}/jwt-private.pem" \
-    --from-file=JWT_PUBLIC_KEY="${JWT_DIR}/jwt-public.pem"
+    --from-literal=JWT_PRIVATE_KEY="$(cat "${JWT_DIR}/jwt-private.pem")" \
+    --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")"
 
   apply_secret shop api-gateway-secret \
     --from-literal=REDIS_URL="${REDIS_URL}/0" \
-    --from-file=JWT_PUBLIC_KEY="${JWT_DIR}/jwt-public.pem"
+    --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")"
 
   apply_secret shop product-service-secret \
     --from-literal=DB_PASSWORD="${POSTGRES_PASSWORD}" \
@@ -241,7 +241,7 @@ apply_shop_secrets() {
     --from-literal=MONGO_PASSWORD="${MONGO_PASSWORD}" \
     --from-literal=MONGODB_URI="${MONGO_URI_CHAT}" \
     --from-literal=REDIS_URL="${REDIS_URL}/2" \
-    --from-file=JWT_PUBLIC_KEY="${JWT_DIR}/jwt-public.pem"
+    --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")"
 
   apply_secret shop notification-service-secret \
     --from-literal=SMTP_HOST="${SMTP_HOST}" \

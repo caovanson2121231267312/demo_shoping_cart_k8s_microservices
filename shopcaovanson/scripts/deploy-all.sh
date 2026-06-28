@@ -136,7 +136,20 @@ wait_for_apps() {
     chat-service notification-service search-service frontend
   )
   for dep in "${deployments[@]}"; do
-    kubectl -n shop rollout status "deployment/${dep}" --timeout=300s
+    log "Waiting for deployment/${dep} (timeout 300s)..."
+    if kubectl -n shop rollout status "deployment/${dep}" --timeout=300s; then
+      log "✓ deployment/${dep} ready"
+      continue
+    fi
+    log "ERROR: deployment/${dep} not ready"
+    kubectl get pods -n shop -l "app=${dep}" -o wide 2>/dev/null || true
+    pod=$(kubectl get pods -n shop -l "app=${dep}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [[ -n "${pod}" ]]; then
+      kubectl describe pod "${pod}" -n shop 2>/dev/null | sed -n '/Events:/,$p' | head -15 || true
+      kubectl logs "${pod}" -n shop --tail=25 2>/dev/null || true
+      kubectl logs "${pod}" -n shop --previous --tail=15 2>/dev/null || true
+    fi
+    die "Application rollout failed at ${dep}. Run: bash scripts/diagnose-apps.sh  (ImagePullBackOff → bash scripts/build-images.sh)"
   done
 }
 
