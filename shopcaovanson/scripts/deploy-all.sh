@@ -129,31 +129,26 @@ wait_for_infra() {
   wait_for_statefulset elasticsearch "900s"
 }
 
-# Khi rollout 1 replica: pod mới Ready nhưng pod cũ (ReplicaSet cũ) vẫn restart → rollout timeout
+# Khi rollout 1 replica: pod mới Ready nhưng RS cũ (revision cũ) vẫn tồn tại → rollout timeout
 scale_down_stale_replicasets() {
   local dep="$1"
-  local ns="${2:-shop}"
-  local latest_rs
-  latest_rs=$(kubectl get rs -n "${ns}" -l "app=${dep}" \
-    --sort-by=.metadata.creationTimestamp \
-    -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null || true)
-  [[ -n "${latest_rs}" ]] || return 0
-
-  local rs
-  for rs in $(kubectl get rs -n "${ns}" -l "app=${dep}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-    [[ "${rs}" == "${latest_rs}" ]] && continue
-    local desired
-    desired=$(kubectl get rs "${rs}" -n "${ns}" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo 0)
-    if [[ "${desired}" != "0" ]]; then
-      log "Scaling down stale replicaset/${rs} for ${dep}"
-      kubectl scale rs "${rs}" -n "${ns}" --replicas=0 2>/dev/null || true
-    fi
-    local hash
-    hash=$(kubectl get rs "${rs}" -n "${ns}" -o jsonpath='{.metadata.labels.pod-template-hash}' 2>/dev/null || true)
-    if [[ -n "${hash}" ]]; then
-      kubectl delete pod -n "${ns}" -l "pod-template-hash=${hash}" --grace-period=0 --force 2>/dev/null || true
-    fi
-  done
+  bash "${SCRIPT_DIR}/cleanup-stuck-rollouts.sh" "${dep}" 2>/dev/null || {
+    local ns="${2:-shop}"
+    local target_rev
+    target_rev=$(kubectl get deployment "${dep}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
+    [[ -n "${target_rev}" ]] || return 0
+    local rs rev
+    for rs in $(kubectl get rs -n "${ns}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+      [[ "${rs}" == "${dep}-"* ]] || continue
+      rev=$(kubectl get rs "${rs}" -n "${ns}" \
+        -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
+      if [[ "${rev}" != "${target_rev}" ]]; then
+        log "Deleting stale replicaset/${rs} for ${dep}"
+        kubectl delete rs "${rs}" -n "${ns}" --cascade=foreground --grace-period=0 --force 2>/dev/null || true
+      fi
+    done
+  }
 }
 
 wait_for_deployment() {

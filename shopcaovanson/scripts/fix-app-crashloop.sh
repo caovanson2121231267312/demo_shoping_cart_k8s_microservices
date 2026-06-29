@@ -113,25 +113,12 @@ sync_secrets() {
 }
 
 apply_config_patches() {
-  log "Patching ConfigMaps (KAFKA_BOOTSTRAP_SERVERS)..."
+  log "Applying ConfigMaps (KAFKA_BOOTSTRAP_SERVERS)..."
   kubectl apply -f "${PROJECT_ROOT}/k8s/base/notification-service/configmap.yaml" 2>/dev/null || true
   kubectl apply -f "${PROJECT_ROOT}/k8s/base/search-service/configmap.yaml" 2>/dev/null || true
   kubectl apply -f "${PROJECT_ROOT}/k8s/base/chat-service/configmap.yaml" 2>/dev/null || true
-
-  # Hotfix probe port nếu image cũ listen 8085/8086 thay vì 8000
-  log "Patching Python service probe ports (8085/8086)..."
-  kubectl patch deployment notification-service -n shop --type=json -p='[
-    {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/port","value":8085},
-    {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/port","value":8085}
-  ]' 2>/dev/null || true
-  kubectl patch deployment search-service -n shop --type=json -p='[
-    {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/port","value":8086},
-    {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/port","value":8086}
-  ]' 2>/dev/null || true
-  kubectl patch service notification-service -n shop --type=json \
-    -p='[{"op":"replace","path":"/spec/ports/0/targetPort","value":8085}]' 2>/dev/null || true
-  kubectl patch service search-service -n shop --type=json \
-    -p='[{"op":"replace","path":"/spec/ports/0/targetPort","value":8086}]' 2>/dev/null || true
+  kubectl apply -f "${PROJECT_ROOT}/k8s/base/notification-service/deployment.yaml" 2>/dev/null || true
+  kubectl apply -f "${PROJECT_ROOT}/k8s/base/search-service/deployment.yaml" 2>/dev/null || true
 }
 
 restart_shop() {

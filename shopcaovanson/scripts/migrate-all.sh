@@ -80,6 +80,7 @@ spec:
       containers:
       - name: migrate
         image: ghcr.io/caovanson/${service}:${MIGRATION_IMAGE_TAG}
+        imagePullPolicy: IfNotPresent
         workingDir: /app
         command: ["/bin/sh", "-c"]
         args:
