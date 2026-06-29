@@ -129,6 +129,50 @@ wait_for_infra() {
   wait_for_statefulset elasticsearch "900s"
 }
 
+# Khi rollout 1 replica: pod mới Ready nhưng pod cũ (ReplicaSet cũ) vẫn restart → rollout timeout
+scale_down_stale_replicasets() {
+  local dep="$1"
+  local ns="${2:-shop}"
+  local latest_rs
+  latest_rs=$(kubectl get rs -n "${ns}" -l "app=${dep}" \
+    --sort-by=.metadata.creationTimestamp \
+    -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null || true)
+  [[ -n "${latest_rs}" ]] || return 0
+
+  local rs
+  for rs in $(kubectl get rs -n "${ns}" -l "app=${dep}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    [[ "${rs}" == "${latest_rs}" ]] && continue
+    local desired
+    desired=$(kubectl get rs "${rs}" -n "${ns}" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo 0)
+    if [[ "${desired}" != "0" ]]; then
+      log "Scaling down stale replicaset/${rs} for ${dep}"
+      kubectl scale rs "${rs}" -n "${ns}" --replicas=0 2>/dev/null || true
+    fi
+    local hash
+    hash=$(kubectl get rs "${rs}" -n "${ns}" -o jsonpath='{.metadata.labels.pod-template-hash}' 2>/dev/null || true)
+    if [[ -n "${hash}" ]]; then
+      kubectl delete pod -n "${ns}" -l "pod-template-hash=${hash}" --grace-period=0 --force 2>/dev/null || true
+    fi
+  done
+}
+
+wait_for_deployment() {
+  local dep="$1"
+  local timeout="${2:-300s}"
+  log "Waiting for deployment/${dep} (timeout ${timeout})..."
+  if kubectl -n shop rollout status "deployment/${dep}" --timeout="${timeout}"; then
+    log "✓ deployment/${dep} ready"
+    return 0
+  fi
+  log "WARN: deployment/${dep} rollout slow — cleaning stale replicasets..."
+  scale_down_stale_replicasets "${dep}"
+  if kubectl -n shop rollout status "deployment/${dep}" --timeout=120s; then
+    log "✓ deployment/${dep} ready (after cleanup)"
+    return 0
+  fi
+  return 1
+}
+
 wait_for_apps() {
   log "Waiting for application pods..."
   local deployments=(
@@ -136,9 +180,7 @@ wait_for_apps() {
     chat-service notification-service search-service frontend
   )
   for dep in "${deployments[@]}"; do
-    log "Waiting for deployment/${dep} (timeout 300s)..."
-    if kubectl -n shop rollout status "deployment/${dep}" --timeout=300s; then
-      log "✓ deployment/${dep} ready"
+    if wait_for_deployment "${dep}"; then
       continue
     fi
     log "ERROR: deployment/${dep} not ready"

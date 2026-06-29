@@ -7,6 +7,8 @@ metadata:
     app: notification-service
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: notification-service
@@ -18,7 +20,7 @@ spec:
       containers:
       - name: notification-service
         image: ghcr.io/caovanson/notification-service:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
           name: http
