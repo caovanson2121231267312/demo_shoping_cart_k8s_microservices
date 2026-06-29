@@ -55,5 +55,7 @@ echo "  ImagePullBackOff     → sudo bash scripts/install-build-tools.sh && bas
 echo "                         (KHÔNG apt install docker.io — conflict containerd.io)"
 echo "  CrashLoop + redis    → bash scripts/fix-redis-secrets.sh  (hoặc create-secrets.sh --force)"
 echo "                         log: ping redis [::1]:6379 = thiếu REDIS_URL trong secret"
+echo "  password auth failed → bash scripts/fix-app-crashloop.sh --reset-infra --yes"
+echo "                         (postgres/mongo/elastic PVC ≠ secrets)"
 echo "  JWT_PUBLIC_KEY       → bash scripts/create-secrets.sh --force"
 echo "  progress deadline    → kubectl describe deployment api-gateway -n shop"

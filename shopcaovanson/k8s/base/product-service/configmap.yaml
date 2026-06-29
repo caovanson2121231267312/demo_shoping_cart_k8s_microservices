@@ -19,7 +19,6 @@ data:
   MONGO_USER: "shopcaovanson"
   MONGO_DB: "product_db"
   MONGO_AUTH_SOURCE: "admin"
-  ELASTICSEARCH_URL: "http://elasticsearch.infra.svc.cluster.local:9200"
   ELASTICSEARCH_INDEX: "products"
   KAFKA_BROKERS: "kafka.infra.svc.cluster.local:9092"
   KAFKA_TOPIC_PRODUCT_CREATED: "product.created"
