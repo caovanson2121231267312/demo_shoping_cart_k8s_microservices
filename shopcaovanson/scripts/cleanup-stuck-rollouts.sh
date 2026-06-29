@@ -10,6 +10,11 @@ NS="${NAMESPACE:-shop}"
 
 log() { echo "[cleanup-rollouts] $*"; }
 
+rs_ready_count() {
+  local rs="$1"
+  kubectl get rs "${rs}" -n "${NS}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0"
+}
+
 cleanup_deployment() {
   local dep="$1"
   local target_rev
@@ -20,15 +25,33 @@ cleanup_deployment() {
     return 0
   fi
 
-  local rs rev
+  local current_rs="" current_ready=0
+  local rs rev ready
   for rs in $(kubectl get rs -n "${NS}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
     [[ "${rs}" == "${dep}-"* ]] || continue
     rev=$(kubectl get rs "${rs}" -n "${NS}" \
       -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
-    if [[ "${rev}" != "${target_rev}" ]]; then
-      log "Deleting stale rs/${rs} (revision ${rev} ≠ current ${target_rev})"
-      kubectl delete rs "${rs}" -n "${NS}" --cascade=foreground --grace-period=0 --force 2>/dev/null || true
+    if [[ "${rev}" == "${target_rev}" ]]; then
+      current_rs="${rs}"
+      current_ready=$(rs_ready_count "${rs}")
     fi
+  done
+
+  for rs in $(kubectl get rs -n "${NS}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+    [[ "${rs}" == "${dep}-"* ]] || continue
+    rev=$(kubectl get rs "${rs}" -n "${NS}" \
+      -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
+    if [[ "${rev}" == "${target_rev}" ]]; then
+      continue
+    fi
+    ready=$(rs_ready_count "${rs}")
+    if [[ "${current_ready}" -lt 1 && "${ready}" -ge 1 ]]; then
+      log "WARN: giữ rs/${rs} (${ready} ready) — revision ${target_rev} chưa có pod Ready"
+      log "      Chạy: bash scripts/redeploy-python-services.sh (nếu là notification/search)"
+      continue
+    fi
+    log "Deleting stale rs/${rs} (revision ${rev} ≠ current ${target_rev})"
+    kubectl delete rs "${rs}" -n "${NS}" --cascade=foreground --grace-period=0 --force 2>/dev/null || true
   done
 
   if kubectl rollout status "deployment/${dep}" -n "${NS}" --timeout=90s 2>/dev/null; then
