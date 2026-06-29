@@ -11,7 +11,7 @@ RUN go mod download
 COPY services/product-service/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /product-service .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /migrate ./cmd/migrate
-RUN CGO_ENABLED=0 GOOS=linux go build -o /seed ./scripts/fake_data.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /seed ./scripts/
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
