@@ -150,8 +150,10 @@ wait_for_apps() {
       kubectl logs "${pod}" -n shop --previous --tail=15 2>/dev/null || true
     fi
     local hint="bash scripts/diagnose-apps.sh"
-    if [[ "${dep}" == "api-gateway" || "${dep}" == "auth-service" ]]; then
-      hint="bash scripts/fix-redis-secrets.sh  (WRONGPASS / redis localhost)"
+    if kubectl get pods -n shop -l "app=${dep}" -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}' 2>/dev/null | grep -q ImagePullBackOff; then
+      hint="bash scripts/build-images.sh ${dep}  (hoặc bash scripts/build-images.sh cho tất cả)"
+    elif [[ "${dep}" == "api-gateway" || "${dep}" == "auth-service" ]]; then
+      hint="bash scripts/fix-redis-secrets.sh  (WRONGPASS / redis localhost) hoặc build-images.sh nếu ImagePullBackOff"
     fi
     die "Application rollout failed at ${dep}. Run: ${hint}"
   done

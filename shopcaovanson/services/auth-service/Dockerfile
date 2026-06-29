@@ -1,14 +1,15 @@
-# Build stage
+# Build stage — context: repo root (shopcaovanson/)
 FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
 RUN apk add --no-cache git ca-certificates
 
-COPY go.mod go.sum ./
+COPY pkg/seedcatalog /pkg/seedcatalog
+COPY services/auth-service/go.mod services/auth-service/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY services/auth-service/ .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /auth-service .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /migrate ./cmd/migrate
@@ -24,7 +25,7 @@ WORKDIR /app
 COPY --from=builder /auth-service /app/auth-service
 COPY --from=builder /migrate /app/migrate
 COPY --from=builder /seed /app/seed
-COPY migrations /app/migrations
+COPY services/auth-service/migrations /app/migrations
 
 EXPOSE 8081
 

@@ -52,18 +52,27 @@ ensure_buildkit() {
 build_image() {
   local ctx="$1"
   local ref="$2"
+  local dockerfile="${3:-}"
   local builder
   builder=$(detect_builder)
 
   [[ -d "${ctx}" ]] || die "Missing context: ${ctx}"
+  if [[ -n "${dockerfile}" ]]; then
+    [[ -f "${dockerfile}" ]] || die "Missing Dockerfile: ${dockerfile}"
+  fi
 
   log "Building ${ref} (${builder})..."
   ensure_buildkit
   export BUILDKIT_HOST="${BUILDKIT_HOST:-unix:///run/buildkit/buildkitd.sock}"
 
+  local -a build_args=()
+  if [[ -n "${dockerfile}" ]]; then
+    build_args=(-f "${dockerfile}")
+  fi
+
   case "${builder}" in
     docker)
-      docker build -t "${ref}" "${ctx}"
+      docker build "${build_args[@]}" -t "${ref}" "${ctx}"
       if command -v ctr >/dev/null 2>&1; then
         docker save "${ref}" | ctr -n "${CONTAINERD_NS}" images import -
       else
@@ -71,7 +80,7 @@ build_image() {
       fi
       ;;
     nerdctl)
-      nerdctl --namespace "${CONTAINERD_NS}" build -t "${ref}" "${ctx}"
+      nerdctl --namespace "${CONTAINERD_NS}" build "${build_args[@]}" -t "${ref}" "${ctx}"
       ;;
   esac
   log "✓ ${ref}"
@@ -91,7 +100,12 @@ ALL_SERVICES=(
 build_service() {
   local svc="$1"
   case "${svc}" in
-    api-gateway|auth-service|product-service|order-service)
+    auth-service|product-service|order-service)
+      # Shared pkg/seedcatalog — build context must be repo root
+      build_image "${PROJECT_ROOT}" "${REGISTRY}/${svc}:${TAG}" \
+        "${PROJECT_ROOT}/services/${svc}/Dockerfile"
+      ;;
+    api-gateway)
       build_image "${PROJECT_ROOT}/services/${svc}" "${REGISTRY}/${svc}:${TAG}"
       ;;
     chat-service|notification-service|search-service)

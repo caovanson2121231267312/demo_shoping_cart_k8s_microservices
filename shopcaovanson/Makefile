@@ -106,7 +106,12 @@ diagnose-apps: ## Diagnose app pod failures (ImagePullBackOff, CrashLoop)
 # CI
 build: ## Build and push Docker image (make build svc=auth-service)
 	@if [ -z "$(svc)" ]; then echo "Usage: make build svc=auth-service"; exit 1; fi
-	docker build -t ghcr.io/caovanson/$(svc):latest services/$(svc)/
+	@case "$(svc)" in \
+		auth-service|product-service|order-service) \
+			docker build -f services/$(svc)/Dockerfile -t ghcr.io/caovanson/$(svc):latest . ;; \
+		*) \
+			docker build -t ghcr.io/caovanson/$(svc):latest services/$(svc)/ ;; \
+	esac
 	docker push ghcr.io/caovanson/$(svc):latest
 
 build-frontend: ## Build and push frontend image
