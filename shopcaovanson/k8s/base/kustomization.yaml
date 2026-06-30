@@ -34,6 +34,12 @@ resources:
   - search-service/deployment.yaml
   - search-service/service.yaml
   - search-service/configmap.yaml
+  - analytics-service/deployment.yaml
+  - analytics-service/service.yaml
+  - analytics-service/configmap.yaml
+  - rasa-service/deployment.yaml
+  - rasa-service/service.yaml
+  - rasa-service/configmap.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
   - frontend/configmap.yaml

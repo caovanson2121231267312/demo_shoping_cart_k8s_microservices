@@ -94,6 +94,8 @@ ALL_SERVICES=(
   chat-service
   notification-service
   search-service
+  analytics-service
+  rasa-service
   frontend-web
 )
 
@@ -108,7 +110,7 @@ build_service() {
     api-gateway)
       build_image "${PROJECT_ROOT}/services/${svc}" "${REGISTRY}/${svc}:${TAG}"
       ;;
-    chat-service|notification-service|search-service)
+    chat-service|notification-service|search-service|analytics-service|rasa-service)
       build_image "${PROJECT_ROOT}/services/${svc}" "${REGISTRY}/${svc}:${TAG}"
       ;;
     frontend|frontend-web)
@@ -123,7 +125,8 @@ build_service() {
 restart_deployments() {
   log "Setting imagePullPolicy=IfNotPresent (dùng image local, không pull GHCR)..."
   for dep in api-gateway auth-service product-service order-service \
-             chat-service notification-service search-service frontend; do
+             chat-service notification-service search-service \
+             analytics-service rasa-service frontend; do
     kubectl patch deployment "${dep}" -n shop --type=json \
       -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' \
       2>/dev/null || true
@@ -132,7 +135,8 @@ restart_deployments() {
   log "Restarting shop deployments..."
   kubectl rollout restart deployment -n shop \
     api-gateway auth-service product-service order-service \
-    chat-service notification-service search-service frontend 2>/dev/null || true
+    chat-service notification-service search-service \
+    analytics-service rasa-service frontend 2>/dev/null || true
 }
 
 main() {

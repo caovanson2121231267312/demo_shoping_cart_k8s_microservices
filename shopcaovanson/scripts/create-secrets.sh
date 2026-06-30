@@ -162,6 +162,10 @@ source_env() {
   enc_elastic=$(urlencode "${ELASTIC_PASSWORD}")
 
   REDIS_URL="redis://:${enc_redis}@redis.infra.svc.cluster.local:6379"
+  enc_pg=$(urlencode "${POSTGRES_PASSWORD}")
+  AUTH_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/auth_db?sslmode=disable"
+  ORDER_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/order_db?sslmode=disable"
+  PRODUCT_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/product_db?sslmode=disable"
   MONGO_URI_PRODUCT="mongodb://${MONGO_USER}:${enc_mongo}@mongodb.infra.svc.cluster.local:27017/product_db?authSource=admin"
   MONGO_URI_CHAT="mongodb://${MONGO_USER}:${enc_mongo}@mongodb.infra.svc.cluster.local:27017/chat_db?authSource=admin"
   ELASTICSEARCH_URL="http://elastic:${enc_elastic}@elasticsearch.infra.svc.cluster.local:9200"
@@ -255,6 +259,12 @@ apply_shop_secrets() {
     --from-literal=ELASTIC_PASSWORD="${ELASTIC_PASSWORD}" \
     --from-literal=ELASTICSEARCH_URL="${ELASTICSEARCH_URL}"
 
+  apply_secret shop analytics-service-secret \
+    --from-literal=AUTH_DATABASE_URL="${AUTH_DATABASE_URL}" \
+    --from-literal=ORDER_DATABASE_URL="${ORDER_DATABASE_URL}" \
+    --from-literal=PRODUCT_DATABASE_URL="${PRODUCT_DATABASE_URL}" \
+    --from-literal=REDIS_URL="${REDIS_URL}/2"
+
   if [[ -n "${GHCR_USERNAME}" && -n "${GHCR_TOKEN}" ]]; then
     if [[ "${FORCE}" == "true" ]]; then
       kubectl create secret docker-registry ghcr-secret -n shop \
@@ -288,7 +298,7 @@ verify_secrets() {
     kubectl get secret "$s" -n infra >/dev/null 2>&1 || { log "MISSING infra/$s"; missing=1; }
   done
   for s in auth-service-secret api-gateway-secret product-service-secret order-service-secret \
-           chat-service-secret notification-service-secret search-service-secret; do
+           chat-service-secret notification-service-secret search-service-secret analytics-service-secret; do
     kubectl get secret "$s" -n shop >/dev/null 2>&1 || { log "MISSING shop/$s"; missing=1; }
   done
   [[ "${missing}" -eq 0 ]] || die "Some secrets missing"
@@ -306,7 +316,7 @@ print_summary() {
   echo ""
   echo "  Infra secrets:  postgres, mongodb, redis, elasticsearch"
   echo "  Shop secrets:   auth, api-gateway, product, order, chat,"
-  echo "                  notification, search"
+  echo "                  notification, search, analytics"
   echo ""
   echo "  Bước tiếp theo:"
   echo "    OVERLAY=dev bash scripts/deploy-all.sh"

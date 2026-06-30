@@ -79,6 +79,7 @@ create_app_secrets() {
     chat-service-secret
     notification-service-secret
     search-service-secret
+    analytics-service-secret
   )
 
   for secret in "${required_secrets[@]}"; do
@@ -172,7 +173,8 @@ wait_for_apps() {
   log "Waiting for application pods..."
   local deployments=(
     api-gateway auth-service product-service order-service
-    chat-service notification-service search-service frontend
+    chat-service notification-service search-service
+    analytics-service rasa-service frontend
   )
   for dep in "${deployments[@]}"; do
     if wait_for_deployment "${dep}"; then

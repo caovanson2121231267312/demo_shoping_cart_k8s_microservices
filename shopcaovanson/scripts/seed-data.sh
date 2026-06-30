@@ -60,6 +60,21 @@ check_kubectl() {
   kubectl cluster-info >/dev/null 2>&1 || die "Cannot connect to cluster. Set KUBECONFIG."
 }
 
+check_migrations_done() {
+  log "Checking auth_db migrations (table users)..."
+  local postgres_pod
+  postgres_pod=$(kubectl -n infra get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  [[ -n "${postgres_pod}" ]] || die "postgres pod not found in infra namespace"
+
+  if kubectl -n infra exec "${postgres_pod}" -- \
+    psql -U shopcaovanson -d auth_db -tAc "SELECT to_regclass('public.users')" 2>/dev/null | grep -q users; then
+    log "✓ auth_db.users exists"
+    return 0
+  fi
+
+  die "Bảng users chưa có — chạy migrate trước: bash scripts/migrate-all.sh"
+}
+
 run_seed_job() {
   local service="$1"
   local step="$2"
@@ -121,6 +136,7 @@ EOF
 
 run_k8s_seed() {
   check_kubectl
+  check_migrations_done
 
   log "Starting idempotent seed in dependency order..."
 

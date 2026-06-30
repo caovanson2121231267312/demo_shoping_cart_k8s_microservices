@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-service-config
+  namespace: shop
+  labels:
+    app: analytics-service
+data:
+  APP_ENV: "production"
+  PORT: "8000"
+  LOG_LEVEL: "info"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.infra.svc.cluster.local:9092"
+  KAFKA_GROUP_ANALYTICS: "analytics-service"
+  KAFKA_GROUP_ORDER_EXPORT: "analytics-order-export"
+  KAFKA_TOPIC_ORDER_CREATED: "order.created"
+  KAFKA_TOPIC_USER_REGISTERED: "user.registered"
+  KAFKA_TOPIC_ANALYTICS_EVENT: "analytics.event"
+  KAFKA_TOPIC_ORDER_EXPORT: "order.export.requested"
+  ORDER_EXPORTS_DIR: "exports"
+  ORDER_EXPORT_JOB_TTL: "86400"
+  ONLINE_TTL_SECONDS: "90"
