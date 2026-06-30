@@ -81,14 +81,14 @@ check_http() {
   section "HTTP health checks"
   if command -v curl >/dev/null 2>&1; then
     local api_status frontend_status
-    api_status=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/health" --max-time 10 || echo "000")
+    api_status=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/health" --max-time 10 || echo "000")
     frontend_status=$(curl -s -o /dev/null -w "%{http_code}" "${FRONTEND_URL}/" --max-time 10 || echo "000")
 
     if [[ "${api_status}" == "200" ]]; then
-      ok "API ${API_URL}/api/health → HTTP ${api_status}"
-      curl -s "${API_URL}/api/health" | head -1
+      ok "API ${API_URL}/health → HTTP ${api_status}"
+      curl -s "${API_URL}/health" | head -1
     else
-      fail "API ${API_URL}/api/health → HTTP ${api_status}"
+      fail "API ${API_URL}/health → HTTP ${api_status}"
     fi
 
     if [[ "${frontend_status}" == "200" ]]; then

@@ -13,10 +13,12 @@ ARG NUXT_PUBLIC_WS_URL=wss://vocabee.cloud
 ENV NUXT_PUBLIC_API_URL=$NUXT_PUBLIC_API_URL
 ENV NUXT_PUBLIC_WS_URL=$NUXT_PUBLIC_WS_URL
 
-RUN npm run build
+# SPA static export for nginx (nuxt build leaves .output/public empty/minimal)
+RUN npm run generate
 
 FROM nginx:alpine
 
+RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/.output/public /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

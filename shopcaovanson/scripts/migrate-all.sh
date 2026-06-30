@@ -3,12 +3,17 @@
 # Usage:
 #   LOCAL=true bash scripts/migrate-all.sh     # local dev (go run)
 #   bash scripts/migrate-all.sh                # K8s cluster (kubectl jobs)
+#   JOB_TIMEOUT=600 bash scripts/migrate-all.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 NAMESPACE="${NAMESPACE:-shop}"
 MIGRATION_IMAGE_TAG="${MIGRATION_IMAGE_TAG:-latest}"
+JOB_TIMEOUT="${JOB_TIMEOUT:-300}"
+
+# shellcheck source=lib/k8s-job-wait.sh
+source "${SCRIPT_DIR}/lib/k8s-job-wait.sh"
 
 log() { echo "[migrate-all] $*"; }
 die() { echo "[migrate-all] ERROR: $*" >&2; exit 1; }
@@ -17,7 +22,10 @@ run_local_migrations() {
   log "Running local migrations (go run cmd/migrate/main.go up)..."
 
   local services=(auth-service product-service order-service)
+  local i=0
+  local total=${#services[@]}
   for svc in "${services[@]}"; do
+    i=$((i + 1))
     local dir="${PROJECT_ROOT}/services/${svc}"
     if [[ ! -d "${dir}" ]]; then
       die "Service directory not found: ${dir}"
@@ -34,9 +42,9 @@ run_local_migrations() {
       source "${dir}/.env.example"
       set +a
     fi
-    log "Migrating ${svc}..."
+    log "[${i}/${total}] Migrating ${svc}..."
     (cd "${dir}" && go run cmd/migrate/main.go up)
-    log "Migration for ${svc} completed."
+    log "[${i}/${total}] ✓ ${svc}"
   done
 
   log "All local migrations completed successfully."
@@ -50,20 +58,20 @@ check_kubectl() {
 wait_for_postgres() {
   log "Waiting for PostgreSQL..."
   kubectl -n infra rollout status statefulset/postgres --timeout=300s
+  log "✓ PostgreSQL ready"
 }
 
 run_migration_job() {
   local service="$1"
   local db_name="$2"
+  local step="$3"
+  local total="$4"
   local job_name="migrate-${service}-$(date +%s)"
-  local migrate_cmd="/app/migrate up"
-  if [[ "${service}" != "auth-service" ]]; then
-    migrate_cmd="/app/migrate -direction up"
-  fi
 
-  log "Running migration for ${service} (database: ${db_name})..."
+  log "[${step}/${total}] Migration ${service} → database ${db_name}"
+  log "[${step}/${total}] Creating job/${job_name}..."
 
-  kubectl -n "${NAMESPACE}" delete job "${job_name}" --ignore-not-found=true
+  kubectl -n "${NAMESPACE}" delete job -l "app.kubernetes.io/migrate=${service}" --ignore-not-found=true 2>/dev/null || true
 
   cat <<EOF | kubectl apply -f -
 apiVersion: batch/v1
@@ -71,10 +79,15 @@ kind: Job
 metadata:
   name: ${job_name}
   namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/migrate: ${service}
 spec:
-  backoffLimit: 3
+  backoffLimit: 2
   ttlSecondsAfterFinished: 600
   template:
+    metadata:
+      labels:
+        app.kubernetes.io/migrate: ${service}
     spec:
       restartPolicy: Never
       containers:
@@ -85,8 +98,11 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
+            set -e
             export MIGRATIONS_PATH=file:///app/migrations
-            ${migrate_cmd}
+            echo "[migrate] starting ${service} on ${db_name}..."
+            /app/migrate up
+            echo "[migrate] done ${service}"
         envFrom:
         - configMapRef:
             name: ${service}-config
@@ -101,9 +117,11 @@ spec:
             cpu: "500m"
 EOF
 
-  kubectl -n "${NAMESPACE}" wait --for=condition=complete "job/${job_name}" --timeout=300s
-  log "Migration for ${service} completed."
-  kubectl -n "${NAMESPACE}" logs "job/${job_name}"
+  JOB_LOG_PREFIX="[migrate-all]" wait_for_k8s_job "${job_name}" "${NAMESPACE}" "${JOB_TIMEOUT}" || die "Migration failed: ${service}"
+
+  log "[${step}/${total}] --- logs ${job_name} ---"
+  kubectl -n "${NAMESPACE}" logs "job/${job_name}" 2>/dev/null | tail -20 || true
+  log "[${step}/${total}] ✓ ${service}"
 }
 
 create_databases() {
@@ -114,18 +132,27 @@ create_databases() {
   kubectl -n infra exec "${postgres_pod}" -- bash -c '
     for db in auth_db product_db order_db; do
       psql -U shopcaovanson -d shopcaovanson -tc "SELECT 1 FROM pg_database WHERE datname = '\''$db'\''" | grep -q 1 \
-        || psql -U shopcaovanson -d shopcaovanson -c "CREATE DATABASE $db"
+        && echo "  OK  database $db exists" \
+        || (psql -U shopcaovanson -d shopcaovanson -c "CREATE DATABASE $db" && echo "  +   created $db")
     done
   '
+  log "✓ Databases ready"
 }
 
 run_k8s_migrations() {
   check_kubectl
   wait_for_postgres
   create_databases
-  run_migration_job "auth-service" "auth_db"
-  run_migration_job "product-service" "product_db"
-  run_migration_job "order-service" "order_db"
+
+  local services=(auth-service product-service order-service)
+  local dbs=(auth_db product_db order_db)
+  local total=${#services[@]}
+  local i=0
+  for svc in "${services[@]}"; do
+    i=$((i + 1))
+    run_migration_job "${svc}" "${dbs[$((i - 1))]}" "${i}" "${total}"
+  done
+
   log "All migrations completed successfully."
 }
 

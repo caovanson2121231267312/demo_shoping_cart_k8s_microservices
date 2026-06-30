@@ -50,6 +50,13 @@ spec:
   - host: vocabee.cloud
     http:
       paths:
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 80
       - path: /ws
         pathType: Prefix
         backend:
