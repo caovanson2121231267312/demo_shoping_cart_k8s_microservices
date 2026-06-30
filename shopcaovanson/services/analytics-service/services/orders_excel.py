@@ -1,5 +1,5 @@
 import io
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterator
 
 from openpyxl import Workbook
@@ -40,6 +40,19 @@ THIN_BORDER = Border(
     top=Side(style="thin", color="C8E6C9"),
     bottom=Side(style="thin", color="C8E6C9"),
 )
+
+
+def _to_excel_datetime(value: Any) -> Any:
+    """openpyxl requires naive datetimes (tzinfo=None)."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+    if isinstance(value, date):
+        return value
+    return value
 
 
 def _fetch_all(conn, query: str, params: tuple = ()) -> list[dict[str, Any]]:
@@ -347,7 +360,7 @@ def build_orders_excel(filters: dict[str, Any], on_progress: ProgressCallback | 
                     report(pct, f"Đang ghi đơn hàng ({order_count:,}/{total_orders:,})...")
             ws_o.append([
                 o.get("order_number") or str(o.get("id", ""))[:8],
-                o.get("created_at"),
+                _to_excel_datetime(o.get("created_at")),
                 STATUS_LABELS.get(o.get("status", ""), o.get("status")),
                 o.get("shipping_name"),
                 o.get("shipping_phone"),
@@ -357,7 +370,7 @@ def build_orders_excel(filters: dict[str, Any], on_progress: ProgressCallback | 
                 o.get("coupon_code") or "",
                 float(o.get("total_amount") or 0),
                 str(o.get("user_id", "")),
-                o.get("updated_at"),
+                _to_excel_datetime(o.get("updated_at")),
             ])
         if total_orders == 0:
             report(50, "Không có đơn hàng trong bộ lọc")
@@ -407,7 +420,7 @@ def build_orders_excel(filters: dict[str, Any], on_progress: ProgressCallback | 
                     report(pct, f"Đang ghi chi tiết SP ({item_count:,}/{item_rows:,})...")
             ws_i.append([
                 it.get("order_number"),
-                it.get("created_at"),
+                _to_excel_datetime(it.get("created_at")),
                 STATUS_LABELS.get(it.get("status", ""), it.get("status")),
                 it.get("product_name_snapshot"),
                 str(it.get("product_id", "")),
@@ -471,7 +484,7 @@ def build_orders_excel(filters: dict[str, Any], on_progress: ProgressCallback | 
         daily_data_start = daily_hdr_row + 1
         for row in daily:
             ws_d.append([
-                row.get("day"),
+                _to_excel_datetime(row.get("day")),
                 int(row.get("orders") or 0),
                 float(row.get("revenue") or 0),
             ])

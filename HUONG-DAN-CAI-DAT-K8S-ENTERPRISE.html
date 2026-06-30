@@ -166,6 +166,27 @@
     }
     .comp-flow strong { color: var(--primary-light); }
 
+    /* ── Architecture diagrams ── */
+    .mermaid-wrap {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.2rem 1rem; margin: 1rem 0;
+      overflow-x: auto;
+    }
+    .mermaid-wrap .mermaid { display: flex; justify-content: center; }
+    .arch-legend {
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
+      margin: 0.8rem 0 0; font-size: 0.82rem; color: var(--muted);
+    }
+    .arch-legend span::before {
+      content: ''; display: inline-block; width: 10px; height: 10px;
+      border-radius: 2px; margin-right: 0.35rem; vertical-align: middle;
+    }
+    .leg-shop::before { background: #1e88e5; }
+    .leg-infra::before { background: #43a047; }
+    .leg-ext::before { background: #fb8c00; }
+    .workflow-table td:first-child { white-space: nowrap; font-weight: 600; color: var(--accent); }
+    .workflow-table td:nth-child(2) { color: var(--primary-light); font-family: Consolas, monospace; font-size: 0.85rem; }
+
     footer { text-align: center; padding: 2rem; color: var(--muted); border-top: 1px solid var(--border); font-size: 0.85rem; }
     @media (max-width: 768px) {
       .compare-grid { grid-template-columns: 1fr; }
@@ -184,6 +205,8 @@
     <ol>
       <li><a href="#vps-info">0. Thông tin VPS</a></li>
       <li><a href="#tong-quan">1. Tổng quan</a></li>
+      <li><a href="#kien-truc">1a. Kiến trúc hệ thống</a></li>
+      <li><a href="#luong-deploy">1c. Luồng deploy VPS</a></li>
       <li><a href="#thanh-phan">1b. Thành phần &amp; công dụng</a></li>
       <li><a href="#dns">2. DNS</a></li>
       <li><a href="#phase1">3. Phase 1 — Chuẩn bị VPS</a></li>
@@ -216,6 +239,7 @@
     <span class="badge">kubeadm + Calico</span>
     <span class="badge">Frontend: shopcaovanson.xyz</span>
     <span class="badge">API: vocabee.cloud</span>
+    <span class="badge">10 microservices + frontend</span>
     <span class="badge">🔒 Security Hardening</span>
     <span class="badge">🚀 CI/CD prod branch</span>
   </div>
@@ -237,6 +261,7 @@
         <tr><td>API</td><td>https://vocabee.cloud → 110.172.29.72</td></tr>
         <tr><td>Monitoring (Grafana)</td><td>https://monitor.shopcaovanson.xyz → 110.172.29.72</td></tr>
         <tr><td>Thư mục dự án trên VPS</td><td><code>/home/demo_shoping_cart_k8s_microservices/shopcaovanson</code></td></tr>
+        <tr><td>Microservices</td><td>10 services + frontend (xem <a href="#kien-truc" style="color:#64b5f6">§1a Kiến trúc</a>)</td></tr>
       </table>
     </div>
 
@@ -268,28 +293,312 @@ root@k8s-master:~#</pre>
 
   <!-- 1. TỔNG QUAN -->
   <section id="tong-quan">
-    <h2>1. Tổng quan kiến trúc</h2>
-    <div class="arch">                         Internet
-                            |
-                   [ VPS 110.172.29.72 ]
-                   8 CPU / 16 GB RAM
-                            |
-              +------------------------+
-              |   Kubernetes 1.29      |
-              | MetalLB + nginx-ingress|
-              | cert-manager (SSL)     |
-              +------------------------+
-                    |           |
-         shopcaovanson.xyz   vocabee.cloud
-              frontend          /api  /ws
-                    |           |
-         namespace shop (7 microservices + frontend)
-                    |
-         namespace infra (Postgres, Mongo, Redis, Kafka, ES)</div>
+    <h2>1. Tổng quan</h2>
     <div class="card info">
-      <strong>Mô hình khuyến nghị:</strong> Single-node kubeadm trực tiếp trên VPS (không dùng KVM) — tiết kiệm RAM, phù hợp 16 GB.
+      <strong>Shop Cao Văn Sơn</strong> — hệ thống e-commerce microservices trên <strong>1 VPS</strong> (single-node Kubernetes).
+      Gồm <strong>10 microservices</strong> + <strong>frontend</strong>, hạ tầng dữ liệu riêng namespace <code>infra</code>, HTTPS qua Let's Encrypt.
     </div>
-    <p style="margin-top:1rem">→ Xem chi tiết từng phần mềm được cài: <a href="#thanh-phan"><strong>Mục 1b — Thành phần &amp; công dụng</strong></a></p>
+    <table>
+      <tr><th>Domain</th><th>Trỏ tới</th><th>Chức năng</th></tr>
+      <tr><td><code>shopcaovanson.xyz</code></td><td>frontend</td><td>Giao diện web (Nuxt SPA)</td></tr>
+      <tr><td><code>vocabee.cloud</code></td><td>api-gateway + chat WS</td><td>REST API <code>/api/*</code>, WebSocket <code>/ws</code></td></tr>
+      <tr><td><code>monitor.shopcaovanson.xyz</code></td><td>Grafana</td><td>Dashboard giám sát (tùy chọn)</td></tr>
+    </table>
+    <p style="margin-top:1rem">
+      → <a href="#kien-truc"><strong>Sơ đồ kiến trúc chi tiết</strong></a> &nbsp;|&nbsp;
+      <a href="#luong-deploy"><strong>Luồng deploy từng bước</strong></a> &nbsp;|&nbsp;
+      <a href="#thanh-phan"><strong>Giải thích từng thành phần</strong></a>
+    </p>
+  </section>
+
+  <!-- KIẾN TRÚC HỆ THỐNG -->
+  <section id="kien-truc">
+    <h2>1a. Kiến trúc hệ thống — Sơ đồ &amp; luồng dữ liệu</h2>
+    <p>Toàn bộ workload chạy trên VPS <strong>110.172.29.72</strong> (hostname <code>k8s-master</code>). Pod trong cluster giao tiếp qua DNS nội bộ <code>*.svc.cluster.local</code> — không expose database ra internet.</p>
+
+    <div class="arch-legend">
+      <span class="leg-shop">Namespace <code>shop</code> — ứng dụng</span>
+      <span class="leg-infra">Namespace <code>infra</code> — database</span>
+      <span class="leg-ext">Internet / người dùng</span>
+    </div>
+
+    <div class="comp-tabs" id="arch-tabs">
+      <div class="comp-tab-bar" role="tablist">
+        <button type="button" class="comp-tab-btn active" data-tab="arch-tongquan" role="tab">🗺️ Tổng quan</button>
+        <button type="button" class="comp-tab-btn" data-tab="arch-shop" role="tab">🛒 Services (shop)</button>
+        <button type="button" class="comp-tab-btn" data-tab="arch-db" role="tab">🗄️ Database</button>
+        <button type="button" class="comp-tab-btn" data-tab="arch-luong" role="tab">🔀 Luồng request</button>
+        <button type="button" class="comp-tab-btn" data-tab="arch-kafka" role="tab">📨 Kafka events</button>
+        <button type="button" class="comp-tab-btn" data-tab="arch-ingress" role="tab">🌐 Ingress</button>
+      </div>
+
+      <!-- Tab: Tổng quan -->
+      <div id="arch-tongquan" class="comp-tab-panel active" role="tabpanel">
+        <div class="mermaid-wrap">
+          <pre class="mermaid">
+flowchart TB
+  subgraph EXT["🌐 Internet"]
+    U["Người dùng / Admin"]
+  end
+
+  subgraph VPS["VPS 110.172.29.72 — Kubernetes 1.29"]
+    subgraph ING["ingress-nginx + cert-manager + MetalLB"]
+      NGX["nginx-ingress :443"]
+    end
+
+    subgraph SHOP["namespace: shop"]
+      FE["frontend\nNuxt SPA :80"]
+      GW["api-gateway\nGo :8080"]
+      AUTH["auth-service"]
+      PROD["product-service"]
+      ORD["order-service"]
+      CHAT["chat-service\nWebSocket"]
+      NOTIF["notification-service"]
+      SRCH["search-service"]
+      ANA["analytics-service"]
+      RASA["rasa-service\nchatbot"]
+    end
+
+    subgraph INFRA["namespace: infra — chỉ shop kết nối được"]
+      PG[("PostgreSQL\nauth_db · product_db · order_db")]
+      MG[("MongoDB\nproduct_db · chat_db")]
+      RD[("Redis\ncache · cart · session")]
+      KF["Kafka + Zookeeper"]
+      ES[("Elasticsearch\nproducts index")]
+    end
+  end
+
+  U -->|"HTTPS shopcaovanson.xyz"| NGX
+  U -->|"HTTPS vocabee.cloud/api · /ws"| NGX
+  NGX --> FE
+  NGX --> GW
+  NGX --> CHAT
+
+  FE -.->|"API cross-origin"| GW
+  GW --> AUTH & PROD & ORD & CHAT & NOTIF & ANA & RASA
+  AUTH --> PG & RD
+  PROD --> PG & MG & ES & KF
+  ORD --> PG & RD & KF
+  CHAT --> MG & RD
+  NOTIF --> KF
+  SRCH --> ES & KF
+  ANA --> PG & RD & KF
+  RASA --> PROD & ORD
+          </pre>
+        </div>
+        <div class="card ok">
+          <strong>Điểm quan trọng:</strong> Client <strong>không</strong> gọi trực tiếp microservice — mọi REST API đi qua <code>api-gateway</code>.
+          Database nằm hoàn toàn trong <code>infra</code>, được bảo vệ bởi NetworkPolicy.
+        </div>
+      </div>
+
+      <!-- Tab: Services shop -->
+      <div id="arch-shop" class="comp-tab-panel" role="tabpanel">
+        <table>
+          <tr><th>Deployment</th><th>Ngôn ngữ</th><th>Port pod</th><th>Service DNS</th><th>Vai trò</th></tr>
+          <tr><td>frontend</td><td>Nuxt.js</td><td>80</td><td><code>frontend-service.shop.svc</code></td><td>SPA — trang shop, admin UI</td></tr>
+          <tr><td>api-gateway</td><td>Go</td><td>8080</td><td><code>api-gateway.shop.svc</code></td><td>JWT, CORS, proxy REST → backend</td></tr>
+          <tr><td>auth-service</td><td>Go</td><td>8080</td><td><code>auth-service.shop.svc</code></td><td>Đăng ký, login, JWT, phân quyền</td></tr>
+          <tr><td>product-service</td><td>Go</td><td>8080</td><td><code>product-service.shop.svc</code></td><td>Sản phẩm, danh mục, review, bài viết</td></tr>
+          <tr><td>order-service</td><td>Go</td><td>8080</td><td><code>order-service.shop.svc</code></td><td>Giỏ hàng, đơn hàng, coupon</td></tr>
+          <tr><td>chat-service</td><td>Python</td><td>8080</td><td><code>chat-service.shop.svc</code></td><td>Chat người–người, WebSocket <code>/ws</code></td></tr>
+          <tr><td>notification-service</td><td>Python</td><td>8000</td><td><code>notification-service.shop.svc</code></td><td>Email SMTP, hóa đơn PDF</td></tr>
+          <tr><td>search-service</td><td>Python</td><td>8000</td><td><code>search-service.shop.svc</code></td><td>Tìm kiếm Elasticsearch (nội bộ)</td></tr>
+          <tr><td>analytics-service</td><td>Python</td><td>8000</td><td><code>analytics-service.shop.svc</code></td><td>Báo cáo admin, xuất Excel đơn hàng</td></tr>
+          <tr><td>rasa-service</td><td>Python</td><td>8000</td><td><code>rasa-service.shop.svc</code></td><td>Chatbot AI <code>/api/chatbot/*</code></td></tr>
+        </table>
+        <div class="card info" style="margin-top:1rem">
+          <strong>api-gateway</strong> proxy theo path — ví dụ: <code>/api/auth/*</code> → auth,
+          <code>/api/products/*</code> → product, <code>/api/admin/analytics/*</code> → analytics,
+          <code>/api/chatbot/*</code> → rasa, <code>/api/invoices/*</code> → notification.
+        </div>
+      </div>
+
+      <!-- Tab: Database -->
+      <div id="arch-db" class="comp-tab-panel" role="tabpanel">
+        <div class="mermaid-wrap">
+          <pre class="mermaid">
+flowchart LR
+  subgraph PG["PostgreSQL — postgres.infra.svc:5432"]
+    ADB["auth_db\nusers · roles · JWT"]
+    PDB["product_db\ncategories · products"]
+    ODB["order_db\norders · cart · coupons"]
+  end
+
+  subgraph MG["MongoDB — mongodb.infra.svc:27017"]
+    MPROD["product_db\ncatalog mở rộng"]
+    MCHAT["chat_db\nrooms · messages"]
+  end
+
+  subgraph RD["Redis — redis.infra.svc:6379"]
+    R0["DB 0 — auth session"]
+    R1["DB 1 — cart"]
+    R2["DB 2 — chat · analytics presence"]
+  end
+
+  subgraph ES["Elasticsearch — elasticsearch.infra:9200"]
+    IDX["index: products"]
+  end
+
+  AUTH2["auth-service"] --> ADB & R0
+  PROD2["product-service"] --> PDB & MPROD & IDX
+  ORD2["order-service"] --> ODB & R1
+  CHAT2["chat-service"] --> MCHAT & R2
+  ANA2["analytics-service"] --> ADB & ODB & PDB & R2
+  SRCH2["search-service"] --> IDX
+          </pre>
+        </div>
+        <table>
+          <tr><th>StatefulSet</th><th>DNS trong cluster</th><th>PVC</th><th>Dữ liệu lưu</th></tr>
+          <tr><td>postgres-0</td><td><code>postgres.infra.svc.cluster.local:5432</code></td><td>20Gi</td><td>3 database SQL (auth, product, order)</td></tr>
+          <tr><td>mongodb-0</td><td><code>mongodb.infra.svc.cluster.local:27017</code></td><td>20Gi</td><td>product catalog + chat messages</td></tr>
+          <tr><td>redis-0</td><td><code>redis.infra.svc.cluster.local:6379</code></td><td>5Gi</td><td>Session, giỏ hàng, presence</td></tr>
+          <tr><td>kafka-0</td><td><code>kafka.infra.svc.cluster.local:9092</code></td><td>10Gi</td><td>Event bus (order.created, product.updated…)</td></tr>
+          <tr><td>elasticsearch-0</td><td><code>elasticsearch.infra.svc.cluster.local:9200</code></td><td>20Gi</td><td>Full-text search sản phẩm</td></tr>
+          <tr><td>zookeeper-0</td><td><code>zookeeper.infra.svc.cluster.local:2181</code></td><td>5Gi</td><td>Điều phối Kafka</td></tr>
+        </table>
+      </div>
+
+      <!-- Tab: Luồng request -->
+      <div id="arch-luong" class="comp-tab-panel" role="tabpanel">
+        <h4>Luồng A — Đăng nhập &amp; mua hàng</h4>
+        <div class="mermaid-wrap">
+          <pre class="mermaid">
+sequenceDiagram
+  participant B as Browser
+  participant FE as frontend
+  participant GW as api-gateway
+  participant AU as auth-service
+  participant PR as product-service
+  participant OR as order-service
+  participant PG as PostgreSQL
+  participant KF as Kafka
+  participant NT as notification-service
+
+  B->>FE: Mở shopcaovanson.xyz
+  B->>GW: POST /api/auth/login
+  GW->>AU: proxy + validate
+  AU->>PG: auth_db — verify user
+  AU-->>B: JWT access token
+
+  B->>GW: GET /api/products (Bearer JWT)
+  GW->>PR: proxy
+  PR->>PG: product_db
+
+  B->>GW: POST /api/orders
+  GW->>OR: proxy
+  OR->>PG: order_db — tạo đơn
+  OR->>KF: publish order.created
+  KF->>NT: consume → gửi email SMTP
+          </pre>
+        </div>
+
+        <h4>Luồng B — Admin xuất Excel đơn hàng</h4>
+        <div class="mermaid-wrap">
+          <pre class="mermaid">
+sequenceDiagram
+  participant A as Admin browser
+  participant GW as api-gateway
+  participant AN as analytics-service
+  participant PG as PostgreSQL order_db
+
+  A->>GW: POST /api/admin/orders/export
+  GW->>AN: proxy (JWT + X-User-Role)
+  AN->>PG: query orders + order_items
+  AN-->>A: job_id (async)
+  loop Poll status
+    A->>GW: GET /api/admin/orders/export/{id}
+  end
+  A->>GW: GET .../export/{id}/file
+  GW->>AN: download .xlsx
+          </pre>
+        </div>
+
+        <h4>Luồng C — Chat realtime &amp; Chatbot</h4>
+        <div class="comp-flow">
+          <strong>Chat người–người:</strong> Browser → <code>wss://vocabee.cloud/ws</code> → ingress → <strong>chat-service</strong> → MongoDB <code>chat_db</code><br>
+          <strong>Chatbot AI:</strong> Browser → <code>/api/chatbot/message</code> → api-gateway → <strong>rasa-service</strong> → (tùy chọn Rasa ML) hoặc <strong>bot_engine</strong> fallback → gọi product/order API
+        </div>
+      </div>
+
+      <!-- Tab: Kafka -->
+      <div id="arch-kafka" class="comp-tab-panel" role="tabpanel">
+        <table>
+          <tr><th>Topic</th><th>Publisher</th><th>Consumer</th><th>Mục đích</th></tr>
+          <tr><td><code>user.registered</code></td><td>auth-service</td><td>notification, analytics</td><td>Email chào mừng, metrics</td></tr>
+          <tr><td><code>order.created</code></td><td>order-service</td><td>notification, analytics</td><td>Email xác nhận đơn, thống kê</td></tr>
+          <tr><td><code>product.created</code></td><td>product-service</td><td>search-service</td><td>Index Elasticsearch</td></tr>
+          <tr><td><code>product.updated</code></td><td>product-service</td><td>search-service</td><td>Cập nhật index</td></tr>
+          <tr><td><code>analytics.event</code></td><td>frontend/gateway</td><td>analytics-service</td><td>Tracking presence</td></tr>
+          <tr><td><code>order.export.requested</code></td><td>analytics-service</td><td>analytics-service</td><td>Job xuất Excel async</td></tr>
+        </table>
+        <div class="card warn">Kafka chạy single-broker trên VPS — đủ cho production nhỏ. Mở rộng sau: thêm broker hoặc dùng managed Kafka.</div>
+      </div>
+
+      <!-- Tab: Ingress -->
+      <div id="arch-ingress" class="comp-tab-panel" role="tabpanel">
+        <table>
+          <tr><th>Host</th><th>Path</th><th>Backend Service</th><th>Ghi chú</th></tr>
+          <tr><td><code>shopcaovanson.xyz</code></td><td><code>/</code></td><td>frontend-service:80</td><td>SPA — mọi route Vue/Nuxt</td></tr>
+          <tr><td><code>vocabee.cloud</code></td><td><code>/api</code></td><td>api-gateway:80</td><td>REST API toàn hệ thống</td></tr>
+          <tr><td><code>vocabee.cloud</code></td><td><code>/api/*</code></td><td>api-gateway:80</td><td>Proxy tới microservices</td></tr>
+          <tr><td><code>vocabee.cloud</code></td><td><code>/ws</code></td><td>chat-service:80</td><td>WebSocket upgrade</td></tr>
+          <tr><td><code>vocabee.cloud</code></td><td><code>/health</code></td><td>api-gateway:80</td><td>Health check</td></tr>
+          <tr><td><code>monitor.shopcaovanson.xyz</code></td><td><code>/</code></td><td>Grafana (monitoring ns)</td><td>Sau <code>install-monitoring.sh</code></td></tr>
+        </table>
+        <div class="card info">TLS: cert-manager + ClusterIssuer <code>letsencrypt-prod</code> — Secret <code>frontend-tls</code>, <code>backend-tls</code> trong namespace shop.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LUỒNG DEPLOY VPS -->
+  <section id="luong-deploy">
+    <h2>1c. Luồng deploy VPS — Công việc từng bước (đầy đủ)</h2>
+    <p>Bảng dưới là <strong>toàn bộ công việc</strong> triển khai lần đầu trên VPS. Thứ tự bắt buộc — bước sau phụ thuộc bước trước.</p>
+
+    <table class="workflow-table">
+      <tr><th>Bước</th><th>Lệnh / Hành động</th><th>Kết quả mong đợi</th><th>Mục HD</th></tr>
+      <tr><td>0</td><td>SSH <code>root@110.172.29.72</code></td><td>Vào shell VPS</td><td><a href="#vps-info">§0</a></td></tr>
+      <tr><td>1</td><td>Cấu hình DNS 4 bản ghi A → 110.172.29.72</td><td><code>dig +short</code> trả IP đúng</td><td><a href="#dns">§2</a></td></tr>
+      <tr><td>2</td><td>Phase 1: apt update, swap off, UFW, hostname</td><td>OS sẵn sàng</td><td><a href="#phase1">§3</a></td></tr>
+      <tr><td>3</td><td>Phase 2: containerd + nerdctl + buildkit</td><td><code>nerdctl info</code> OK</td><td><a href="#phase2">§4</a></td></tr>
+      <tr><td>4</td><td>Phase 3: kubeadm init, Calico, metrics-server</td><td><code>kubectl get nodes</code> Ready</td><td><a href="#phase3">§5</a></td></tr>
+      <tr><td>5</td><td>Phase 4: local-path-provisioner + MetalLB</td><td>PVC Bound, LB có IP</td><td><a href="#phase4">§6</a></td></tr>
+      <tr><td>6</td><td>Clone repo → <code>/home/.../shopcaovanson</code></td><td>Có thư mục k8s, scripts</td><td><a href="#phase5">§7</a></td></tr>
+      <tr><td>7</td><td>cert-manager + nginx-ingress (Helm)</td><td>EXTERNAL-IP = 110.172.29.72</td><td><a href="#phase5">§7</a></td></tr>
+      <tr><td>8</td><td><code>bash scripts/create-secrets.sh</code></td><td>Secrets infra + shop, file <code>.env.production</code></td><td><a href="#phase6">§8</a></td></tr>
+      <tr><td>9</td><td><code>sudo bash scripts/install-build-tools.sh</code> (lần đầu)</td><td>buildkit + nerdctl namespace k8s.io</td><td><a href="#phase7-build">§9.3</a></td></tr>
+      <tr><td>10</td><td><code>bash scripts/build-images.sh</code></td><td>10 images local trên node</td><td><a href="#phase7-build">§9.3</a></td></tr>
+      <tr><td>11</td><td><code>OVERLAY=dev bash scripts/deploy-all.sh</code></td><td>Pods infra + shop Running</td><td><a href="#phase7">§9</a></td></tr>
+      <tr><td>12</td><td><code>bash scripts/migrate-all.sh</code></td><td>Jobs migrate Complete</td><td><a href="#phase8">§10</a></td></tr>
+      <tr><td>13</td><td><code>bash scripts/seed-data.sh</code></td><td>Dữ liệu mẫu (users, products, orders)</td><td><a href="#phase8">§10</a></td></tr>
+      <tr><td>14</td><td><code>bash scripts/redeploy-analytics-rasa.sh</code></td><td>analytics + rasa + gateway config OK</td><td><a href="#phase7-analytics">§9.4</a></td></tr>
+      <tr><td>15</td><td><code>bash scripts/verify-app.sh</code></td><td>HTTPS 200 frontend + API</td><td><a href="#verify">§11</a></td></tr>
+      <tr><td>16</td><td><code>bash scripts/apply-security.sh</code></td><td>NetworkPolicy active</td><td><a href="#bao-mat">§14</a></td></tr>
+      <tr><td>17</td><td><code>bash scripts/install-monitoring.sh</code> (tùy chọn)</td><td>Grafana https://monitor.shopcaovanson.xyz</td><td><a href="#monitoring">§16</a></td></tr>
+      <tr><td>18</td><td>Đổi mật khẩu admin, backup secrets</td><td>Không dùng Admin@123</td><td><a href="#checklist">§17</a></td></tr>
+    </table>
+
+    <div class="card vps">
+      <h4>🔄 Cập nhật code sau này (trên VPS)</h4>
+      <pre class="cmd-code" style="margin:0.5rem 0 0;background:var(--code-bg);padding:1rem;border-radius:8px;font-size:0.82rem">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
+bash scripts/build-images.sh              # hoặc 1 service: build-images.sh analytics-service
+kubectl rollout restart deployment -n shop &lt;service-name&gt;   # nếu chỉ đổi config
+bash scripts/verify-app.sh</pre>
+    </div>
+
+    <h3>Thời gian ước tính (lần đầu)</h3>
+    <table>
+      <tr><th>Giai đoạn</th><th>Thời gian</th></tr>
+      <tr><td>Phase 1–4 (OS + K8s + storage)</td><td>45–90 phút</td></tr>
+      <tr><td>Phase 5–6 (ingress + secrets)</td><td>15–30 phút</td></tr>
+      <tr><td>Build images (10 services)</td><td>20–40 phút</td></tr>
+      <tr><td>Deploy + chờ ES/Kafka</td><td>15–25 phút</td></tr>
+      <tr><td>Migrate + seed</td><td>5–15 phút</td></tr>
+      <tr><td><strong>Tổng</strong></td><td><strong>~2–3 giờ</strong></td></tr>
+    </table>
   </section>
 
   <!-- THÀNH PHẦN -->
@@ -482,6 +791,18 @@ root@k8s-master:~#</pre>
             <div class="meta"><span>Phase 7</span><span>shop · Python</span></div>
             <p>API tìm kiếm sản phẩm — query Elasticsearch, trả kết quả có phân trang và filter.</p>
           </div>
+          <div class="comp-card">
+            <h4>analytics-service</h4>
+            <div class="meta"><span>Phase 7.4</span><span>shop · Python</span></div>
+            <p>Báo cáo admin (doanh thu, users, reviews), online users, xuất Excel đơn hàng async. Đọc 3 DB Postgres + Redis + Kafka.</p>
+            <div class="used-by">→ /admin/reports · /admin/orders (Xuất Excel)</div>
+          </div>
+          <div class="comp-card">
+            <h4>rasa-service</h4>
+            <div class="meta"><span>Phase 7.4</span><span>shop · Python</span></div>
+            <p>Chatbot AI — bridge tới Rasa ML (tùy chọn) hoặc bot_engine fallback. Gợi ý sản phẩm, tra cứu đơn.</p>
+            <div class="used-by">→ /api/chatbot/message</div>
+          </div>
         </div>
       </div>
 
@@ -557,7 +878,7 @@ root@k8s-master:~#</pre>
     <h3>Bảng tra cứu nhanh — Namespace</h3>
     <table>
       <tr><th>Namespace</th><th>Chứa gì</th><th>Ai truy cập từ ngoài</th></tr>
-      <tr><td><code>shop</code></td><td>7 microservices + frontend + Ingress</td><td>✅ Qua nginx (80/443)</td></tr>
+      <tr><td><code>shop</code></td><td>10 microservices + frontend + Ingress</td><td>✅ Qua nginx (80/443)</td></tr>
       <tr><td><code>infra</code></td><td>Postgres, Mongo, Redis, Kafka, ES, ZK</td><td>❌ Chỉ pod trong shop</td></tr>
       <tr><td><code>ingress-nginx</code></td><td>nginx-ingress controller</td><td>✅ IP 110.172.29.72</td></tr>
       <tr><td><code>cert-manager</code></td><td>cert-manager pods</td><td>❌ Nội bộ</td></tr>
@@ -1216,6 +1537,7 @@ FRONTEND_DOMAIN=shopcaovanson.xyz</pre>
       <tr><td>shop</td><td>chat-service-secret</td><td>MONGODB_URI, REDIS_URL, JWT public key</td></tr>
       <tr><td>shop</td><td>notification-service-secret</td><td>SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD...</td></tr>
       <tr><td>shop</td><td>search-service-secret</td><td>ELASTICSEARCH_URL</td></tr>
+      <tr><td>shop</td><td>analytics-service-secret</td><td>AUTH/ORDER/PRODUCT_DATABASE_URL, REDIS_URL</td></tr>
       <tr><td>shop</td><td>ghcr-secret</td><td>(tùy chọn) pull image private từ GHCR</td></tr>
     </table>
 
@@ -1332,12 +1654,17 @@ kubectl get secrets -n shop</pre>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Deploy infra (DB, Kafka, ES) + 7 microservices + frontend + ingress. Overlay dev = 1 replica mỗi service.</p>
+        <p><span class="label">🎯 Mục đích:</span> Deploy infra (DB, Kafka, ES) + 10 microservices + frontend + ingress. Overlay dev = 1 replica mỗi service.</p>
         <p><span class="label">⏱ Thời gian:</span> 10–20 phút (chờ Elasticsearch, Kafka khởi động).</p>
         <p><span class="label">📋 Script tự động:</span> Kiểm tra secrets → apply manifests → chờ pods ready.</p>
       </div>
       <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 git pull
+
+# BẮT BUỘC trên VPS single-node: build image local (GHCR private → ImagePullBackOff)
+export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
+bash scripts/build-images.sh
+
 OVERLAY=dev bash scripts/deploy-all.sh</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
@@ -1396,10 +1723,95 @@ NAME                              READY   STATUS    RESTARTS   AGE
 api-gateway-xxxxx                 <span class="ok">1/1</span>     Running   0          5m
 auth-service-xxxxx                <span class="ok">1/1</span>     Running   0          5m
 frontend-xxxxx                    <span class="ok">1/1</span>     Running   0          5m
+notification-service-xxxxx        <span class="ok">1/1</span>     Running   0          5m
+search-service-xxxxx              <span class="ok">1/1</span>     Running   0          5m
+analytics-service-xxxxx           <span class="ok">1/1</span>     Running   0          5m
+rasa-service-xxxxx                <span class="ok">1/1</span>     Running   0          5m
 ...
 
 NAME          CLASS   HOSTS                                    ADDRESS
 shop-ingress  nginx   shopcaovanson.xyz,vocabee.cloud   <span class="ok">110.172.29.72</span></pre>
+      </details>
+    </div>
+
+    <h3 id="phase7-build">7.3 Build Docker images trên VPS (bắt buộc)</h3>
+    <div class="card danger">
+      <strong>ImagePullBackOff?</strong> Image trên GHCR là private — VPS phải <strong>build local</strong> bằng <code>nerdctl</code> vào namespace <code>k8s.io</code>, không pull từ registry.
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">7.3.1 Cài công cụ build (chỉ lần đầu)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Cài buildkit + nerdctl — build image trực tiếp trên node K8s (containerd).</p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+sudo bash scripts/install-build-tools.sh
+sudo systemctl enable --now buildkit
+export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">7.3.2 Build tất cả images (~20–40 phút)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> Build 10 services: api-gateway, auth, product, order, chat, notification, search, analytics, rasa, frontend.</p>
+      </div>
+      <pre class="cmd-code">export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
+bash scripts/build-images.sh
+
+# Chỉ build 1 service sau khi sửa code:
+bash scripts/build-images.sh analytics-service
+bash scripts/build-images.sh rasa-service
+
+# Liệt kê image local
+nerdctl --namespace k8s.io images | grep ghcr.io/caovanson</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">[build-images] Building ghcr.io/caovanson/api-gateway:latest (nerdctl)...
+[build-images] ✓ ghcr.io/caovanson/analytics-service:latest
+[build-images] ✓ ghcr.io/caovanson/rasa-service:latest
+[build-images] Done.</pre>
+      </details>
+    </div>
+
+    <h3 id="phase7-analytics">7.4 Deploy analytics + rasa + cập nhật api-gateway</h3>
+    <div class="card info">
+      Cần cho <strong>Admin Reports</strong>, <strong>Xuất Excel đơn hàng</strong> (<code>/admin/orders</code>) và <strong>Chatbot</strong>.
+      api-gateway ConfigMap phải có: <code>ANALYTICS_SERVICE_URL</code>, <code>RASA_SERVICE_URL</code>, <code>NOTIFICATION_SERVICE_URL</code>.
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">7.4.1 Tạo secret analytics (nếu chưa có)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <pre class="cmd-code">bash scripts/create-secrets.sh --apply-only --force
+kubectl get secret analytics-service-secret -n shop</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">7.4.2 Deploy analytics + rasa (1 lệnh)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <pre class="cmd-code">export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
+bash scripts/redeploy-analytics-rasa.sh
+
+kubectl get deploy,svc -n shop | grep -E 'analytics|rasa|api-gateway'
+kubectl run health-a --rm -i --restart=Never -n shop --image=curlimages/curl -- \
+  curl -s -w "\nHTTP:%{http_code}\n" http://analytics-service.shop.svc.cluster.local/health</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Kết quả dự kiến</summary>
+        <pre class="output-preview">deployment.apps/analytics-service   1/1     1            1
+deployment.apps/rasa-service        1/1     1            1
+
+{"status":"ok","service":"analytics-service"}
+<span class="ok">HTTP:200</span></pre>
       </details>
     </div>
   </section>
@@ -1510,7 +1922,10 @@ content-type: text/html</pre>
       <tr><th>Tài nguyên</th><th>URL</th></tr>
       <tr><td>Frontend</td><td><a href="https://shopcaovanson.xyz" style="color:#64b5f6">https://shopcaovanson.xyz</a></td></tr>
       <tr><td>API</td><td><a href="https://vocabee.cloud/api" style="color:#64b5f6">https://vocabee.cloud/api</a></td></tr>
-      <tr><td>Admin login</td><td>admin@shop.com / Admin@123</td></tr>
+      <tr><td>Admin Reports</td><td><a href="https://shopcaovanson.xyz/admin/reports" style="color:#64b5f6">/admin/reports</a> (cần analytics-service)</td></tr>
+      <tr><td>Chatbot</td><td>Widget chat trên shop (cần rasa-service)</td></tr>
+      <tr><td>Grafana</td><td><a href="https://monitor.shopcaovanson.xyz" style="color:#64b5f6">monitor.shopcaovanson.xyz</a></td></tr>
+      <tr><td>Admin login</td><td>admin@shop.com / Admin@123 (đổi ngay sau deploy)</td></tr>
       <tr><td>VPS IP</td><td>110.172.29.72</td></tr>
     </table>
   </section>
@@ -2598,6 +3013,40 @@ OVERLAY=dev bash scripts/deploy-all.sh</pre>
 
     <div class="cmd-block">
       <div class="cmd-header">
+        <span class="cmd-title">15.8 Analytics / Chatbot lỗi 500 — connection refused localhost:8086 / 8090</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> Admin Reports lỗi, Chatbot không trả lời, log api-gateway: <code>dial tcp 127.0.0.1:8086</code> hoặc <code>:8090</code>.</p>
+        <p><span class="label">💡 Nguyên nhân:</span> <code>analytics-service</code> / <code>rasa-service</code> chưa deploy, hoặc ConfigMap api-gateway thiếu URL backend.</p>
+      </div>
+      <pre class="cmd-code">kubectl get deploy,svc -n shop | grep -E 'analytics|rasa'
+kubectl get configmap api-gateway-config -n shop -o yaml | grep _SERVICE_URL
+
+# Fix: deploy + cập nhật config
+bash scripts/create-secrets.sh --apply-only --force
+export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
+bash scripts/redeploy-analytics-rasa.sh</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">15.9 Xuất Excel lỗi timezone (openpyxl)</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Triệu chứng:</span> <code>/admin/orders</code> → Xuất Excel: <em>Excel does not support timezones in datetimes</em>.</p>
+        <p><span class="label">💡 Giải pháp:</span> <code>git pull</code> bản mới (đã fix <code>orders_excel.py</code>) → rebuild analytics-service.</p>
+      </div>
+      <pre class="cmd-code">git pull
+export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
+bash scripts/build-images.sh analytics-service
+kubectl rollout restart deployment/analytics-service -n shop
+kubectl logs -n shop -l app=analytics-service --tail=20</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
         <span class="cmd-title">15.5 PVC Pending — thiếu StorageClass</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
@@ -2842,7 +3291,10 @@ infra      elasticsearch-0         200m         <span class="ok">1024Mi</span></
         <li>☐ DNS 4 bản ghi A → 110.172.29.72 (gồm <code>monitor.shopcaovanson.xyz</code>)</li>
         <li>☐ <code>bash scripts/create-secrets.sh</code> — đủ secrets infra + shop, backup <code>.env.production</code></li>
         <li>☐ Phase 1–8 hoàn tất, Certificate READY = True</li>
+        <li>☐ <code>bash scripts/build-images.sh</code> — 10 images local (không ImagePullBackOff)</li>
+        <li>☐ <code>bash scripts/redeploy-analytics-rasa.sh</code> — analytics + rasa Running</li>
         <li>☐ <code>mongodb-0</code> Running (nếu lỗi → mục 15.4)</li>
+        <li>☐ Xuất Excel <code>/admin/orders</code> thành công</li>
         <li>☐ <code>bash scripts/verify-app.sh</code> — PASSED</li>
       </ol>
       <h4>Monitoring (mục 16 — tùy chọn)</h4>
@@ -2876,7 +3328,7 @@ infra      elasticsearch-0         200m         <span class="ok">1024Mi</span></
 </div>
 
 <footer>
-  VPS: <strong>110.172.29.72</strong> · shopcaovanson · Cập nhật 28/06/2026
+  VPS: <strong>110.172.29.72</strong> · shopcaovanson · Cập nhật 30/06/2026
 </footer>
 
 </div>
@@ -2946,6 +3398,53 @@ infra      elasticsearch-0         200m         <span class="ok">1024Mi</span></
       panels.forEach(p => p.classList.toggle('active', p.id === id));
     });
   });
+})();
+
+// Architecture tabs (kien-truc section)
+(function () {
+  const root = document.getElementById('arch-tabs');
+  if (!root) return;
+  const btns = root.querySelectorAll('.comp-tab-btn');
+  const panels = root.querySelectorAll('.comp-tab-panel');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-tab');
+      btns.forEach(b => b.classList.toggle('active', b === btn));
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      if (window.mermaid) {
+        requestAnimationFrame(() => {
+          root.querySelectorAll('.mermaid').forEach((el, i) => {
+            if (!el.getAttribute('data-processed')) {
+              try { mermaid.init(undefined, el); } catch (e) { /* ignore */ }
+            }
+          });
+        });
+      }
+    });
+  });
+})();
+
+// Mermaid diagrams
+(function () {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+  script.onload = function () {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        primaryColor: '#1e2836',
+        primaryTextColor: '#e6edf5',
+        primaryBorderColor: '#2a384d',
+        lineColor: '#64b5f6',
+        secondaryColor: '#151b24',
+        tertiaryColor: '#0b0f14'
+      },
+      flowchart: { curve: 'basis', padding: 12 },
+      sequence: { actorMargin: 40 }
+    });
+  };
+  document.head.appendChild(script);
 })();
 </script>
 

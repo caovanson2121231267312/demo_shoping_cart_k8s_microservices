@@ -51,6 +51,7 @@ kubectl wait --for=condition=ready pod \
 log "Applying Grafana Ingress + NetworkPolicy scrape..."
 kubectl apply -f "${MONITORING_DIR}/grafana-ingress.yaml"
 kubectl apply -f "${MONITORING_DIR}/allow-monitoring-scrape.yaml"
+kubectl apply -f "${MONITORING_DIR}/allow-grafana-ingress.yaml"
 
 cat > "${CREDS_FILE}" <<EOF
 # shopcaovanson monitoring — KHÔNG commit git
