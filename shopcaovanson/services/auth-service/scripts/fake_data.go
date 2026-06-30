@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/shopcaovanson/auth-service/internal/config"
 	"github.com/shopcaovanson/seedcatalog"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -34,15 +35,15 @@ var staffAccounts = []struct {
 }
 
 func main() {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is required")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
 	}
 	targetUsers := envInt("SEED_USERS", 50)
 	batchSize := envInt("SEED_BATCH_SIZE", 5000)
 	bcryptCost := envInt("SEED_BCRYPT_COST", 10)
 
-	db, err := sqlx.Connect("postgres", dbURL)
+	db, err := sqlx.Connect("postgres", cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("connect postgres: %v", err)
 	}
