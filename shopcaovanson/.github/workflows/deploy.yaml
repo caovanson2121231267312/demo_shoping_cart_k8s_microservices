@@ -56,9 +56,10 @@ jobs:
 
       - name: Build services list for deploy
         id: services
+        shell: bash
         run: |
           list=""
-          add() { [[ "$1" == "true" ]] && list="${list} $2"; }
+          add() { if [[ "$1" == "true" ]]; then list="${list} $2"; fi; }
           add "${{ steps.filter.outputs.api-gateway }}" api-gateway
           add "${{ steps.filter.outputs.auth-service }}" auth-service
           add "${{ steps.filter.outputs.product-service }}" product-service
