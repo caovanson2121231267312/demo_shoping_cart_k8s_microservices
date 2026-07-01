@@ -31,11 +31,31 @@ deploy_service() {
   local ref="${REGISTRY}/${IMAGE_OWNER}/${img}:${SHA}"
 
   log "Rolling out ${svc} → ${ref}"
+
+  if kubectl get secret ghcr-secret -n "${NAMESPACE}" >/dev/null 2>&1; then
+    kubectl patch deployment "${svc}" -n "${NAMESPACE}" -p \
+      '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ghcr-secret"}]}}}}' \
+      >/dev/null 2>&1 || true
+  else
+    log "WARN: secret/ghcr-secret không có — cần public GHCR hoặc chạy scripts/setup-ghcr-pull-secret.sh trên VPS"
+  fi
+
   kubectl set image "deployment/${svc}" "${svc}=${ref}" -n "${NAMESPACE}"
   kubectl patch deployment "${svc}" -n "${NAMESPACE}" --type=json \
     -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Always"}]' \
     2>/dev/null || true
-  kubectl rollout status "deployment/${svc}" -n "${NAMESPACE}" --timeout=300s
+
+  if ! kubectl rollout status "deployment/${svc}" -n "${NAMESPACE}" --timeout=300s; then
+    log "Rollout failed — pod status:"
+    kubectl get pods -n "${NAMESPACE}" -l "app=${svc}" -o wide 2>/dev/null || true
+    local reason
+    reason=$(kubectl get pods -n "${NAMESPACE}" -l "app=${svc}" \
+      -o jsonpath='{range .items[*]}{.status.containerStatuses[0].state.waiting.reason}{"\n"}{end}' 2>/dev/null | head -1)
+    if [[ "${reason}" == "ImagePullBackOff" || "${reason}" == "ErrImagePull" ]]; then
+      die "${svc}: không pull được image từ GHCR. Trên VPS chạy: bash scripts/setup-ghcr-pull-secret.sh HOẶC public packages trên GitHub."
+    fi
+    die "${svc}: rollout timeout. SSH VPS: kubectl describe pod -n shop -l app=${svc}"
+  fi
   log "✓ ${svc} deployed"
 }
 

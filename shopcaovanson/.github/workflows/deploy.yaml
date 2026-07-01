@@ -253,7 +253,7 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
-          kubectl cluster-info
+          kubectl get deployments -n shop
 
       - name: Deploy to VPS cluster (110.172.29.72)
         env:
