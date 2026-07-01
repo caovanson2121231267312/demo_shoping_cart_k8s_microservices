@@ -9,6 +9,11 @@ on:
       - 'shopcaovanson/**'
       - '.github/workflows/deploy-shopcaovanson.yaml'
   workflow_dispatch:
+    inputs:
+      deploy_all:
+        description: 'Build và deploy TẤT CẢ services (dùng lần đầu hoặc chạy thủ công)'
+        type: boolean
+        default: true
 
 defaults:
   run:
@@ -28,22 +33,30 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      api-gateway: ${{ steps.filter.outputs.api-gateway }}
-      auth-service: ${{ steps.filter.outputs.auth-service }}
-      product-service: ${{ steps.filter.outputs.product-service }}
-      order-service: ${{ steps.filter.outputs.order-service }}
-      chat-service: ${{ steps.filter.outputs.chat-service }}
-      notification-service: ${{ steps.filter.outputs.notification-service }}
-      search-service: ${{ steps.filter.outputs.search-service }}
-      analytics-service: ${{ steps.filter.outputs.analytics-service }}
-      rasa-service: ${{ steps.filter.outputs.rasa-service }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      force_all: ${{ steps.force.outputs.all }}
+      api-gateway: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.api-gateway }}
+      auth-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.auth-service }}
+      product-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.product-service }}
+      order-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.order-service }}
+      chat-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.chat-service }}
+      notification-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.notification-service }}
+      search-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.search-service }}
+      analytics-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.analytics-service }}
+      rasa-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.rasa-service }}
+      frontend: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.frontend }}
       k8s-manifests: ${{ steps.filter.outputs.k8s-manifests }}
       services_list: ${{ steps.services.outputs.list }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Manual deploy all services
+        id: force
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy_all
+        run: echo "all=true" >> "$GITHUB_OUTPUT"
+
       - uses: dorny/paths-filter@v3
         id: filter
+        if: steps.force.outputs.all != 'true'
         with:
           filters: |
             api-gateway:
@@ -76,6 +89,10 @@ jobs:
         id: services
         shell: bash
         run: |
+          if [[ "${{ steps.force.outputs.all }}" == "true" ]]; then
+            echo "list=api-gateway auth-service product-service order-service chat-service notification-service search-service analytics-service rasa-service frontend" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           list=""
           add() { if [[ "$1" == "true" ]]; then list="${list} $2"; fi; }
           add "${{ steps.filter.outputs.api-gateway }}" api-gateway
