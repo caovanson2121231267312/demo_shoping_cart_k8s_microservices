@@ -2,8 +2,9 @@
 # Chẩn đoán + sửa https://monitor.shopcaovanson.xyz không vào được
 #
 # Usage:
-#   bash scripts/fix-monitoring-access.sh           # chỉ chẩn đoán
-#   bash scripts/fix-monitoring-access.sh --fix     # chẩn đoán + sửa tự động
+#   bash scripts/fix-monitoring-access.sh           # chẩn đoán
+#   bash scripts/fix-monitoring-access.sh --fix     # sửa + renew TLS
+#   bash scripts/fix-monitoring-access.sh --renew-cert
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,43 +13,72 @@ MONITORING_DIR="${PROJECT_ROOT}/k8s/base/monitoring"
 GRAFANA_HOST="${GRAFANA_HOST:-monitor.shopcaovanson.xyz}"
 VPS_IP="${VPS_IP:-110.172.29.72}"
 DO_FIX=false
+DO_RENEW=false
 
 log() { echo "[fix-monitoring] $*"; }
 warn() { echo "[fix-monitoring] WARN: $*" >&2; }
 die() { echo "[fix-monitoring] ERROR: $*" >&2; exit 1; }
 
-[[ "${1:-}" == "--fix" ]] && DO_FIX=true
+for arg in "$@"; do
+  case "${arg}" in
+    --fix) DO_FIX=true ;;
+    --renew-cert) DO_RENEW=true; DO_FIX=true ;;
+  esac
+done
 
 command -v kubectl >/dev/null 2>&1 || die "kubectl not found"
 kubectl cluster-info >/dev/null 2>&1 || die "Cannot connect to cluster"
 
 ISSUES=0
+DNS_OK=false
 note_issue() { ISSUES=$((ISSUES + 1)); warn "$*"; }
 
 section() { echo ""; echo "========== $* =========="; }
 
-check_dns() {
-  section "1. DNS"
-  local resolved=""
-  if command -v dig >/dev/null 2>&1; then
-    resolved=$(dig +short "${GRAFANA_HOST}" | tail -1)
+resolve_dns() {
+  local resolver="$1"
+  if [[ -n "${resolver}" ]]; then
+    dig +short "${GRAFANA_HOST}" @"${resolver}" 2>/dev/null | tail -1
+  elif command -v dig >/dev/null 2>&1; then
+    dig +short "${GRAFANA_HOST}" 2>/dev/null | tail -1
   elif command -v host >/dev/null 2>&1; then
-    resolved=$(host "${GRAFANA_HOST}" 2>/dev/null | awk '/has address/ {print $4; exit}')
+    host "${GRAFANA_HOST}" 2>/dev/null | awk '/has address/ {print $4; exit}'
   else
-    resolved=$(getent ahosts "${GRAFANA_HOST}" 2>/dev/null | awk '/STREAM/ {print $1; exit}')
+    getent ahosts "${GRAFANA_HOST}" 2>/dev/null | awk '/STREAM/ {print $1; exit}'
   fi
-  echo "  ${GRAFANA_HOST} → ${resolved:-<không resolve>}"
-  if [[ -z "${resolved}" ]]; then
-    note_issue "DNS chưa trỏ — thêm bản ghi A: ${GRAFANA_HOST} → ${VPS_IP}"
-  elif [[ "${resolved}" != "${VPS_IP}" ]]; then
-    note_issue "DNS trỏ sai IP (cần ${VPS_IP}, đang ${resolved})"
+}
+
+check_dns() {
+  section "1. DNS (nhiều resolver)"
+  local local_ip google_ip cloudflare_ip
+  local_ip=$(resolve_dns "")
+  google_ip=$(resolve_dns "8.8.8.8")
+  cloudflare_ip=$(resolve_dns "1.1.1.1")
+
+  echo "  local resolver     → ${local_ip:-<rỗng>}"
+  echo "  Google 8.8.8.8     → ${google_ip:-<rỗng>}"
+  echo "  Cloudflare 1.1.1.1 → ${cloudflare_ip:-<rỗng>}"
+  echo "  Cần trỏ về:        ${VPS_IP}"
+
+  for ip in "${local_ip}" "${google_ip}" "${cloudflare_ip}"; do
+    if [[ "${ip}" == "${VPS_IP}" ]]; then
+      DNS_OK=true
+      break
+    fi
+  done
+
+  if [[ "${DNS_OK}" != "true" ]]; then
+    note_issue "DNS chưa propagate hoặc sai — kiểm tra panel domain:"
+    echo "    Type: A | Name/Host: monitor | Value: ${VPS_IP}"
+    echo "    (KHÔNG dùng CNAME nếu chưa chắc; TTL 300–600)"
+    echo "    Kiểm tra từ máy Windows: nslookup ${GRAFANA_HOST}"
   else
-    log "DNS OK"
+    log "DNS OK (ít nhất 1 resolver trả ${VPS_IP})"
   fi
 }
 
 check_installed() {
-  section "2. Namespace monitoring"
+  section "2. Pods monitoring"
   if ! kubectl get ns monitoring >/dev/null 2>&1; then
     note_issue "Chưa cài monitoring — chạy: bash scripts/install-monitoring.sh"
     return 1
@@ -58,7 +88,7 @@ check_installed() {
   grafana_ready=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana \
     -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
   if [[ "${grafana_ready}" != "true" ]]; then
-    note_issue "Grafana pod chưa Ready — xem: kubectl describe pod -n monitoring -l app.kubernetes.io/name=grafana"
+    note_issue "Grafana pod chưa Ready"
   else
     log "Grafana pod Ready"
   fi
@@ -67,128 +97,146 @@ check_installed() {
 check_ingress() {
   section "3. Ingress Grafana"
   if ! kubectl get ingress grafana-ingress -n monitoring >/dev/null 2>&1; then
-    note_issue "Thiếu ingress grafana-ingress — sẽ apply khi --fix"
+    note_issue "Thiếu grafana-ingress"
     return 0
   fi
-  kubectl get ingress grafana-ingress -n monitoring -o wide
-  local addr
-  addr=$(kubectl get ingress grafana-ingress -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-  if [[ -n "${addr}" && "${addr}" != "${VPS_IP}" ]]; then
-    warn "Ingress ADDRESS=${addr} (kỳ vọng ${VPS_IP})"
-  fi
+  kubectl get ingress -n monitoring
 }
 
 check_tls() {
-  section "4. Certificate TLS (cert-manager)"
+  section "4. Certificate TLS"
   if ! kubectl get certificate grafana-tls -n monitoring >/dev/null 2>&1; then
-    note_issue "Chưa có Certificate grafana-tls — cert-manager chưa tạo (DNS/port 80?)"
-    kubectl get challenges -A 2>/dev/null | head -5 || true
+    note_issue "Chưa có Certificate grafana-tls"
     return 0
   fi
   kubectl get certificate grafana-tls -n monitoring
-  local ready
-  ready=$(kubectl get certificate grafana-tls -n monitoring -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+  local ready msg
+  ready=$(kubectl get certificate grafana-tls -n monitoring \
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+  msg=$(kubectl get certificate grafana-tls -n monitoring \
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || true)
   if [[ "${ready}" != "True" ]]; then
-    note_issue "grafana-tls chưa Ready — xem: kubectl describe certificate grafana-tls -n monitoring"
-    kubectl describe certificate grafana-tls -n monitoring 2>/dev/null | tail -20 || true
-    kubectl get challenges -n monitoring 2>/dev/null || kubectl get challenges -A 2>/dev/null | grep -i grafana || true
+    note_issue "grafana-tls chưa Ready — ${msg:-xem describe bên dưới}"
+    kubectl describe certificate grafana-tls -n monitoring 2>/dev/null | tail -25 || true
+    echo ""
+    kubectl get challenges -n monitoring 2>/dev/null || true
+    kubectl describe challenge -n monitoring 2>/dev/null | tail -30 || true
   else
-    log "Certificate grafana-tls Ready"
+    log "Certificate grafana-tls Ready ✓"
   fi
 }
 
-check_http() {
-  section "5. Test HTTP từ trong cluster"
-  if ! kubectl get svc kube-prometheus-stack-grafana -n monitoring >/dev/null 2>&1; then
-    note_issue "Service kube-prometheus-stack-grafana không tồn tại"
+check_external_http() {
+  section "5. Test từ VPS ra internet"
+  if ! command -v curl >/dev/null 2>&1; then
+    warn "curl không có — bỏ qua test external"
     return 0
   fi
-  local raw code
-  raw=$(kubectl run mon-curl-test --rm -i --restart=Never -n monitoring --image=curlimages/curl -- \
-    curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
-    "http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local/login" 2>/dev/null || echo "000")
-  code=$(echo "${raw}" | grep -oE '[0-9]{3}' | tail -1)
-  code="${code:-000}"
-  echo "  Grafana service HTTP: ${code}"
-  if [[ "${code}" != "200" && "${code}" != "302" ]]; then
-    note_issue "Grafana service không phản hồi 200/302 (đang ${code})"
-  else
-    log "Grafana service OK (HTTP ${code})"
+
+  echo "  HTTP (port 80 — Let's Encrypt cần path này):"
+  local http_code
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+    "http://${GRAFANA_HOST}/login" 2>/dev/null || echo "000")
+  echo "    http://${GRAFANA_HOST}/login → HTTP ${http_code}"
+
+  echo "  HTTPS:"
+  local https_code
+  https_code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 15 \
+    "https://${GRAFANA_HOST}/login" 2>/dev/null || echo "000")
+  echo "    https://${GRAFANA_HOST}/login → HTTP ${https_code}"
+
+  if [[ "${http_code}" == "000" && "${DNS_OK}" == "true" ]]; then
+    note_issue "HTTP không kết nối được — kiểm tra UFW port 80/443: ufw status"
   fi
+  if [[ "${https_code}" == "000" || "${https_code}" == "502" ]]; then
+    note_issue "HTTPS lỗi (${https_code}) — thường do TLS chưa Ready, chạy --renew-cert"
+  fi
+  if [[ "${https_code}" == "200" || "${https_code}" == "302" ]]; then
+    log "HTTPS truy cập OK từ VPS"
+  fi
+}
+
+renew_grafana_cert() {
+  section "6. Renew certificate Let's Encrypt"
+  log "Xóa challenge/order/certificate cũ (stale)..."
+  kubectl delete challenge -n monitoring --all --ignore-not-found --wait=false
+  kubectl delete order -n monitoring --all --ignore-not-found --wait=false
+  kubectl delete certificaterequest -n monitoring --all --ignore-not-found --wait=false
+  kubectl delete certificate grafana-tls -n monitoring --ignore-not-found --wait=false
+  kubectl delete secret grafana-tls -n monitoring --ignore-not-found --wait=false
+  kubectl delete ingress -n monitoring -l acme.cert-manager.io/http01-solver=true --ignore-not-found 2>/dev/null || true
+  for ing in $(kubectl get ingress -n monitoring -o name 2>/dev/null | grep acme-http-solver || true); do
+    kubectl delete -n monitoring "${ing}" --ignore-not-found 2>/dev/null || true
+  done
+
+  sleep 3
+  kubectl apply -f "${MONITORING_DIR}/grafana-ingress.yaml"
+  kubectl apply -f "${MONITORING_DIR}/allow-grafana-ingress.yaml" 2>/dev/null || true
+
+  log "Đợi cert-manager cấp cert (tối đa 5 phút)..."
+  local ready="False"
+  for _ in $(seq 1 30); do
+    ready=$(kubectl get certificate grafana-tls -n monitoring \
+      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+    if [[ "${ready}" == "True" ]]; then
+      log "grafana-tls Ready ✓"
+      return 0
+    fi
+    local state
+    state=$(kubectl get challenges -n monitoring -o jsonpath='{.items[0].status.state}' 2>/dev/null || echo "?")
+    echo "  ... chờ TLS (challenge state: ${state})"
+    sleep 10
+  done
+  warn "TLS vẫn chưa Ready sau 5 phút"
+  kubectl describe challenge -n monitoring 2>/dev/null | tail -20 || true
+  return 1
 }
 
 apply_fixes() {
-  section "6. Áp dụng sửa (--fix)"
   if ! kubectl get ns monitoring >/dev/null 2>&1; then
-    log "Cài monitoring..."
     bash "${SCRIPT_DIR}/install-monitoring.sh"
     return 0
   fi
 
-  log "Apply Grafana Ingress + NetworkPolicy..."
   kubectl apply -f "${MONITORING_DIR}/grafana-ingress.yaml"
   kubectl apply -f "${MONITORING_DIR}/allow-grafana-ingress.yaml" 2>/dev/null || true
   kubectl apply -f "${MONITORING_DIR}/allow-monitoring-scrape.yaml" 2>/dev/null || true
 
-  if ! kubectl get certificate grafana-tls -n monitoring >/dev/null 2>&1; then
-    log "Đợi cert-manager tạo Certificate (30s)..."
-    sleep 30
-  fi
+  renew_grafana_cert || true
 
-  local ready
-  ready=$(kubectl get certificate grafana-tls -n monitoring -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-  if [[ "${ready}" != "True" ]]; then
-    log "Xóa Certificate/Secret cũ để cert-manager cấp lại..."
-    kubectl delete certificate grafana-tls -n monitoring --ignore-not-found
-    kubectl delete secret grafana-tls -n monitoring --ignore-not-found
-    kubectl apply -f "${MONITORING_DIR}/grafana-ingress.yaml"
-    log "Đợi TLS (tối đa 3 phút)..."
-    for i in $(seq 1 18); do
-      ready=$(kubectl get certificate grafana-tls -n monitoring -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-      [[ "${ready}" == "True" ]] && break
-      sleep 10
-    done
-  fi
-
-  kubectl rollout restart deployment -n ingress-nginx -l app.kubernetes.io/component=controller 2>/dev/null || true
-  log "Hoàn tất fix. Kiểm tra lại sau 1–2 phút."
+  kubectl rollout restart deployment -n ingress-nginx \
+    -l app.kubernetes.io/component=controller 2>/dev/null || true
 }
 
 main() {
-  log "Grafana URL: https://${GRAFANA_HOST}"
+  log "Grafana: https://${GRAFANA_HOST}"
   check_dns
   check_installed || true
   check_ingress
   check_tls
-  check_http
+  check_external_http
 
   if [[ "${DO_FIX}" == "true" ]]; then
-    if ! dig +short "${GRAFANA_HOST}" 2>/dev/null | grep -q "${VPS_IP}"; then
-      echo ""
-      die "DNS ${GRAFANA_HOST} chưa trỏ ${VPS_IP} — thêm bản ghi A trước, đợi 5–30 phút rồi chạy lại --fix"
+    if [[ "${DNS_OK}" != "true" ]]; then
+      die "DNS chưa trỏ ${VPS_IP} — sửa DNS trước. Test: dig +short ${GRAFANA_HOST} @8.8.8.8"
     fi
     apply_fixes
     echo ""
     check_tls
+    check_external_http
     bash "${SCRIPT_DIR}/monitoring-access.sh" 2>/dev/null || true
   else
     echo ""
-    if ! dig +short "${GRAFANA_HOST}" 2>/dev/null | grep -q "${VPS_IP}"; then
-      echo ""
-      log "════════════════════════════════════════════════════════"
-      log " CHẶN CHÍNH: DNS chưa có bản ghi A"
-      log " Thêm tại nhà cung cấp domain shopcaovanson.xyz:"
-      log "   monitor.shopcaovanson.xyz  →  A  →  ${VPS_IP}"
-      log " Sau khi dig +short trả ${VPS_IP}, chạy:"
-      log "   bash scripts/fix-monitoring-access.sh --fix"
-      log "════════════════════════════════════════════════════════"
-    fi
-    if [[ "${ISSUES}" -gt 0 ]]; then
-      log "Phát hiện ${ISSUES} vấn đề (Grafana trong cluster vẫn OK nếu HTTP 200)."
+    if [[ "${DNS_OK}" == "true" ]]; then
+      log "DNS đã OK — nếu vẫn không vào được, chạy:"
+      echo "  bash scripts/fix-monitoring-access.sh --renew-cert"
     else
-      log "Cấu hình cluster có vẻ OK — thử mở https://${GRAFANA_HOST} (Ctrl+F5)."
-      echo "  Mật khẩu: bash scripts/monitoring-access.sh"
+      log "Sửa DNS trước, sau đó: bash scripts/fix-monitoring-access.sh --fix"
     fi
+    echo ""
+    log "Vào tạm không cần domain:"
+    echo "  kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
+    echo "  → http://localhost:3000 (SSH tunnel từ Windows nếu cần)"
   fi
 }
 
