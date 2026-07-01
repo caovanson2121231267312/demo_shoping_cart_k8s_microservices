@@ -49,10 +49,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Manual deploy all services
+      - name: Deploy all services (manual hoặc tag [deploy-all] trong commit)
         id: force
-        if: github.event_name == 'workflow_dispatch' && inputs.deploy_all
+        if: >
+          (github.event_name == 'workflow_dispatch' && inputs.deploy_all) ||
+          (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-all]'))
         run: echo "all=true" >> "$GITHUB_OUTPUT"
+
+      - name: Ghi chú khi không có service nào thay đổi
+        if: steps.force.outputs.all != 'true'
+        run: |
+          echo "::notice::Chỉ chạy detect-changes — không có file service/frontend đổi trong commit này."
+          echo "::notice::Để deploy tất cả: Actions → Run workflow, HOẶC push với commit message chứa [deploy-all]"
 
       - uses: dorny/paths-filter@v3
         id: filter
@@ -352,7 +360,8 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
-          kubectl cluster-info
+          # cicd-deployer chỉ có quyền namespace shop — không dùng cluster-info (cần kube-system)
+          kubectl get deployments -n shop --limit=1
 
       - name: Deploy to VPS (110.172.29.72)
         env:
