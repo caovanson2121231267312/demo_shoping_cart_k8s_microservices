@@ -14,7 +14,7 @@ die() { echo "[ci-deploy] ERROR: $*" >&2; exit 1; }
 
 command -v kubectl >/dev/null 2>&1 || die "kubectl not found"
 # cicd-deployer chỉ có quyền namespace shop — cluster-info cần list services ở kube-system
-kubectl get deployments -n "${NAMESPACE}" --limit=1 >/dev/null 2>&1 || die "Cannot connect to cluster (check KUBECONFIG_DATA and RBAC)"
+kubectl get deployments -n "${NAMESPACE}" >/dev/null 2>&1 || die "Cannot connect to cluster (check KUBECONFIG_DATA and RBAC)"
 
 image_for_service() {
   local svc="$1"

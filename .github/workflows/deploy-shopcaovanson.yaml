@@ -361,7 +361,7 @@ jobs:
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
           # cicd-deployer chỉ có quyền namespace shop — không dùng cluster-info (cần kube-system)
-          kubectl get deployments -n shop --limit=1
+          kubectl get deployments -n shop
 
       - name: Deploy to VPS (110.172.29.72)
         env:
