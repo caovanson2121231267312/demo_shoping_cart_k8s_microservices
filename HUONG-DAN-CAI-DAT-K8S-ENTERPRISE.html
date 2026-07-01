@@ -241,7 +241,7 @@
     <span class="badge">API: vocabee.cloud</span>
     <span class="badge">10 microservices + frontend</span>
     <span class="badge">🔒 Security Hardening</span>
-    <span class="badge">🚀 CI/CD prod branch</span>
+    <span class="badge">🚀 CI/CD main branch</span>
   </div>
 </header>
 
@@ -261,6 +261,8 @@
         <tr><td>API</td><td>https://vocabee.cloud → 110.172.29.72</td></tr>
         <tr><td>Monitoring (Grafana)</td><td>https://monitor.shopcaovanson.xyz → 110.172.29.72</td></tr>
         <tr><td>Thư mục dự án trên VPS</td><td><code>/home/demo_shoping_cart_k8s_microservices/shopcaovanson</code></td></tr>
+        <tr><td>GitHub repo</td><td><code>github.com/caovanson2121231267312/demo_shoping_cart_k8s_microservices</code></td></tr>
+        <tr><td>Workflow CI/CD</td><td><code>.github/workflows/deploy-shopcaovanson.yaml</code> (thư mục gốc repo)</td></tr>
         <tr><td>Microservices</td><td>10 services + frontend (xem <a href="#kien-truc" style="color:#64b5f6">§1a Kiến trúc</a>)</td></tr>
       </table>
     </div>
@@ -577,10 +579,14 @@ sequenceDiagram
       <tr><td>16</td><td><code>bash scripts/apply-security.sh</code></td><td>NetworkPolicy active</td><td><a href="#bao-mat">§14</a></td></tr>
       <tr><td>17</td><td><code>bash scripts/install-monitoring.sh</code> (tùy chọn)</td><td>Grafana https://monitor.shopcaovanson.xyz</td><td><a href="#monitoring">§16</a></td></tr>
       <tr><td>18</td><td>Đổi mật khẩu admin, backup secrets</td><td>Không dùng Admin@123</td><td><a href="#checklist">§17</a></td></tr>
+      <tr><td>19</td><td>CI/CD: kubeconfig + GHCR pull secret + GitHub Secret</td><td>Actions deploy được lên VPS</td><td><a href="#cicd">§12</a></td></tr>
+      <tr><td>20</td><td>Run workflow deploy all (lần đầu) hoặc push <code>main</code></td><td>Image từ GHCR chạy trên cluster</td><td><a href="#cicd">§12</a></td></tr>
     </table>
 
     <div class="card vps">
-      <h4>🔄 Cập nhật code sau này (trên VPS)</h4>
+      <h4>🔄 Cập nhật code sau này</h4>
+      <p style="margin:0.5rem 0"><strong>Cách 1 — CI/CD (khuyến nghị):</strong> sửa code trên máy dev → <code>git push origin main</code> → GitHub Actions build + deploy (xem <a href="#cicd" style="color:#64b5f6">§12</a>).</p>
+      <p style="margin:0.5rem 0"><strong>Cách 2 — Thủ công trên VPS</strong> (khi CI chưa bật hoặc debug):</p>
       <pre class="cmd-code" style="margin:0.5rem 0 0;background:var(--code-bg);padding:1rem;border-radius:8px;font-size:0.82rem">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
 git pull
 export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
@@ -1734,9 +1740,16 @@ shop-ingress  nginx   shopcaovanson.xyz,vocabee.cloud   <span class="ok">110.172
       </details>
     </div>
 
-    <h3 id="phase7-build">7.3 Build Docker images trên VPS (bắt buộc)</h3>
+    <h3 id="phase7-build">7.3 Build Docker images trên VPS</h3>
+    <div class="card info">
+      <strong>Hai cách cung cấp image:</strong>
+      <ul style="margin:0.5rem 0 0 1.2rem">
+        <li><strong>Deploy lần đầu / không dùng CI:</strong> build local bằng <code>nerdctl</code> (bắt buộc nếu chưa có GHCR pull secret).</li>
+        <li><strong>Sau khi bật CI/CD (§12):</strong> GitHub Actions push lên GHCR → VPS pull image — cần <code>setup-ghcr-pull-secret.sh</code> hoặc package public.</li>
+      </ul>
+    </div>
     <div class="card danger">
-      <strong>ImagePullBackOff?</strong> Image trên GHCR là private — VPS phải <strong>build local</strong> bằng <code>nerdctl</code> vào namespace <code>k8s.io</code>, không pull từ registry.
+      <strong>ImagePullBackOff?</strong> Pod không pull được từ <code>ghcr.io</code> — chạy §12.7 hoặc build lại local bằng <code>bash scripts/build-images.sh</code>.
     </div>
 
     <div class="cmd-block">
@@ -1932,255 +1945,256 @@ content-type: text/html</pre>
 
   <!-- CI/CD -->
   <section id="cicd">
-    <h2>12. CI/CD — Git, GitHub Actions &amp; auto deploy nhánh <code>main</code></h2>
-    <p>Khi push code lên nhánh <strong>main</strong>, GitHub Actions tự động: build Docker image → push GHCR → deploy lên K8s VPS <code>110.172.29.72</code> → verify health.</p>
-    <p><strong>Monorepo:</strong> workflow nằm tại <code>.github/workflows/deploy-shopcaovanson.yaml</code> (thư mục gốc repo <code>demo_shoping_cart_k8s_microservices</code>), chỉ build khi file trong <code>shopcaovanson/**</code> thay đổi.</p>
+    <h2>12. CI/CD — GitHub Actions auto deploy nhánh <code>main</code></h2>
+    <p>Push lên <strong>main</strong> → GitHub Actions build Docker image → push <strong>GHCR</strong> → <code>kubectl set image</code> lên K8s VPS <code>110.172.29.72</code> → verify health.</p>
 
-    <div class="arch">Developer push code → branch main
+    <div class="card info">
+      <strong>Monorepo:</strong> mã nguồn trong <code>shopcaovanson/</code>; workflow tại <code>.github/workflows/deploy-shopcaovanson.yaml</code> (gốc repo <code>demo_shoping_cart_k8s_microservices</code>).<br>
+      <strong>Repo Actions:</strong> <a href="https://github.com/caovanson2121231267312/demo_shoping_cart_k8s_microservices/actions" style="color:#64b5f6">github.com/.../actions</a>
+    </div>
+
+    <div class="arch">push main (shopcaovanson/** đổi)
         |
         v
-  GitHub Actions (.github/workflows/deploy-shopcaovanson.yaml)
+  detect-changes  →  chỉ build service có file thay đổi
         |
-   +----+----+
-   |         |
-   v         v
-Build image   Deploy K8s (kubectl)
-push GHCR     VPS 110.172.29.72
-   |              |
-   +------+-------+
-          v
-   shopcaovanson.xyz live</div>
+        v
+  push ghcr.io/&lt;owner&gt;/&lt;service&gt;:&lt;git-sha&gt;
+        |
+        v
+  deploy-k8s (kubectl + cicd-deployer) → VPS 110.172.29.72
+        |
+        v
+  shopcaovanson.xyz · vocabee.cloud live</div>
 
-    <h3>12.0 Luồng nhánh Git khuyến nghị</h3>
+    <h3>12.0 Checklist cấu hình một lần (theo thứ tự)</h3>
     <table>
-      <tr><th>Nhánh</th><th>Mục đích</th><th>CI/CD</th></tr>
-      <tr><td><code>main</code></td><td>Production trên VPS</td><td><strong>Auto build + deploy</strong></td></tr>
-      <tr><td><code>dev</code> / feature</td><td>Phát triển, test local</td><td>Không auto deploy</td></tr>
+      <tr><th>#</th><th>Việc cần làm</th><th>Ở đâu</th></tr>
+      <tr><td>1</td><td>Deploy cluster + app lần đầu (§7–§10)</td><td>VPS</td></tr>
+      <tr><td>2</td><td><code>bash scripts/apply-security.sh</code> (RBAC <code>cicd-deployer</code>)</td><td>VPS</td></tr>
+      <tr><td>3</td><td><code>bash scripts/create-cicd-kubeconfig.sh</code> → Secret <code>KUBECONFIG_DATA</code></td><td>VPS → GitHub</td></tr>
+      <tr><td>4</td><td>Mở UFW port <code>6443</code> cho IP GitHub Actions <em>hoặc</em> self-hosted runner</td><td>VPS</td></tr>
+      <tr><td>5</td><td><code>bash scripts/setup-ghcr-pull-secret.sh</code> <em>hoặc</em> public GHCR packages</td><td>VPS / GitHub</td></tr>
+      <tr><td>6</td><td>Variables: <code>K8S_OVERLAY=dev</code> (tùy chọn <code>IMAGE_OWNER</code>)</td><td>GitHub repo Settings</td></tr>
+      <tr><td>7</td><td>Deploy full lần đầu: Actions → <strong>Run workflow</strong> (deploy all) hoặc commit <code>[deploy-all]</code></td><td>GitHub</td></tr>
     </table>
 
-    <h3><span class="phase-tag">GIT-1</span> Kết nối Git &amp; đẩy code lên GitHub</h3>
+    <h3>12.1 Luồng nhánh Git &amp; khi nào pipeline chạy gì</h3>
+    <table>
+      <tr><th>Nhánh / cách kích hoạt</th><th>Hành vi CI</th></tr>
+      <tr><td><code>main</code> — sửa code trong <code>shopcaovanson/**</code></td><td>Build + deploy <strong>chỉ service đổi</strong></td></tr>
+      <tr><td><code>main</code> — chỉ sửa file workflow</td><td>Chỉ <code>detect-changes</code> (1/12 job) — <strong>bình thường</strong>, không deploy</td></tr>
+      <tr><td>Actions → Run workflow → deploy all</td><td>Build + deploy <strong>tất cả</strong> 10 service + frontend</td></tr>
+      <tr><td>Commit message có <code>[deploy-all]</code></td><td>Giống Run workflow deploy all</td></tr>
+      <tr><td>Nhánh feature / dev</td><td>Không auto deploy</td></tr>
+    </table>
+
+    <p><strong>10 service được theo dõi:</strong> api-gateway, auth-service, product-service, order-service, chat-service, notification-service, search-service, analytics-service, rasa-service, frontend.</p>
+
+    <h3><span class="phase-tag">GIT-1</span> Git &amp; push code</h3>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.1 Khởi tạo Git local &amp; remote (lần đầu)</span>
+        <span class="cmd-title">12.2 Clone / remote repo (monorepo)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Liên kết project local với repo GitHub — nền tảng cho CI/CD.</p>
-        <p><span class="label">📍 Chạy tại:</span> Máy dev (Windows: PowerShell trong <code>d:\k8s\shopcaovanson</code>).</p>
-      </div>
-      <pre class="cmd-code">cd d:\k8s\shopcaovanson
-
-# Kiểm tra git đã cài
-git --version
-
-# Cấu hình identity (thay email/tên của bạn)
-git config user.name "Cao Van Son"
-git config user.email "admin@shopcaovanson.xyz"
-
-# Thêm remote GitHub (tạo repo trống trên github.com trước)
-git remote add origin https://github.com/caovanson/shopcaovanson.git
-git remote -v</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">git version 2.x.x
-origin  https://github.com/caovanson/shopcaovanson.git (fetch)
-origin  https://github.com/caovanson/shopcaovanson.git (push)</pre>
-      </details>
-    </div>
-
-    <div class="cmd-block">
-      <div class="cmd-header">
-        <span class="cmd-title">12.2 Push lên main lần đầu (kích hoạt CI/CD)</span>
-        <button type="button" class="copy-btn">📋 Copy</button>
-      </div>
-      <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Push nhánh <code>main</code> — mọi push vào nhánh này kích hoạt pipeline deploy (sau khi đã cấu hình Secret <code>KUBECONFIG_DATA</code>).</p>
+        <p><span class="label">📍 Chạy tại:</span> Máy dev — thư mục gốc <code>d:\k8s</code> (không chỉ <code>shopcaovanson</code>).</p>
       </div>
       <pre class="cmd-code">cd d:\k8s
+git remote -v
+# origin → https://github.com/caovanson2121231267312/demo_shoping_cart_k8s_microservices.git
+
 git checkout main
-git add .
-git commit -m "chore: enable CI/CD on main"
-git push -u origin main</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">Switched to a new branch 'prod'
-[prod abc1234] chore: initial production setup
- ...
-To https://github.com/caovanson/shopcaovanson.git
- * [new branch]      <span class="ok">prod -> prod</span>
-branch 'prod' set up to track 'origin/prod'.</pre>
-      </details>
+git pull origin main</pre>
     </div>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.3 Quy trình deploy hàng ngày</span>
+        <span class="cmd-title">12.3 Deploy hàng ngày (chỉ service thay đổi)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Merge code đã test vào <code>main</code> để trigger auto deploy.</p>
+        <p><span class="label">🎯 Mục đích:</span> Sửa code → push <code>main</code> → CI chỉ build/deploy phần đổi (tiết kiệm ~10 phút).</p>
       </div>
-      <pre class="cmd-code"># Sau khi sửa code trên nhánh feature
+      <pre class="cmd-code"># Ví dụ: sửa auth-service
+cd d:\k8s
 git checkout main
 git pull origin main
-git merge feature/ten-tinh-nang
-git push origin main   # → GitHub Actions tự deploy lên VPS
+# ... sửa shopcaovanson/services/auth-service/...
+git add shopcaovanson/services/auth-service/
+git commit -m "fix(auth): validate email"
+git push origin main
 
 # Xem pipeline:
 # https://github.com/caovanson2121231267312/demo_shoping_cart_k8s_microservices/actions</pre>
       <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview"><span class="comment"># Trên GitHub Actions tab:</span>
-Workflow: Deploy shopcaovanson (main)
-Status: <span class="ok">✓ Success</span> (3-12 phút tùy service)
-
-Jobs:
-  detect-changes     ✓
-  build-auth-service ✓  (nếu auth thay đổi)
-  deploy-k8s         ✓  → VPS 110.172.29.72
-  update-manifests   ✓</pre>
+        <summary>Mở rộng — Jobs dự kiến</summary>
+        <pre class="output-preview">Workflow: Deploy shopcaovanson (main)
+  detect-changes        ✓
+  build-auth-service    ✓   <span class="comment">(các build-* khác: skipped)</span>
+  deploy-k8s            ✓
+  Thời gian: ~3–8 phút</pre>
       </details>
-    </div>
-
-    <h3><span class="phase-tag">GIT-2</span> Cấu hình GitHub Secrets &amp; Kubeconfig</h3>
-
-    <div class="card info">
-      <strong>GitHub Secrets cần tạo:</strong> Vào repo → <em>Settings → Secrets and variables → Actions → New repository secret</em>
-      <table>
-        <tr><th>Secret</th><th>Giá trị</th><th>Mục đích</th></tr>
-        <tr><td><code>KUBECONFIG_DATA</code></td><td>base64 kubeconfig</td><td>GitHub Actions kết nối K8s VPS</td></tr>
-      </table>
-      <p style="margin-top:0.5rem"><strong>Repository variables</strong> (Settings → Secrets and variables → Actions → Variables):</p>
-      <table>
-        <tr><th>Variable</th><th>Ví dụ</th><th>Mục đích</th></tr>
-        <tr><td><code>IMAGE_OWNER</code></td><td><code>caovanson</code></td><td>Tên GHCR (ghcr.io/<em>owner</em>/service). Mặc định = tên GitHub user nếu không set.</td></tr>
-        <tr><td><code>K8S_OVERLAY</code></td><td><code>dev</code></td><td>Overlay Kustomize trên VPS (16GB RAM dùng <code>dev</code>).</td></tr>
-      </table>
-      <p style="margin-top:0.5rem"><code>GITHUB_TOKEN</code> tự có sẵn — dùng push image lên GHCR, không cần tạo thủ công.</p>
     </div>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.4 Tạo kubeconfig CI/CD trên VPS</span>
+        <span class="cmd-title">12.4 Deploy TẤT CẢ services (lần đầu / redeploy full)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Tạo token ServiceAccount <code>cicd-deployer</code> — GitHub Actions dùng để deploy (không dùng cluster-admin).</p>
+        <p><span class="label">🎯 Mục đích:</span> Lần đầu bật CI/CD hoặc muốn đồng bộ toàn bộ image từ GHCR lên VPS.</p>
+      </div>
+      <pre class="cmd-code"># Cách A — GitHub UI (khuyến nghị)
+# Actions → "Deploy shopcaovanson (main)" → Run workflow
+# Branch: main → tick "deploy all" → Run workflow
+
+# Cách B — tag trong commit message
+git commit -m "chore: full deploy lần đầu [deploy-all]"
+git push origin main</pre>
+      <details class="cmd-output">
+        <summary>Mở rộng — Jobs dự kiến</summary>
+        <pre class="output-preview">  detect-changes              ✓
+  build-api-gateway           ✓
+  build-auth-service          ✓
+  ... (10 build jobs song song)
+  build-frontend              ✓
+  deploy-k8s                  ✓
+  Thời gian: ~12–20 phút</pre>
+      </details>
+    </div>
+
+    <h3><span class="phase-tag">GIT-2</span> GitHub Secrets, Variables &amp; Kubeconfig</h3>
+
+    <div class="card info">
+      <strong>Secrets</strong> (Settings → Secrets and variables → Actions → Secrets):
+      <table>
+        <tr><th>Secret</th><th>Giá trị</th><th>Mục đích</th></tr>
+        <tr><td><code>KUBECONFIG_DATA</code></td><td>base64 kubeconfig (một dòng)</td><td>GitHub Actions kết nối API K8s VPS</td></tr>
+      </table>
+      <p style="margin-top:0.75rem"><strong>Variables</strong> (cùng menu → Variables):</p>
+      <table>
+        <tr><th>Variable</th><th>Khuyến nghị</th><th>Ghi chú</th></tr>
+        <tr><td><code>K8S_OVERLAY</code></td><td><code>dev</code></td><td>VPS 16GB RAM — overlay <code>dev</code></td></tr>
+        <tr><td><code>IMAGE_OWNER</code></td><td><em>để trống</em> hoặc <code>caovanson2121231267312</code></td><td>Mặc định = tên GitHub user → image <code>ghcr.io/&lt;user&gt;/auth-service:sha</code>. Chỉ set <code>caovanson</code> nếu bạn push package sang org đó.</td></tr>
+      </table>
+      <p style="margin-top:0.5rem"><code>GITHUB_TOKEN</code> có sẵn — dùng login + push GHCR trong workflow, không cần tạo thêm.</p>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.5 Tạo kubeconfig CI/CD trên VPS</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> ServiceAccount <code>cicd-deployer</code> — quyền <strong>chỉ namespace <code>shop</code></strong> (patch deployment, xem pod). Không dùng cluster-admin.</p>
         <p><span class="label">📍 Chạy tại:</span> SSH <code>root@110.172.29.72</code></p>
-        <p><span class="label">📋 Điều kiện:</span> Đã chạy <code>bash scripts/apply-security.sh</code></p>
       </div>
       <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
 bash scripts/apply-security.sh
 chmod +x scripts/create-cicd-kubeconfig.sh
 bash scripts/create-cicd-kubeconfig.sh
 
-# Script in ra chuỗi base64 — copy TOÀN BỘ dòng đó
-# Dán vào GitHub Secret: KUBECONFIG_DATA</pre>
+# Copy TOÀN BỘ dòng base64 in ra
+# GitHub → Settings → Secrets → KUBECONFIG_DATA</pre>
       <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">[create-cicd-kubeconfig] Kubeconfig saved: ./cicd-kubeconfig.yaml
-
-=== Thêm vào GitHub Secrets ===
-Secret name: KUBECONFIG_DATA
-Secret value (copy dòng dưới):
-
-<span class="ok">YXBpVmVyc2lvbjogdjEvCmtpbmQ6... (chuỗi base64 dài)</span>
-
-<span class="comment"># Test trên VPS:</span>
+        <summary>Mở rộng — Test kubeconfig</summary>
+        <pre class="output-preview"><span class="comment"># Trên VPS — phải thành công:</span>
 KUBECONFIG=./cicd-kubeconfig.yaml kubectl get deployments -n shop
-NAME           READY   UP-TO-DATE   AVAILABLE
-auth-service   2/2     2            2
-...</pre>
+
+<span class="comment"># Lưu ý: KHÔNG dùng kubectl cluster-info với cicd-deployer
+# (lỗi Forbidden kube-system) — workflow đã dùng get deployments -n shop</span></pre>
       </details>
     </div>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.5 Mở port 6443 cho GitHub Actions runners</span>
+        <span class="cmd-title">12.6 Mở port 6443 cho GitHub Actions (cloud runner)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> GitHub Actions (cloud runner) cần gọi K8s API port 6443 trên VPS. Cho phép dải IP GitHub hoặc tạm mở rộng (xem <a href="https://api.github.com/meta" style="color:#64b5f6">GitHub IP ranges</a>).</p>
-        <p><span class="label">💡 Cách đơn giản hơn:</span> Dùng <strong>self-hosted runner</strong> cài trên VPS — không cần mở 6443 ra internet.</p>
+        <p><span class="label">🎯 Mục đích:</span> Runner GitHub (internet) gọi <code>https://110.172.29.72:6443</code>.</p>
+        <p><span class="label">💡 Thay thế:</span> <strong>Self-hosted runner</strong> trên VPS — không cần mở 6443 ra ngoài.</p>
       </div>
-      <pre class="cmd-code"># Tải IP ranges GitHub Actions
-curl -s https://api.github.com/meta | jq -r '.actions[]'
+      <pre class="cmd-code">curl -s https://api.github.com/meta | jq -r '.actions[]'
 
-# Cho phép từng dải (ví dụ)
 sudo ufw allow from 140.82.112.0/20 to any port 6443 proto tcp comment 'GitHub Actions'
 sudo ufw allow from 143.55.64.0/20 to any port 6443 proto tcp comment 'GitHub Actions'
 sudo ufw status | grep 6443</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.7 GHCR pull secret — BẮT BUỘC nếu package private</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <div class="cmd-meta">
+        <p><span class="label">🎯 Mục đích:</span> CI push image lên <code>ghcr.io/caovanson2121231267312/*</code> (private mặc định). VPS phải có quyền pull hoặc pod bị <code>ImagePullBackOff</code> → rollout timeout.</p>
+        <p><span class="label">📋 PAT:</span> GitHub → Settings → Developer settings → PAT → quyền <code>read:packages</code></p>
+      </div>
+      <pre class="cmd-code">cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+git pull
+
+export GHCR_USERNAME=caovanson2121231267312
+export GHCR_TOKEN=ghp_xxxxxxxx    # PAT read:packages
+
+chmod +x scripts/setup-ghcr-pull-secret.sh
+bash scripts/setup-ghcr-pull-secret.sh
+
+# Hoặc public từng package: GitHub → Packages → Package settings → Public</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">140.82.112.0/20
-143.55.64.0/20
+        <pre class="output-preview">[setup-ghcr-pull-secret] ✓ secret/ghcr-secret -n shop
+[setup-ghcr-pull-secret]   ✓ auth-service
+[setup-ghcr-pull-secret]   ✓ api-gateway
 ...
 
-6443/tcp                   ALLOW IN    140.82.112.0/20
-6443/tcp                   ALLOW IN    143.55.64.0/20</pre>
+<span class="comment"># Sau đó Re-run failed jobs trên GitHub Actions (chỉ deploy-k8s)</span></pre>
       </details>
     </div>
 
-    <div class="cmd-block">
-      <div class="cmd-header">
-        <span class="cmd-title">12.6 Cho phép cluster pull image từ GHCR (nếu package private)</span>
-        <button type="button" class="copy-btn">📋 Copy</button>
-      </div>
-      <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> K8s cần quyền pull image <code>ghcr.io/caovanson/*</code> nếu package để private.</p>
-        <p><span class="label">📋 PAT:</span> Tạo tại GitHub → Settings → Developer settings → PAT → quyền <code>read:packages</code></p>
-      </div>
-      <pre class="cmd-code"># Trên VPS
-kubectl create secret docker-registry ghcr-secret -n shop \
-  --docker-server=ghcr.io \
-  --docker-username=caovanson \
-  --docker-password="YOUR_GITHUB_PAT" \
-  --docker-email=admin@shopcaovanson.xyz
-
-# Thêm vào deployment (nếu ImagePullBackOff):
-# spec.template.spec.imagePullSecrets:
-#   - name: ghcr-secret</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">secret/ghcr-secret created
-
-<span class="comment"># Kiểm tra pod pull được image:</span>
-kubectl describe pod -l app=auth-service -n shop | grep -A2 "Pulling"
-<span class="ok">Successfully pulled image "ghcr.io/caovanson/auth-service:latest"</span></pre>
-      </details>
-    </div>
-
-    <h3><span class="phase-tag">GIT-3</span> Kiểm tra pipeline &amp; deploy thủ công</h3>
+    <h3><span class="phase-tag">GIT-3</span> Deploy thủ công &amp; xử lý lỗi CI</h3>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.7 Trigger deploy thủ công (không cần push code)</span>
+        <span class="cmd-title">12.8 Re-run deploy không build lại</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Chạy lại pipeline từ GitHub UI — hữu ích khi fix secret hoặc redeploy.</p>
+        <p><span class="label">🎯 Mục đích:</span> Build đã xong, chỉ deploy fail (kubeconfig, GHCR…) — tiết kiệm thời gian.</p>
       </div>
-      <pre class="cmd-code"># GitHub → Actions → "Build and Deploy (prod)" → Run workflow → Branch: prod
+      <pre class="cmd-code"># GitHub → Actions → run bị lỗi → Re-run failed jobs
+# (chỉ chạy lại deploy-k8s)
 
-# Hoặc trên VPS deploy thủ công 1 service:
+# Hoặc trên VPS — 1 service:
 cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
-SHA=$(git rev-parse HEAD)
-SERVICES="auth-service" SHA="${SHA}" bash scripts/ci-deploy.sh</pre>
-      <details class="cmd-output">
-        <summary>Mở rộng — Kết quả dự kiến</summary>
-        <pre class="output-preview">[ci-deploy] Rolling out auth-service → ghcr.io/caovanson/auth-service:abc1234
-deployment.apps/auth-service image updated
-Waiting for deployment "auth-service" rollout to finish: 1 of 2 updated replicas are available...
-<span class="ok">deployment "auth-service" successfully rolled out</span>
-[ci-deploy] ✓ auth-service deployed</pre>
-      </details>
+SHA=&lt;commit-sha-từ-GitHub&gt;
+IMAGE_OWNER=caovanson2121231267312 SERVICES="auth-service" SHA="${SHA}" bash scripts/ci-deploy.sh</pre>
+    </div>
+
+    <div class="cmd-block">
+      <div class="cmd-header">
+        <span class="cmd-title">12.9 Bảng lỗi CI/CD thường gặp</span>
+        <button type="button" class="copy-btn">📋 Copy</button>
+      </div>
+      <table>
+        <tr><th>Triệu chứng</th><th>Nguyên nhân</th><th>Cách xử lý</th></tr>
+        <tr><td>Chỉ <code>detect-changes</code> chạy (1/12)</td><td>Push không đổi code <code>shopcaovanson/**</code></td><td>Bình thường — dùng Run workflow deploy all hoặc <code>[deploy-all]</code></td></tr>
+        <tr><td><code>Forbidden</code> kube-system / cluster-info</td><td><code>cicd-deployer</code> không có quyền cluster</td><td>Đã fix workflow — pull code mới; test: <code>kubectl get deployments -n shop</code></td></tr>
+        <tr><td><code>unknown flag: --limit</code></td><td>Phiên bản kubectl cũ</td><td>Đã fix — dùng <code>kubectl get deployments -n shop</code></td></tr>
+        <tr><td>Rollout timeout <code>auth-service</code></td><td><code>ImagePullBackOff</code> — GHCR private</td><td>§12.7 <code>setup-ghcr-pull-secret.sh</code> hoặc public packages</td></tr>
+        <tr><td>Cannot connect to cluster</td><td>Port 6443 chặn / kubeconfig sai</td><td>UFW hoặc self-hosted runner; kiểm tra <code>KUBECONFIG_DATA</code></td></tr>
+        <tr><td>Build Go service fail</td><td>Thiếu <code>pkg/</code> trong Docker context</td><td>Workflow dùng context gốc <code>shopcaovanson/</code> — đảm bảo pull workflow mới nhất</td></tr>
+      </table>
     </div>
 
     <div class="card ok">
-      <strong>Pipeline file:</strong> <code>.github/workflows/deploy.yaml</code><br>
-      <strong>Trigger:</strong> push nhánh <code>prod</code> hoặc workflow_dispatch<br>
-      <strong>Chỉ build service thay đổi</strong> (path filter) — tiết kiệm thời gian CI
+      <strong>Pipeline:</strong> <code>.github/workflows/deploy-shopcaovanson.yaml</code><br>
+      <strong>Script deploy:</strong> <code>shopcaovanson/scripts/ci-deploy.sh</code><br>
+      <strong>Trigger:</strong> push <code>main</code> (path <code>shopcaovanson/**</code>), <code>workflow_dispatch</code>, commit <code>[deploy-all]</code><br>
+      <strong>Image tag:</strong> <code>ghcr.io/&lt;IMAGE_OWNER&gt;/&lt;service&gt;:&lt;git-sha&gt;</code> + <code>imagePullPolicy: Always</code>
     </div>
   </section>
 
@@ -2302,7 +2316,8 @@ kubectl describe pod POD_NAME -n shop | tail -25
 kubectl logs POD_NAME -n shop --previous --tail=50</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả &amp; cách xử lý</summary>
-        <pre class="output-preview"><span class="warn">ImagePullBackOff</span> → kiểm tra ghcr-secret, image tag tồn tại
+        <pre class="output-preview"><span class="warn">ImagePullBackOff</span> → §12.7 ghcr-secret / public GHCR; hoặc build local <code>build-images.sh</code>
+<span class="warn">Rollout timeout (CI)</span> → thường là ImagePullBackOff — <code>kubectl describe pod -l app=auth-service -n shop</code>
 <span class="warn">CrashLoopBackOff</span> → kubectl logs để xem lỗi app (DB connection, env...)
 <span class="warn">Pending</span>          → thiếu RAM: kubectl describe pod | grep -A5 Events
                    → Insufficient memory → dùng OVERLAY=dev
@@ -2525,6 +2540,7 @@ bash scripts/reset-mongodb.sh --yes</pre>
       <tr><td><code>make logs svc=auth-service</code></td><td>Tail log service</td></tr>
       <tr><td><code>make restart svc=auth-service</code></td><td>Restart deployment</td></tr>
       <tr><td><code>make cicd-kubeconfig</code></td><td>Tạo kubeconfig cho GitHub Actions</td></tr>
+      <tr><td><code>bash scripts/setup-ghcr-pull-secret.sh</code></td><td>Secret pull GHCR + gắn vào deployments (CI/CD)</td></tr>
       <tr><td><code>make apply-security</code></td><td>Áp dụng NetworkPolicy + PSS</td></tr>
     </table>
   </section>
