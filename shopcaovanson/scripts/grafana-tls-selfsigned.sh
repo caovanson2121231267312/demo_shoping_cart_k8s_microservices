@@ -38,35 +38,8 @@ kubectl create secret tls grafana-tls -n monitoring \
   --cert="${CRT}" --key="${KEY}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-log "Apply Ingress (giữ TLS secret grafana-tls, tắt cert-manager cho ingress này)..."
-kubectl apply -f - <<EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: grafana-ingress
-  namespace: monitoring
-  annotations:
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
-spec:
-  ingressClassName: nginx
-  tls:
-  - hosts:
-    - ${GRAFANA_HOST}
-    secretName: grafana-tls
-  rules:
-  - host: ${GRAFANA_HOST}
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: kube-prometheus-stack-grafana
-            port:
-              number: 80
-EOF
+log "Apply Ingress (Let's Encrypt qua cert-manager)..."
+kubectl apply -f "${MONITORING_DIR}/grafana-ingress.yaml"
 
 kubectl apply -f "${MONITORING_DIR}/allow-grafana-ingress.yaml" 2>/dev/null || true
 
@@ -85,6 +58,6 @@ echo "     (Chấp nhận cảnh báo certificate không tin cậy)"
 echo ""
 echo "  3. Đăng nhập: bash scripts/monitoring-access.sh"
 echo ""
-echo "  Khi đã thêm DNS A record public, chuyển sang Let's Encrypt:"
+echo "  Khi DNS public đã OK, dùng Let's Encrypt (khuyến nghị — không cảnh báo trình duyệt):"
 echo "    bash scripts/fix-monitoring-access.sh --renew-cert"
 echo ""

@@ -134,25 +134,40 @@ check_external_http() {
   fi
 
   echo "  HTTP (port 80 — Let's Encrypt cần path này):"
-  local http_code
+  local http_code https_code
   http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
     "http://${GRAFANA_HOST}/login" 2>/dev/null || echo "000")
-  echo "    http://${GRAFANA_HOST}/login → HTTP ${http_code}"
+  # VPS thường không resolve subdomain local — test bằng --resolve
+  if [[ "${http_code}" == "000" ]]; then
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+      --resolve "${GRAFANA_HOST}:80:${VPS_IP}" \
+      "http://${GRAFANA_HOST}/login" 2>/dev/null || echo "000")
+    echo "    http://${GRAFANA_HOST}/login → HTTP ${http_code} (qua --resolve ${VPS_IP})"
+  else
+    echo "    http://${GRAFANA_HOST}/login → HTTP ${http_code}"
+  fi
 
   echo "  HTTPS:"
-  local https_code
   https_code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 15 \
     "https://${GRAFANA_HOST}/login" 2>/dev/null || echo "000")
-  echo "    https://${GRAFANA_HOST}/login → HTTP ${https_code}"
-
-  if [[ "${http_code}" == "000" && "${DNS_OK}" == "true" ]]; then
-    note_issue "HTTP không kết nối được — kiểm tra UFW port 80/443: ufw status"
+  if [[ "${https_code}" == "000" ]]; then
+    https_code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 15 \
+      --resolve "${GRAFANA_HOST}:443:${VPS_IP}" \
+      "https://${GRAFANA_HOST}/login" 2>/dev/null || echo "000")
+    echo "    https://${GRAFANA_HOST}/login → HTTP ${https_code} (qua --resolve ${VPS_IP})"
+  else
+    echo "    https://${GRAFANA_HOST}/login → HTTP ${https_code}"
   fi
-  if [[ "${https_code}" == "000" || "${https_code}" == "502" ]]; then
-    note_issue "HTTPS lỗi (${https_code}) — thường do TLS chưa Ready, chạy --renew-cert"
+
+  if [[ "${http_code}" == "000" && "${https_code}" == "000" ]]; then
+    note_issue "Không kết nối được — kiểm tra ingress: kubectl get ingress -n monitoring"
   fi
   if [[ "${https_code}" == "200" || "${https_code}" == "302" ]]; then
-    log "HTTPS truy cập OK từ VPS"
+    log "HTTPS truy cập OK"
+  elif [[ "${https_code}" == "000" ]]; then
+    :
+  else
+    warn "HTTPS code ${https_code}"
   fi
 }
 

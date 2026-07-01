@@ -31,12 +31,15 @@ deploy_service() {
 
   log "Rolling out ${svc} → ${ref}"
   kubectl set image "deployment/${svc}" "${svc}=${ref}" -n "${NAMESPACE}"
+  kubectl patch deployment "${svc}" -n "${NAMESPACE}" --type=json \
+    -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Always"}]' \
+    2>/dev/null || true
   kubectl rollout status "deployment/${svc}" -n "${NAMESPACE}" --timeout=300s
   log "✓ ${svc} deployed"
 }
 
 apply_manifests() {
-  local overlay="${OVERLAY:-prod}"
+  local overlay="${OVERLAY:-dev}"
   local dir
   dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/k8s/overlays/${overlay}"
   [[ -d "${dir}" ]] || die "Overlay not found: ${dir}"

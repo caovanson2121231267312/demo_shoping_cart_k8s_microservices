@@ -833,7 +833,7 @@ bash scripts/verify-app.sh</pre>
           <div class="comp-card">
             <h4>GitHub Actions + GHCR</h4>
             <div class="meta"><span>Mục 12</span><span>CI/CD</span></div>
-            <p>Push nhánh <code>prod</code> → build image Docker → push ghcr.io → deploy lên VPS qua kubeconfig. Tự động hóa release không cần SSH thủ công.</p>
+            <p>Push nhánh <code>main</code> → build image Docker → push ghcr.io → deploy lên VPS qua kubeconfig. Tự động hóa release không cần SSH thủ công.</p>
           </div>
           <div class="comp-card">
             <h4>RBAC cicd-deployer</h4>
@@ -1932,13 +1932,14 @@ content-type: text/html</pre>
 
   <!-- CI/CD -->
   <section id="cicd">
-    <h2>12. CI/CD — Git, GitHub Actions &amp; auto deploy nhánh <code>prod</code></h2>
-    <p>Khi push code lên nhánh <strong>prod</strong>, GitHub Actions tự động: build Docker image → push GHCR → deploy lên K8s VPS <code>110.172.29.72</code> → verify health.</p>
+    <h2>12. CI/CD — Git, GitHub Actions &amp; auto deploy nhánh <code>main</code></h2>
+    <p>Khi push code lên nhánh <strong>main</strong>, GitHub Actions tự động: build Docker image → push GHCR → deploy lên K8s VPS <code>110.172.29.72</code> → verify health.</p>
+    <p><strong>Monorepo:</strong> workflow nằm tại <code>.github/workflows/deploy-shopcaovanson.yaml</code> (thư mục gốc repo <code>demo_shoping_cart_k8s_microservices</code>), chỉ build khi file trong <code>shopcaovanson/**</code> thay đổi.</p>
 
-    <div class="arch">Developer push code → branch prod
+    <div class="arch">Developer push code → branch main
         |
         v
-  GitHub Actions (.github/workflows/deploy.yaml)
+  GitHub Actions (.github/workflows/deploy-shopcaovanson.yaml)
         |
    +----+----+
    |         |
@@ -1953,8 +1954,8 @@ push GHCR     VPS 110.172.29.72
     <h3>12.0 Luồng nhánh Git khuyến nghị</h3>
     <table>
       <tr><th>Nhánh</th><th>Mục đích</th><th>CI/CD</th></tr>
-      <tr><td><code>main</code> / <code>dev</code></td><td>Phát triển, test local</td><td>Không auto deploy</td></tr>
-      <tr><td><code>prod</code></td><td>Production trên VPS</td><td><strong>Auto build + deploy</strong></td></tr>
+      <tr><td><code>main</code></td><td>Production trên VPS</td><td><strong>Auto build + deploy</strong></td></tr>
+      <tr><td><code>dev</code> / feature</td><td>Phát triển, test local</td><td>Không auto deploy</td></tr>
     </table>
 
     <h3><span class="phase-tag">GIT-1</span> Kết nối Git &amp; đẩy code lên GitHub</h3>
@@ -1990,17 +1991,17 @@ origin  https://github.com/caovanson/shopcaovanson.git (push)</pre>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.2 Tạo nhánh prod &amp; push lần đầu</span>
+        <span class="cmd-title">12.2 Push lên main lần đầu (kích hoạt CI/CD)</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Tạo nhánh <code>prod</code> — mọi push vào nhánh này kích hoạt pipeline deploy.</p>
+        <p><span class="label">🎯 Mục đích:</span> Push nhánh <code>main</code> — mọi push vào nhánh này kích hoạt pipeline deploy (sau khi đã cấu hình Secret <code>KUBECONFIG_DATA</code>).</p>
       </div>
-      <pre class="cmd-code">cd d:\k8s\shopcaovanson
-git checkout -b prod
+      <pre class="cmd-code">cd d:\k8s
+git checkout main
 git add .
-git commit -m "chore: initial production setup"
-git push -u origin prod</pre>
+git commit -m "chore: enable CI/CD on main"
+git push -u origin main</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
         <pre class="output-preview">Switched to a new branch 'prod'
@@ -2014,24 +2015,24 @@ branch 'prod' set up to track 'origin/prod'.</pre>
 
     <div class="cmd-block">
       <div class="cmd-header">
-        <span class="cmd-title">12.3 Quy trình deploy hàng ngày (dev → prod)</span>
+        <span class="cmd-title">12.3 Quy trình deploy hàng ngày</span>
         <button type="button" class="copy-btn">📋 Copy</button>
       </div>
       <div class="cmd-meta">
-        <p><span class="label">🎯 Mục đích:</span> Merge code đã test vào <code>prod</code> để trigger auto deploy.</p>
+        <p><span class="label">🎯 Mục đích:</span> Merge code đã test vào <code>main</code> để trigger auto deploy.</p>
       </div>
-      <pre class="cmd-code"># Sau khi sửa code trên nhánh dev/feature
-git checkout prod
-git pull origin prod
-git merge dev          # hoặc cherry-pick commit cụ thể
-git push origin prod   # → GitHub Actions tự deploy lên VPS
+      <pre class="cmd-code"># Sau khi sửa code trên nhánh feature
+git checkout main
+git pull origin main
+git merge feature/ten-tinh-nang
+git push origin main   # → GitHub Actions tự deploy lên VPS
 
-# Xem pipeline trên GitHub:
-# https://github.com/caovanson/shopcaovanson/actions</pre>
+# Xem pipeline:
+# https://github.com/caovanson2121231267312/demo_shoping_cart_k8s_microservices/actions</pre>
       <details class="cmd-output">
         <summary>Mở rộng — Kết quả dự kiến</summary>
         <pre class="output-preview"><span class="comment"># Trên GitHub Actions tab:</span>
-Workflow: Build and Deploy (prod)
+Workflow: Deploy shopcaovanson (main)
 Status: <span class="ok">✓ Success</span> (3-12 phút tùy service)
 
 Jobs:
@@ -2049,6 +2050,12 @@ Jobs:
       <table>
         <tr><th>Secret</th><th>Giá trị</th><th>Mục đích</th></tr>
         <tr><td><code>KUBECONFIG_DATA</code></td><td>base64 kubeconfig</td><td>GitHub Actions kết nối K8s VPS</td></tr>
+      </table>
+      <p style="margin-top:0.5rem"><strong>Repository variables</strong> (Settings → Secrets and variables → Actions → Variables):</p>
+      <table>
+        <tr><th>Variable</th><th>Ví dụ</th><th>Mục đích</th></tr>
+        <tr><td><code>IMAGE_OWNER</code></td><td><code>caovanson</code></td><td>Tên GHCR (ghcr.io/<em>owner</em>/service). Mặc định = tên GitHub user nếu không set.</td></tr>
+        <tr><td><code>K8S_OVERLAY</code></td><td><code>dev</code></td><td>Overlay Kustomize trên VPS (16GB RAM dùng <code>dev</code>).</td></tr>
       </table>
       <p style="margin-top:0.5rem"><code>GITHUB_TOKEN</code> tự có sẵn — dùng push image lên GHCR, không cần tạo thủ công.</p>
     </div>

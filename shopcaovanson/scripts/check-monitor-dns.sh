@@ -35,6 +35,11 @@ check "${MAIN}"
 check "www.${MAIN}"
 check "${MONITOR}"
 
+echo "=== Lưu ý panel DNS ==="
+echo "  Chỉ cần 1 bản ghi:  Name = monitor  (KHÔNG tạo thêm monitor.shopcaovanson.xyz)"
+echo "  Nhiều panel tự thêm domain → bản ghi 'monitor.shopcaovanson.xyz' tạo hostname SAI."
+echo ""
+
 echo "=== Kết luận ==="
 if dig +short "${MONITOR}" @8.8.8.8 | grep -q "${VPS_IP}"; then
   echo "DNS monitor OK — chạy: bash scripts/fix-monitoring-access.sh --renew-cert"
