@@ -103,13 +103,17 @@ check_http() {
     note_issue "Service kube-prometheus-stack-grafana không tồn tại"
     return 0
   fi
-  local code
-  code=$(kubectl run mon-curl-test --rm -i --restart=Never -n monitoring --image=curlimages/curl -- \
+  local raw code
+  raw=$(kubectl run mon-curl-test --rm -i --restart=Never -n monitoring --image=curlimages/curl -- \
     curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
     "http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local/login" 2>/dev/null || echo "000")
+  code=$(echo "${raw}" | grep -oE '[0-9]{3}' | tail -1)
+  code="${code:-000}"
   echo "  Grafana service HTTP: ${code}"
   if [[ "${code}" != "200" && "${code}" != "302" ]]; then
     note_issue "Grafana service không phản hồi 200/302 (đang ${code})"
+  else
+    log "Grafana service OK (HTTP ${code})"
   fi
 }
 
@@ -159,15 +163,28 @@ main() {
   check_http
 
   if [[ "${DO_FIX}" == "true" ]]; then
+    if ! dig +short "${GRAFANA_HOST}" 2>/dev/null | grep -q "${VPS_IP}"; then
+      echo ""
+      die "DNS ${GRAFANA_HOST} chưa trỏ ${VPS_IP} — thêm bản ghi A trước, đợi 5–30 phút rồi chạy lại --fix"
+    fi
     apply_fixes
     echo ""
     check_tls
     bash "${SCRIPT_DIR}/monitoring-access.sh" 2>/dev/null || true
   else
     echo ""
+    if ! dig +short "${GRAFANA_HOST}" 2>/dev/null | grep -q "${VPS_IP}"; then
+      echo ""
+      log "════════════════════════════════════════════════════════"
+      log " CHẶN CHÍNH: DNS chưa có bản ghi A"
+      log " Thêm tại nhà cung cấp domain shopcaovanson.xyz:"
+      log "   monitor.shopcaovanson.xyz  →  A  →  ${VPS_IP}"
+      log " Sau khi dig +short trả ${VPS_IP}, chạy:"
+      log "   bash scripts/fix-monitoring-access.sh --fix"
+      log "════════════════════════════════════════════════════════"
+    fi
     if [[ "${ISSUES}" -gt 0 ]]; then
-      log "Phát hiện ${ISSUES} vấn đề. Chạy sửa tự động:"
-      echo "  bash scripts/fix-monitoring-access.sh --fix"
+      log "Phát hiện ${ISSUES} vấn đề (Grafana trong cluster vẫn OK nếu HTTP 200)."
     else
       log "Cấu hình cluster có vẻ OK — thử mở https://${GRAFANA_HOST} (Ctrl+F5)."
       echo "  Mật khẩu: bash scripts/monitoring-access.sh"

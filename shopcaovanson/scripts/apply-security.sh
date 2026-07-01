@@ -20,14 +20,19 @@ apply_manifests() {
 }
 
 patch_ingress_security() {
-  log "Patching shop-ingress security annotations..."
+  log "Patching shop-ingress security + CORS annotations..."
   kubectl annotate ingress shop-ingress -n shop --overwrite \
     nginx.ingress.kubernetes.io/force-ssl-redirect="true" \
     nginx.ingress.kubernetes.io/ssl-protocols="TLSv1.2 TLSv1.3" \
     nginx.ingress.kubernetes.io/limit-rps="50" \
     nginx.ingress.kubernetes.io/limit-burst-multiplier="5" \
     nginx.ingress.kubernetes.io/proxy-hide-headers="Server" \
-    nginx.ingress.kubernetes.io/enable-cors="false"
+    nginx.ingress.kubernetes.io/enable-cors="true" \
+    nginx.ingress.kubernetes.io/cors-allow-origin="https://shopcaovanson.xyz, https://www.shopcaovanson.xyz" \
+    nginx.ingress.kubernetes.io/cors-allow-methods="GET, PUT, POST, DELETE, PATCH, OPTIONS" \
+    nginx.ingress.kubernetes.io/cors-allow-headers="DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-User-Id,X-User-Role,X-User-Email" \
+    nginx.ingress.kubernetes.io/cors-allow-credentials="true" \
+    nginx.ingress.kubernetes.io/cors-max-age="43200"
 }
 
 verify() {

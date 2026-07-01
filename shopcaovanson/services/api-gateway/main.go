@@ -49,9 +49,10 @@ func main() {
 		ProxyHeader:  fiber.HeaderXForwardedFor,
 	})
 
+	// Outermost — add CORS headers after proxy/errors (see middleware/cors.go).
+	app.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	app.Use(recover.New())
 	app.Use(middleware.RequestLogger())
-	app.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	app.Use(middleware.RateLimit(redisClient, cfg.RateLimitPerMinute))
 	app.Use(middleware.JWTValidation(publicKey))
 
