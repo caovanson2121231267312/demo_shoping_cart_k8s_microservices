@@ -232,7 +232,7 @@ seed_product() {
     export SEED_PRODUCTS="${PRODUCTS}" SEED_REVIEWS="${REVIEWS}" SEED_ARTICLES=120
     export SEED_USERS="${USERS}" SEED_BATCH_SIZE="${BATCH_SIZE}"
     export SEED_SKIP_MONGO_DETAILS=true SEED_BULK_PRODUCTS=true SEED_ES_INDEX=false SEED_REFRESH_TEXT=false
-    (cd "${dir}/scripts" && go run .)
+    run_local_go_seed "product-service" ./scripts/fake_data.go ./scripts/es_bulk.go
   fi
 }
 
