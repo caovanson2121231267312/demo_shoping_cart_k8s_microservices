@@ -390,6 +390,17 @@ jobs:
           # cicd-deployer chỉ có quyền namespace shop — không dùng cluster-info (cần kube-system)
           kubectl get deployments -n shop
 
+      - name: Run database migrations
+        env:
+          SHA: ${{ github.sha }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+          SERVICES: ${{ needs.detect-changes.outputs.services_list }}
+          JOB_TIMEOUT: "600"
+        run: |
+          chmod +x scripts/ci-migrate.sh
+          bash scripts/ci-migrate.sh
+
       - name: Deploy to VPS (110.172.29.72)
         env:
           SHA: ${{ github.sha }}
