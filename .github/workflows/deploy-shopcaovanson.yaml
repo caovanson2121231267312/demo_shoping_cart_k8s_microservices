@@ -15,6 +15,11 @@ on:
         type: boolean
         default: true
 
+# Tránh 2 run song song push cùng tag :latest → lỗi "unknown blob" trên GHCR
+concurrency:
+  group: deploy-shopcaovanson-${{ github.ref }}
+  cancel-in-progress: false
+
 defaults:
   run:
     working-directory: shopcaovanson
@@ -24,6 +29,7 @@ env:
   IMAGE_OWNER: ${{ vars.IMAGE_OWNER || github.repository_owner }}
   K8S_NAMESPACE: shop
   K8S_OVERLAY: ${{ vars.K8S_OVERLAY || 'dev' }}
+  BUILDX_NO_DEFAULT_ATTESTATIONS: 1
 
 
 permissions:
@@ -134,6 +140,8 @@ jobs:
         with:
           context: shopcaovanson/services/api-gateway
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/api-gateway:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/api-gateway:latest
@@ -154,6 +162,8 @@ jobs:
           context: shopcaovanson
           file: shopcaovanson/services/auth-service/Dockerfile
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/auth-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/auth-service:latest
@@ -174,6 +184,8 @@ jobs:
           context: shopcaovanson
           file: shopcaovanson/services/product-service/Dockerfile
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/product-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/product-service:latest
@@ -194,6 +206,8 @@ jobs:
           context: shopcaovanson
           file: shopcaovanson/services/order-service/Dockerfile
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/order-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/order-service:latest
@@ -216,6 +230,8 @@ jobs:
         with:
           context: shopcaovanson/services/chat-service
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:latest
@@ -238,6 +254,8 @@ jobs:
         with:
           context: shopcaovanson/services/notification-service
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/notification-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/notification-service:latest
@@ -260,6 +278,8 @@ jobs:
         with:
           context: shopcaovanson/services/search-service
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/search-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/search-service:latest
@@ -282,6 +302,8 @@ jobs:
         with:
           context: shopcaovanson/services/analytics-service
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/analytics-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/analytics-service:latest
@@ -304,6 +326,8 @@ jobs:
         with:
           context: shopcaovanson/services/rasa-service
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/rasa-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/rasa-service:latest
@@ -323,6 +347,8 @@ jobs:
         with:
           context: shopcaovanson/frontend/web
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:latest
