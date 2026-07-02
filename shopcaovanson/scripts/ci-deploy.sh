@@ -48,11 +48,18 @@ deploy_service() {
   if ! kubectl rollout status "deployment/${svc}" -n "${NAMESPACE}" --timeout=300s; then
     log "Rollout failed — pod status:"
     kubectl get pods -n "${NAMESPACE}" -l "app=${svc}" -o wide 2>/dev/null || true
+    log "Recent logs:"
+    kubectl logs -n "${NAMESPACE}" -l "app=${svc}" --tail=40 2>/dev/null \
+      || kubectl logs -n "${NAMESPACE}" -l "app=${svc}" --previous --tail=40 2>/dev/null \
+      || true
     local reason
     reason=$(kubectl get pods -n "${NAMESPACE}" -l "app=${svc}" \
       -o jsonpath='{range .items[*]}{.status.containerStatuses[0].state.waiting.reason}{"\n"}{end}' 2>/dev/null | head -1)
     if [[ "${reason}" == "ImagePullBackOff" || "${reason}" == "ErrImagePull" ]]; then
       die "${svc}: không pull được image từ GHCR. Trên VPS chạy: bash scripts/setup-ghcr-pull-secret.sh HOẶC public packages trên GitHub."
+    fi
+    if [[ "${reason}" == "CrashLoopBackOff" ]]; then
+      die "${svc}: pod crash khi khởi động — xem log trên (hoặc SSH: kubectl logs -n shop -l app=${svc}). Rollback: kubectl rollout undo deployment/${svc} -n shop"
     fi
     die "${svc}: rollout timeout. SSH VPS: kubectl describe pod -n shop -l app=${svc}"
   fi
