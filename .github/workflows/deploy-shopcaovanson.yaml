@@ -25,6 +25,7 @@ env:
   K8S_NAMESPACE: shop
   K8S_OVERLAY: ${{ vars.K8S_OVERLAY || 'dev' }}
 
+
 permissions:
   contents: write
   packages: write
