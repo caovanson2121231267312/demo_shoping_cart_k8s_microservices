@@ -10,7 +10,7 @@ services/*/tmp/
 services/*/.venv/
 
 # Node
-frontend/web/node_modules/
+**/node_modules/
 frontend/web/.nuxt/
 frontend/web/.output/
 
