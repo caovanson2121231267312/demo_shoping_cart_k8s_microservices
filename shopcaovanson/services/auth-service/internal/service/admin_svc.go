@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/shopcaovanson/auth-service/internal/domain"
@@ -62,6 +63,22 @@ func (s *AdminService) UpdateUserStatus(ctx context.Context, actorRole string, u
 		return nil, ErrForbiddenRole
 	}
 	user, err := s.users.UpdateStatus(ctx, userID, isActive)
+	if err != nil {
+		return nil, err
+	}
+	profile := user.ToProfile()
+	return &profile, nil
+}
+
+func (s *AdminService) UpdateUser(ctx context.Context, actorRole string, userID uuid.UUID, input domain.UpdateUserInput) (*domain.UserProfile, error) {
+	if !domain.CanManageUsers(actorRole) {
+		return nil, ErrForbiddenRole
+	}
+	fullName := strings.TrimSpace(input.FullName)
+	if fullName == "" {
+		return nil, fmt.Errorf("full_name is required")
+	}
+	user, err := s.users.UpdateUser(ctx, userID, fullName)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ func (r *userRepository) UpdateRole(ctx context.Context, id uuid.UUID, role stri
 	query := `
 		UPDATE users SET role = $1, updated_at = NOW()
 		WHERE id = $2
-		RETURNING id, email, password_hash, full_name, role, is_active, created_at, updated_at
+		RETURNING *
 	`
 	var user domain.User
 	err := r.db.GetContext(ctx, &user, query, role, id)
@@ -32,7 +32,7 @@ func (r *userRepository) UpdateStatus(ctx context.Context, id uuid.UUID, isActiv
 	query := `
 		UPDATE users SET is_active = $1, updated_at = NOW()
 		WHERE id = $2
-		RETURNING id, email, password_hash, full_name, role, is_active, created_at, updated_at
+		RETURNING *
 	`
 	var user domain.User
 	err := r.db.GetContext(ctx, &user, query, isActive, id)
@@ -94,7 +94,7 @@ func (r *userRepository) List(ctx context.Context, filter domain.UserListFilter)
 	offset := (filter.Page - 1) * filter.Limit
 	listArgs := append(args, filter.Limit, offset)
 	listQuery := fmt.Sprintf(`
-		SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at
+		SELECT id, email, full_name, role, is_active, email_verified, avatar_key, created_at, updated_at
 		FROM users WHERE %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d

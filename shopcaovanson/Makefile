@@ -56,6 +56,9 @@ migrate: ## Run all DB migrations
 seed: ## Run fake data seeders
 	bash scripts/seed-data.sh
 
+seed-scale: ## Load test seed (profile: SEED_PROFILE=load60m)
+	bash scripts/seed-scale.sh --profile $${SEED_PROFILE:-load60m} --yes
+
 seed-data: seed ## Alias for seed
 
 # Dev

@@ -43,6 +43,18 @@ spec:
             secretKeyRef:
               name: auth-service-secret
               key: DB_PASSWORD
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-service-secret
+              key: MINIO_ACCESS_KEY
+              optional: true
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-service-secret
+              key: MINIO_SECRET_KEY
+              optional: true
         resources:
           requests:
             memory: "64Mi"

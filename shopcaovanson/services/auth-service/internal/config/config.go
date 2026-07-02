@@ -12,14 +12,22 @@ import (
 
 type Config struct {
 	FrontendURL      string
-	Port              string
-	DatabaseURL       string
-	RedisURL          string
-	KafkaBrokers      string
-	JWTPrivateKeyPEM  string
-	AccessTokenTTL    time.Duration
-	RefreshTokenTTL   time.Duration
-	BcryptCost        int
+	Port             string
+	DatabaseURL      string
+	RedisURL         string
+	KafkaBrokers     string
+	JWTPrivateKeyPEM string
+	AccessTokenTTL   time.Duration
+	RefreshTokenTTL  time.Duration
+	BcryptCost       int
+	MinIOEnabled     bool
+	MinIOEndpoint    string
+	MinIOAccessKey   string
+	MinIOSecretKey   string
+	MinIOBucket      string
+	MinIOUseSSL      bool
+	MinIORegion      string
+	MaxAvatarBytes   int64
 }
 
 func Load() (*Config, error) {
@@ -64,6 +72,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("DATABASE_URL is required")
 	}
 
+	maxAvatarMB, err := strconv.Atoi(getEnv("MAX_AVATAR_MB", "2"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid MAX_AVATAR_MB: %w", err)
+	}
+
 	return &Config{
 		Port:             getEnv("PORT", "8081"),
 		DatabaseURL:      dbURL,
@@ -74,6 +87,14 @@ func Load() (*Config, error) {
 		RefreshTokenTTL:  time.Duration(refreshDays) * 24 * time.Hour,
 		BcryptCost:       bcryptCost,
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3000"),
+		MinIOEnabled:     strings.EqualFold(getEnv("MINIO_ENABLED", "false"), "true"),
+		MinIOEndpoint:    getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		MinIOAccessKey:   os.Getenv("MINIO_ACCESS_KEY"),
+		MinIOSecretKey:   os.Getenv("MINIO_SECRET_KEY"),
+		MinIOBucket:      getEnv("MINIO_BUCKET", "shopcaovanson"),
+		MinIOUseSSL:      strings.EqualFold(getEnv("MINIO_USE_SSL", "false"), "true"),
+		MinIORegion:      getEnv("MINIO_REGION", "us-east-1"),
+		MaxAvatarBytes:   int64(maxAvatarMB) * 1024 * 1024,
 	}, nil
 }
 

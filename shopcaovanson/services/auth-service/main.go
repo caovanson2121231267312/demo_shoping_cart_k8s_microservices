@@ -19,6 +19,7 @@ import (
 	"github.com/shopcaovanson/auth-service/internal/middleware"
 	"github.com/shopcaovanson/auth-service/internal/repository"
 	"github.com/shopcaovanson/auth-service/internal/service"
+	"github.com/shopcaovanson/auth-service/internal/storage"
 )
 
 func main() {
@@ -66,12 +67,26 @@ func main() {
 	authSvc := service.NewAuthService(cfg, userRepo, refreshRepo, redisClient, kafkaProducer, privateKey)
 	authHandler := handler.NewAuthHandler(authSvc)
 	adminSvc := service.NewAdminService(userRepo)
-	adminHandler := handler.NewAdminHandler(adminSvc)
+
+	var avatarStore *storage.AvatarStorage
+	if cfg.MinIOEnabled {
+		avatarStore, err = storage.NewAvatarStorage(cfg)
+		if err != nil {
+			log.Fatalf("init minio storage: %v", err)
+		}
+		log.Printf("minio avatar storage enabled (bucket=%s)", cfg.MinIOBucket)
+	} else {
+		log.Println("minio avatar storage disabled (set MINIO_ENABLED=true to enable)")
+	}
+	avatarSvc := service.NewAvatarService(cfg, userRepo, avatarStore)
+	avatarHandler := handler.NewAvatarHandler(avatarSvc)
+	adminHandler := handler.NewAdminHandler(adminSvc, avatarSvc)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "auth-service",
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		BodyLimit:    int(cfg.MaxAvatarBytes) + (1 << 20),
 	})
 
 	app.Use(recover.New())
@@ -105,6 +120,7 @@ func main() {
 	protected.Post("/logout", authHandler.Logout)
 	protected.Get("/me", authHandler.GetMe)
 	protected.Put("/me", authHandler.UpdateMe)
+	protected.Get("/avatars/:id", avatarHandler.Serve)
 
 	adminHandler.RegisterRoutes(app.Group("", middleware.JWTAuth(privateKey)))
 

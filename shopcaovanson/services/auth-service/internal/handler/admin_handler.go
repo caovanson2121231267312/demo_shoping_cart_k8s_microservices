@@ -13,11 +13,12 @@ import (
 )
 
 type AdminHandler struct {
-	adminSvc *service.AdminService
+	adminSvc  *service.AdminService
+	avatarSvc *service.AvatarService
 }
 
-func NewAdminHandler(adminSvc *service.AdminService) *AdminHandler {
-	return &AdminHandler{adminSvc: adminSvc}
+func NewAdminHandler(adminSvc *service.AdminService, avatarSvc *service.AvatarService) *AdminHandler {
+	return &AdminHandler{adminSvc: adminSvc, avatarSvc: avatarSvc}
 }
 
 func (h *AdminHandler) RegisterRoutes(router fiber.Router) {
@@ -28,6 +29,9 @@ func (h *AdminHandler) RegisterRoutes(router fiber.Router) {
 	admin.Get("/users/:id", h.GetUser)
 	admin.Put("/users/:id/role", middleware.RequireMinRole(domain.RoleAdmin), h.UpdateUserRole)
 	admin.Put("/users/:id/status", middleware.RequireMinRole(domain.RoleAdmin), h.UpdateUserStatus)
+	admin.Put("/users/:id", middleware.RequireMinRole(domain.RoleAdmin), h.UpdateUser)
+	admin.Post("/users/:id/avatar", middleware.RequireMinRole(domain.RoleAdmin), h.UploadUserAvatar)
+	admin.Delete("/users/:id/avatar", middleware.RequireMinRole(domain.RoleAdmin), h.DeleteUserAvatar)
 }
 
 func (h *AdminHandler) Stats(c *fiber.Ctx) error {
@@ -103,6 +107,56 @@ func (h *AdminHandler) UpdateUserStatus(c *fiber.Ctx) error {
 	user, err := h.adminSvc.UpdateUserStatus(c.Context(), role, id, input.IsActive)
 	if err != nil {
 		return mapAdminError(c, err)
+	}
+	return c.JSON(user)
+}
+
+func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user id"})
+	}
+	role, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+	var input domain.UpdateUserInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	user, err := h.adminSvc.UpdateUser(c.Context(), role, id, input)
+	if err != nil {
+		if err.Error() == "full_name is required" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return mapAdminError(c, err)
+	}
+	return c.JSON(user)
+}
+
+func (h *AdminHandler) UploadUserAvatar(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user id"})
+	}
+	role, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "avatar file is required"})
+	}
+	user, err := h.avatarSvc.Upload(c.Context(), role, id, file)
+	if err != nil {
+		return mapAvatarError(c, err)
+	}
+	return c.JSON(user)
+}
+
+func (h *AdminHandler) DeleteUserAvatar(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user id"})
+	}
+	role, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+	user, err := h.avatarSvc.Delete(c.Context(), role, id)
+	if err != nil {
+		return mapAvatarError(c, err)
 	}
 	return c.JSON(user)
 }

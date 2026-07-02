@@ -201,6 +201,7 @@ export const useAuth = () => {
     userRole,
     can: authStore.can.bind(authStore),
     apiFetch,
+    authHeaders,
     login,
     logout,
     register,

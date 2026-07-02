@@ -1,7 +1,7 @@
 # Seed large-scale fake data for load / performance testing
 #
-# Stress test (1M users, 2K products, 50M orders):
-#   .\scripts\seed-scale.ps1 -Profile stress
+# Load test 60M đơn / 1M user / 1M SP:
+#   .\scripts\seed-scale.ps1 -Profile load60m -Force
 #
 # Full scale:
 #   .\scripts\seed-scale.ps1 -Profile full
@@ -13,12 +13,12 @@
 #   .\scripts\seed-scale.ps1 -Profile dev
 
 param(
-    [ValidateSet("dev", "full", "stress", "custom")]
+    [ValidateSet("dev", "full", "stress", "load60m", "custom")]
     [string]$Profile = "custom",
 
     [int]$Users = 1000000,
-    [int]$Products = 2000,
-    [int]$Orders = 50000000,
+    [int]$Products = 1000000,
+    [int]$Orders = 60000000,
     [int]$Reviews = 0,
     [int]$BatchSize = 10000,
     [int]$BcryptCost = 10,
@@ -45,6 +45,14 @@ switch ($Profile) {
         $Users = 1000000
         $Products = 2000
         $Orders = 50000000
+        $Reviews = 0
+        $BatchSize = 20000
+        $SkipReviews = $true
+    }
+    "load60m" {
+        $Users = 1000000
+        $Products = 1000000
+        $Orders = 60000000
         $Reviews = 0
         $BatchSize = 20000
         $SkipReviews = $true
@@ -105,9 +113,14 @@ Write-Host "  Reviews:  $Reviews"
 Write-Host "  Batch:    $BatchSize"
 Write-Host ""
 
-if ($Profile -eq "full" -or $Profile -eq "stress") {
+if ($Profile -eq "full" -or $Profile -eq "stress" -or $Profile -eq "load60m") {
     Write-Host 'CANH BAO: Scale lon - can nhieu gio va hang chuc GB disk (Postgres).' -ForegroundColor Yellow
-    if ($Profile -eq "stress") {
+    if ($Profile -eq "load60m") {
+        Write-Host "  - 1M users:     ~30-60 phut (bcrypt cost=$BcryptCost)"
+        Write-Host "  - 1M products:  ~1-3 gio (COPY bulk)"
+        Write-Host "  - 60M orders:   ~15-40+ gio"
+        Write-Host "  - Disk uoc tinh: 100-200 GB+"
+    } elseif ($Profile -eq "stress") {
         Write-Host "  - 1M users:     ~20-40 phut (bcrypt cost=$BcryptCost)"
         Write-Host "  - 2K products:  ~5-10 phut"
         Write-Host "  - 50M orders:   ~10-30+ gio (tuy o cung)"
@@ -161,10 +174,11 @@ if (-not $SkipProducts -or -not $SkipReviews) {
     } else {
         $env:SEED_REVIEWS = "$Reviews"
     }
-    if ($Profile -eq "full" -or $Profile -eq "stress") {
-        $env:SEED_SKIP_MONGO_DETAILS = "false"
-        $env:SEED_REFRESH_TEXT = if ($Profile -eq "stress") { "false" } else { "true" }
-        $env:SEED_ES_INDEX = "true"
+    if ($Profile -eq "full" -or $Profile -eq "stress" -or $Profile -eq "load60m") {
+        $env:SEED_SKIP_MONGO_DETAILS = "true"
+        $env:SEED_BULK_PRODUCTS = "true"
+        $env:SEED_REFRESH_TEXT = "false"
+        $env:SEED_ES_INDEX = "false"
     } elseif ($Profile -eq "dev") {
         $env:SEED_REFRESH_TEXT = "true"
         $env:SEED_ES_INDEX = "true"

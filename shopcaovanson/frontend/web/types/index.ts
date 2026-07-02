@@ -5,6 +5,8 @@ export interface User {
   role: UserRole
   is_active?: boolean
   email_verified?: boolean
+  has_avatar?: boolean
+  avatar_url?: string
   created_at: string
 }
 

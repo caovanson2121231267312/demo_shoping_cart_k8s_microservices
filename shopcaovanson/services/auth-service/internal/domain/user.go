@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ type User struct {
 	Email                 string     `db:"email" json:"email"`
 	PasswordHash          string     `db:"password_hash" json:"-"`
 	FullName              string     `db:"full_name" json:"full_name"`
+	AvatarKey             *string    `db:"avatar_key" json:"-"`
 	Role                  string     `db:"role" json:"role"`
 	IsActive              bool       `db:"is_active" json:"is_active"`
 	EmailVerified         bool       `db:"email_verified" json:"email_verified"`
@@ -43,11 +45,17 @@ type UserProfile struct {
 	Role          string    `json:"role"`
 	IsActive      bool      `json:"is_active"`
 	EmailVerified bool      `json:"email_verified"`
+	HasAvatar     bool      `json:"has_avatar"`
+	AvatarURL     string    `json:"avatar_url,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+func AvatarURLForUser(id uuid.UUID) string {
+	return fmt.Sprintf("/api/auth/avatars/%s", id.String())
+}
+
 func (u *User) ToProfile() UserProfile {
-	return UserProfile{
+	profile := UserProfile{
 		ID:            u.ID,
 		Email:         u.Email,
 		FullName:      u.FullName,
@@ -56,6 +64,11 @@ func (u *User) ToProfile() UserProfile {
 		EmailVerified: u.EmailVerified,
 		CreatedAt:     u.CreatedAt,
 	}
+	if u.AvatarKey != nil && *u.AvatarKey != "" {
+		profile.HasAvatar = true
+		profile.AvatarURL = AvatarURLForUser(u.ID)
+	}
+	return profile
 }
 
 type RegisterResponse struct {
@@ -103,4 +116,8 @@ type UpdateUserRoleInput struct {
 
 type UpdateUserStatusInput struct {
 	IsActive bool `json:"is_active"`
+}
+
+type UpdateUserInput struct {
+	FullName string `json:"full_name"`
 }

@@ -28,6 +28,20 @@ export const useAdmin = () => {
   const updateUserStatus = (id: string, isActive: boolean) =>
     apiFetch<User>(`/api/admin/users/${id}/status`, { method: 'PUT', body: { is_active: isActive } })
 
+  const fetchUser = (id: string) => apiFetch<User>(`/api/admin/users/${id}`)
+
+  const updateUser = (id: string, body: { full_name: string }) =>
+    apiFetch<User>(`/api/admin/users/${id}`, { method: 'PUT', body })
+
+  const uploadUserAvatar = async (id: string, file: File) => {
+    const form = new FormData()
+    form.append('avatar', file)
+    return apiFetch<User>(`/api/admin/users/${id}/avatar`, { method: 'POST', body: form })
+  }
+
+  const deleteUserAvatar = (id: string) =>
+    apiFetch<User>(`/api/admin/users/${id}/avatar`, { method: 'DELETE' })
+
   const fetchCoupons = (query: Record<string, string | number> = {}) =>
     apiFetch<import('~/types').CouponListResult>('/api/admin/coupons', { query })
 
@@ -51,6 +65,10 @@ export const useAdmin = () => {
     fetchUsers,
     updateUserRole,
     updateUserStatus,
+    fetchUser,
+    updateUser,
+    uploadUserAvatar,
+    deleteUserAvatar,
     fetchCoupons,
     createCoupon,
     updateCoupon,

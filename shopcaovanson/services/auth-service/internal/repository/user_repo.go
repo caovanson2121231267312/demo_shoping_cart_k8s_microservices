@@ -27,6 +27,8 @@ type UserRepository interface {
 	ClearPasswordResetOTP(ctx context.Context, id uuid.UUID) error
 	UpdatePasswordHash(ctx context.Context, id uuid.UUID, passwordHash string) error
 	UpdateFullName(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error)
+	UpdateUser(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error)
+	UpdateAvatarKey(ctx context.Context, id uuid.UUID, avatarKey *string) (*domain.User, error)
 	UpdateRole(ctx context.Context, id uuid.UUID, role string) (*domain.User, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, isActive bool) (*domain.User, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
@@ -87,10 +89,14 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 }
 
 func (r *userRepository) UpdateFullName(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error) {
+	return r.UpdateUser(ctx, id, fullName)
+}
+
+func (r *userRepository) UpdateUser(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error) {
 	query := `
 		UPDATE users SET full_name = $1, updated_at = NOW()
 		WHERE id = $2
-		RETURNING id, email, password_hash, full_name, role, is_active, created_at, updated_at
+		RETURNING *
 	`
 	var user domain.User
 	err := r.db.GetContext(ctx, &user, query, fullName, id)
@@ -99,6 +105,23 @@ func (r *userRepository) UpdateFullName(ctx context.Context, id uuid.UUID, fullN
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("update user: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *userRepository) UpdateAvatarKey(ctx context.Context, id uuid.UUID, avatarKey *string) (*domain.User, error) {
+	query := `
+		UPDATE users SET avatar_key = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING *
+	`
+	var user domain.User
+	err := r.db.GetContext(ctx, &user, query, avatarKey, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("update avatar: %w", err)
 	}
 	return &user, nil
 }

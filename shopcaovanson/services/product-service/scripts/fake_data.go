@@ -188,6 +188,16 @@ func seedProducts(ctx context.Context, db *sqlx.DB, productRepo repository.Produ
 		return productRepo.ListIDs(ctx, target)
 	}
 
+	batchSize := envInt("SEED_BATCH_SIZE", 10000)
+	useBulk := envBool("SEED_BULK_PRODUCTS", target >= 10000) && skipMongo && !refresh
+	if useBulk {
+		log.Printf("bulk COPY products %d..%d (batch=%d, mongo skipped)...", count+1, target, batchSize)
+		if err := seedProductsBulk(ctx, db, rng, count+1, target, batchSize); err != nil {
+			return nil, err
+		}
+		return productRepo.ListIDs(ctx, target)
+	}
+
 	ids := make([]uuid.UUID, 0, target)
 	now := time.Now().UTC()
 
@@ -252,6 +262,67 @@ func seedProducts(ctx context.Context, db *sqlx.DB, productRepo repository.Produ
 		return ids, nil
 	}
 	return allIDs, nil
+}
+
+func seedProductsBulk(ctx context.Context, db *sqlx.DB, rng *rand.Rand, from, to, batchSize int) error {
+	for start := from; start <= to; start += batchSize {
+		end := start + batchSize - 1
+		if end > to {
+			end = to
+		}
+		if err := bulkInsertProducts(ctx, db, rng, start, end); err != nil {
+			return err
+		}
+		log.Printf("seeded products %d-%d / %d", start, end, to)
+	}
+	return nil
+}
+
+func bulkInsertProducts(ctx context.Context, db *sqlx.DB, rng *rand.Rand, from, to int) error {
+	now := time.Now().UTC()
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, pq.CopyIn(
+		"products", "id", "category_id", "name", "slug", "description", "price", "sale_price",
+		"stock", "images", "is_active", "created_at", "updated_at",
+	))
+	if err != nil {
+		return err
+	}
+
+	for n := from; n <= to; n++ {
+		meta := seedcatalog.ProductMetaAt(n)
+		catID := categoryIDForProduct(n, meta.Category)
+		id := productID(n)
+		price := float64(meta.Price)
+		var salePrice *float64
+		if rng.Intn(100) < 35 {
+			sp := price * (0.72 + float64(rng.Intn(18))/100)
+			salePrice = &sp
+		}
+		slug := meta.Slug
+		if n > len(seedcatalog.Catalog) {
+			slug = fmt.Sprintf("%s-%d", meta.Slug, n)
+		}
+		stock := rng.Intn(400) + 20
+		img := fmt.Sprintf("https://picsum.photos/seed/%s/400/400", slug)
+		created := now.Add(-time.Duration(rng.Intn(365)) * 24 * time.Hour)
+		if _, err := stmt.ExecContext(ctx, id, catID, meta.Name, slug, meta.Description, price, salePrice,
+			stock, pq.Array([]string{img}), true, created, created); err != nil {
+			return err
+		}
+	}
+	if _, err := stmt.ExecContext(ctx); err != nil {
+		return err
+	}
+	if err := stmt.Close(); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func refreshProductCatalog(ctx context.Context, db *sqlx.DB, productRepo repository.ProductRepository, detailRepo repository.ProductDetailRepository, limit int, skipMongo bool) error {
