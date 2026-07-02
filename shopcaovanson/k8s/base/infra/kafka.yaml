@@ -58,16 +58,26 @@ spec:
           value: "true"
         - name: KAFKA_LOG_DIRS
           value: /var/lib/kafka/data
+        # Giới hạn JVM — tránh OOM trên VPS 16GB (cùng ES, mongo, postgres...)
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx384m -Xms256m"
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data
         resources:
           requests:
-            memory: "512Mi"
+            memory: "384Mi"
             cpu: "200m"
           limits:
-            memory: "1Gi"
+            memory: "768Mi"
             cpu: "1000m"
+        startupProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 36
+          timeoutSeconds: 5
         livenessProbe:
           tcpSocket:
             port: 9092
