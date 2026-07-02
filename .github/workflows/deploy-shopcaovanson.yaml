@@ -397,6 +397,8 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
           OVERLAY: ${{ env.K8S_OVERLAY }}
+          CONTINUE_ON_ERROR: "true"
+          ROLLBACK_ON_FAILURE: "true"
         run: |
           chmod +x scripts/ci-deploy.sh
           bash scripts/ci-deploy.sh

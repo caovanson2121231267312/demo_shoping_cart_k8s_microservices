@@ -2187,6 +2187,7 @@ IMAGE_OWNER=caovanson2121231267312 SERVICES="auth-service" SHA="${SHA}" bash scr
         <tr><td>Rollout timeout / <code>CrashLoopBackOff</code></td><td>Image GHCR pull được nhưng app crash (DB, JWT, Kafka…)</td><td>SSH: <code>kubectl logs -n shop -l app=auth-service --tail=50</code>; rollback: <code>kubectl rollout undo deployment/auth-service -n shop</code></td></tr>
         <tr><td><code>ghcr-secret không có</code> (WARN)</td><td>Chưa setup pull secret</td><td>§12.7 <code>setup-ghcr-pull-secret.sh</code> — làm trước khi deploy</td></tr>
         <tr><td>Cannot connect to cluster</td><td>Port 6443 chặn / kubeconfig sai</td><td>UFW hoặc self-hosted runner; kiểm tra <code>KUBECONFIG_DATA</code></td></tr>
+        <tr><td><code>unknown blob</code> khi push GHCR</td><td>Lỗi registry tạm thời hoặc 2 workflow push cùng lúc</td><td>Re-run failed jobs; workflow đã tắt provenance + <code>concurrency</code> chống race</td></tr>
         <tr><td>Build Go service fail</td><td>Thiếu <code>pkg/</code> trong Docker context</td><td>Workflow dùng context gốc <code>shopcaovanson/</code> — đảm bảo pull workflow mới nhất</td></tr>
       </table>
     </div>
