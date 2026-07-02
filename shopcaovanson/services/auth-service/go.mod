@@ -13,6 +13,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/shopcaovanson/seedcatalog v0.0.0
 	golang.org/x/crypto v0.51.0
 )
 
