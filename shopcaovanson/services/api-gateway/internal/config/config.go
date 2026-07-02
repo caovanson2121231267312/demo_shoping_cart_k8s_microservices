@@ -19,6 +19,7 @@ type Config struct {
 	RasaServiceURL         string
 	NotificationServiceURL string
 	AnalyticsServiceURL    string
+	CaroServiceURL         string
 	CORSAllowedOrigins string
 	RateLimitPerMinute int
 }
@@ -47,6 +48,7 @@ func Load() (*Config, error) {
 		RasaServiceURL:         getEnv("RASA_SERVICE_URL", "http://localhost:8090"),
 		NotificationServiceURL: getEnv("NOTIFICATION_SERVICE_URL", "http://localhost:8085"),
 		AnalyticsServiceURL:    getEnv("ANALYTICS_SERVICE_URL", "http://localhost:8086"),
+		CaroServiceURL:         getEnv("CARO_SERVICE_URL", "http://localhost:8087"),
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "https://shopcaovanson.xyz"),
 		RateLimitPerMinute: rateLimit,
 	}, nil

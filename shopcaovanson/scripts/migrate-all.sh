@@ -130,7 +130,7 @@ create_databases() {
   postgres_pod=$(kubectl -n infra get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}')
 
   kubectl -n infra exec "${postgres_pod}" -- bash -c '
-    for db in auth_db product_db order_db; do
+    for db in auth_db product_db order_db caro_db; do
       psql -U shopcaovanson -d shopcaovanson -tc "SELECT 1 FROM pg_database WHERE datname = '\''$db'\''" | grep -q 1 \
         && echo "  OK  database $db exists" \
         || (psql -U shopcaovanson -d shopcaovanson -c "CREATE DATABASE $db" && echo "  +   created $db")
@@ -145,7 +145,7 @@ run_k8s_migrations() {
   create_databases
 
   local services=(auth-service product-service order-service)
-  local dbs=(auth_db product_db order_db)
+  local dbs=(auth_db product_db order_db caro_db)
   local total=${#services[@]}
   local i=0
   for svc in "${services[@]}"; do

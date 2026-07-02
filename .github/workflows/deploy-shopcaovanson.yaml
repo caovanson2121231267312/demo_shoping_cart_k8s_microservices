@@ -46,6 +46,7 @@ jobs:
       product-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.product-service }}
       order-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.order-service }}
       chat-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.chat-service }}
+      caro-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.caro-service }}
       notification-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.notification-service }}
       search-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.search-service }}
       analytics-service: ${{ steps.force.outputs.all == 'true' && 'true' || steps.filter.outputs.analytics-service }}
@@ -87,6 +88,8 @@ jobs:
               - 'shopcaovanson/pkg/**'
             chat-service:
               - 'shopcaovanson/services/chat-service/**'
+            caro-service:
+              - 'shopcaovanson/services/caro-service/**'
             notification-service:
               - 'shopcaovanson/services/notification-service/**'
             search-service:
@@ -105,7 +108,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ steps.force.outputs.all }}" == "true" ]]; then
-            echo "list=api-gateway auth-service product-service order-service chat-service notification-service search-service analytics-service rasa-service frontend" >> "$GITHUB_OUTPUT"
+            echo "list=api-gateway auth-service product-service order-service chat-service caro-service notification-service search-service analytics-service rasa-service frontend" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           list=""
@@ -115,6 +118,7 @@ jobs:
           add "${{ steps.filter.outputs.product-service }}" product-service
           add "${{ steps.filter.outputs.order-service }}" order-service
           add "${{ steps.filter.outputs.chat-service }}" chat-service
+          add "${{ steps.filter.outputs.caro-service }}" caro-service
           add "${{ steps.filter.outputs.notification-service }}" notification-service
           add "${{ steps.filter.outputs.search-service }}" search-service
           add "${{ steps.filter.outputs.analytics-service }}" analytics-service
@@ -235,6 +239,30 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:latest
+
+  build-caro-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.caro-service == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shopcaovanson
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: shopcaovanson/services/caro-service
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/caro-service:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/caro-service:latest
 
   build-notification-service:
     needs: detect-changes
@@ -361,6 +389,7 @@ jobs:
       - build-product-service
       - build-order-service
       - build-chat-service
+      - build-caro-service
       - build-notification-service
       - build-search-service
       - build-analytics-service

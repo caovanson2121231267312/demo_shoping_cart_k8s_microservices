@@ -11,6 +11,8 @@ resources:
   - infra/zookeeper.yaml
   - infra/kafka.yaml
   - infra/elasticsearch.yaml
+  - infra/minio.yaml
+  - infra/coturn.yaml
   - api-gateway/deployment.yaml
   - api-gateway/service.yaml
   - api-gateway/configmap.yaml
@@ -28,6 +30,9 @@ resources:
   - chat-service/deployment.yaml
   - chat-service/service.yaml
   - chat-service/configmap.yaml
+  - caro-service/deployment.yaml
+  - caro-service/service.yaml
+  - caro-service/configmap.yaml
   - notification-service/deployment.yaml
   - notification-service/service.yaml
   - notification-service/configmap.yaml

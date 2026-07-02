@@ -9,7 +9,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-body-size: "20m"
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/websocket-services: "chat-service"
+    nginx.ingress.kubernetes.io/websocket-services: "chat-service,caro-service"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
     nginx.ingress.kubernetes.io/limit-rps: "50"
@@ -67,6 +67,13 @@ spec:
         backend:
           service:
             name: chat-service
+            port:
+              number: 80
+      - path: /ws/caro
+        pathType: Prefix
+        backend:
+          service:
+            name: caro-service
             port:
               number: 80
       - path: /api

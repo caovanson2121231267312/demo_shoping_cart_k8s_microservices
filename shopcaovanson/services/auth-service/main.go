@@ -72,9 +72,10 @@ func main() {
 	if cfg.MinIOEnabled {
 		avatarStore, err = storage.NewAvatarStorage(cfg)
 		if err != nil {
-			log.Fatalf("init minio storage: %v", err)
+			log.Printf("warning: minio avatar storage disabled: %v", err)
+		} else {
+			log.Printf("minio avatar storage enabled (bucket=%s)", cfg.MinIOBucket)
 		}
-		log.Printf("minio avatar storage enabled (bucket=%s)", cfg.MinIOBucket)
 	} else {
 		log.Println("minio avatar storage disabled (set MINIO_ENABLED=true to enable)")
 	}

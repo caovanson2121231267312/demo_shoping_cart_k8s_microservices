@@ -75,6 +75,8 @@ jwt_pub=$(kubectl get secret api-gateway-secret -n shop -o jsonpath='{.data.JWT_
 jwt_priv=$(kubectl get secret auth-service-secret -n shop -o jsonpath='{.data.JWT_PRIVATE_KEY}' 2>/dev/null | base64 -d || true)
 jwt_pub_auth=$(kubectl get secret auth-service-secret -n shop -o jsonpath='{.data.JWT_PUBLIC_KEY}' 2>/dev/null | base64 -d || true)
 db_pass=$(kubectl get secret auth-service-secret -n shop -o jsonpath='{.data.DB_PASSWORD}' 2>/dev/null | base64 -d || true)
+minio_access=$(kubectl get secret auth-service-secret -n shop -o jsonpath='{.data.MINIO_ACCESS_KEY}' 2>/dev/null | base64 -d || true)
+minio_secret=$(kubectl get secret auth-service-secret -n shop -o jsonpath='{.data.MINIO_SECRET_KEY}' 2>/dev/null | base64 -d || true)
 
 [[ -n "${jwt_pub}" ]] || die "Missing JWT_PUBLIC_KEY — chạy: bash scripts/create-secrets.sh --force"
 
@@ -83,11 +85,19 @@ patch_secret api-gateway-secret \
   --from-literal=JWT_PUBLIC_KEY="${jwt_pub}"
 
 if [[ -n "${jwt_priv}" && -n "${db_pass}" ]]; then
-  patch_secret auth-service-secret \
-    --from-literal=DB_PASSWORD="${db_pass}" \
-    --from-literal=REDIS_URL="${REDIS_URL_0}" \
-    --from-literal=JWT_PRIVATE_KEY="${jwt_priv}" \
+  auth_args=(
+    --from-literal=DB_PASSWORD="${db_pass}"
+    --from-literal=REDIS_URL="${REDIS_URL_0}"
+    --from-literal=JWT_PRIVATE_KEY="${jwt_priv}"
     --from-literal=JWT_PUBLIC_KEY="${jwt_pub_auth:-${jwt_pub}}"
+  )
+  if [[ -n "${minio_access}" && -n "${minio_secret}" ]]; then
+    auth_args+=(
+      --from-literal=MINIO_ACCESS_KEY="${minio_access}"
+      --from-literal=MINIO_SECRET_KEY="${minio_secret}"
+    )
+  fi
+  patch_secret auth-service-secret "${auth_args[@]}"
 fi
 
 chat_jwt=$(kubectl get secret chat-service-secret -n shop -o jsonpath='{.data.JWT_PUBLIC_KEY}' 2>/dev/null | base64 -d || true)

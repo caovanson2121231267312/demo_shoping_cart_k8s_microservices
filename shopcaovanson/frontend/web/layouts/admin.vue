@@ -184,6 +184,7 @@ const navItems = computed<NavItem[]>(() => [
   { to: '/admin/categories', title: 'Danh mục', icon: 'mdi-shape-outline', show: admin.canManageProducts.value },
   { to: '/admin/articles', title: 'Bài viết', icon: 'mdi-post-outline', show: authStore.can('manager') },
   { to: '/admin/orders', title: 'Đơn hàng', icon: 'mdi-clipboard-list-outline', show: admin.canManageOrders.value },
+  { to: '/admin/game', title: 'Game Caro', icon: 'mdi-gamepad-variant-outline', show: authStore.isStaff },
   { to: '/admin/coupons', title: 'Mã giảm giá', icon: 'mdi-ticket-percent-outline', show: admin.canManageOrders.value },
   { to: '/admin/users', title: 'Người dùng', icon: 'mdi-account-group-outline', show: admin.canViewUsers.value },
 ])

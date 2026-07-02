@@ -35,6 +35,7 @@ spec:
       - frontend
       - api-gateway
       - chat-service
+      - caro-service
   policyTypes:
   - Ingress
   ingress:

@@ -72,8 +72,8 @@ definePageMeta({ layout: 'admin' })
 
 const route = useRoute()
 const admin = useAdmin()
-const auth = useAuth()
-const { updateOrderStatus } = useOrders()
+const snackbar = useSnackbar()
+const { fetchAdminOrder, updateOrderStatus } = useOrders()
 const { formatVND } = useFormat()
 
 const orderId = route.params.id as string
@@ -109,10 +109,11 @@ const statusColor = (status: string) => {
 const load = async () => {
   loading.value = true
   try {
-    order.value = await auth.apiFetch<Order>(`/api/admin/orders/${orderId}`)
+    order.value = await fetchAdminOrder(orderId)
     newStatus.value = order.value?.status || 'pending'
-  } catch {
+  } catch (e: unknown) {
     order.value = null
+    snackbar.show(e instanceof Error ? e.message : 'Không thể tải chi tiết đơn hàng', 'error')
   } finally {
     loading.value = false
   }
@@ -123,7 +124,7 @@ const saveStatus = async () => {
   saving.value = true
   try {
     order.value = await updateOrderStatus(orderId, newStatus.value)
-    useSnackbar().show('Đã cập nhật trạng thái đơn hàng', 'success')
+    snackbar.show('Đã cập nhật trạng thái đơn hàng', 'success')
   } finally {
     saving.value = false
   }

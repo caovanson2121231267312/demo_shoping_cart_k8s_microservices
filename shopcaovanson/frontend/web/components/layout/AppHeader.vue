@@ -87,6 +87,7 @@
               <v-list-item to="/orders" prepend-icon="mdi-package-variant-closed" title="Đơn hàng" />
               <v-list-item to="/orders/track" prepend-icon="mdi-truck-fast-outline" title="Tra cứu đơn hàng" />
               <v-list-item to="/wishlist" prepend-icon="mdi-heart-outline" title="Sản phẩm yêu thích" />
+              <v-list-item to="/game/caro" prepend-icon="mdi-gamepad-variant-outline" title="Cờ Caro" />
               <v-list-item
                 v-if="isStaff"
                 to="/admin"

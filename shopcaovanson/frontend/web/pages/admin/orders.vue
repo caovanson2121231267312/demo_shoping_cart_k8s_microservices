@@ -74,7 +74,12 @@
       </template>
       <template #item.actions="{ item }">
         <div class="admin-table-actions">
-          <v-btn size="small" variant="tonal" color="primary" :to="`/admin/orders/${item.id}`">
+          <v-btn
+            size="small"
+            variant="tonal"
+            color="primary"
+            @click.stop="goToDetail(item)"
+          >
             Chi tiết
           </v-btn>
           <v-menu v-if="admin.canManageOrders.value">
@@ -178,6 +183,19 @@ const statusColor = (status: string) => {
 }
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN')
+
+function resolveOrderId(item: Order | { raw?: Order }) {
+  return item.id || item.raw?.id
+}
+
+function goToDetail(item: Order | { raw?: Order }) {
+  const id = resolveOrderId(item)
+  if (!id) {
+    snackbar.show('Không xác định được mã đơn hàng', 'error')
+    return
+  }
+  navigateTo(`/admin/orders/${id}`)
+}
 
 const availableStatuses = (current: string) => {
   const flow: Record<string, string[]> = {

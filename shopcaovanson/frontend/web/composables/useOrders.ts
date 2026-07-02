@@ -37,6 +37,8 @@ export const useOrders = () => {
   const searchAdminOrders = (query: Record<string, string | number> = {}) =>
     apiFetch<OrderListResult>('/api/admin/orders/search', { query })
 
+  const fetchAdminOrder = (id: string) => apiFetch<Order>(`/api/admin/orders/${id}`)
+
   const updateOrderStatus = (id: string, status: string) =>
     apiFetch<Order>(`/api/admin/orders/${id}/status`, { method: 'PUT', body: { status } })
 
@@ -100,6 +102,7 @@ export const useOrders = () => {
     trackOrder,
     fetchAdminOrders,
     searchAdminOrders,
+    fetchAdminOrder,
     updateOrderStatus,
     requestOrdersExport,
     getOrdersExportStatus,

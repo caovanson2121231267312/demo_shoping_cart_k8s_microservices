@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: caro-service
+  namespace: shop
+  labels:
+    app: caro-service
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+  ports:
+  - port: 80
+    targetPort: 8087
+    name: http
+  selector:
+    app: caro-service

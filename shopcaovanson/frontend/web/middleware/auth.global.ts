@@ -11,7 +11,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  const protectedPrefixes = ['/profile', '/checkout', '/orders', '/admin']
+  const protectedPrefixes = ['/profile', '/checkout', '/orders', '/admin', '/game']
   const needsAuth = protectedPrefixes.some((p) => to.path.startsWith(p))
 
   if (needsAuth && !auth.isLoggedIn.value) {

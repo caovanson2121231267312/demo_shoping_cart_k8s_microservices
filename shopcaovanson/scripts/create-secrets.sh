@@ -82,8 +82,9 @@ load_or_create_env() {
   ensure_var MONGO_PASSWORD && changed=true
   ensure_var REDIS_PASSWORD && changed=true
   ensure_var ELASTIC_PASSWORD && changed=true
+  ensure_var MINIO_ROOT_PASSWORD && changed=true
 
-  : "${SMTP_HOST:=smtp.gmail.com}"
+  : "${MINIO_ROOT_USER:=shopminio}"
   : "${SMTP_PORT:=587}"
   : "${SMTP_FROM:=noreply@shopcaovanson.xyz}"
   : "${SMTP_USE_TLS:=true}"
@@ -121,6 +122,8 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 MONGO_PASSWORD=${MONGO_PASSWORD}
 REDIS_PASSWORD=${REDIS_PASSWORD}
 ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+MINIO_ROOT_USER=${MINIO_ROOT_USER}
+MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 
 SMTP_HOST=${SMTP_HOST}
 SMTP_PORT=${SMTP_PORT}
@@ -155,6 +158,7 @@ source_env() {
   : "${SMTP_USE_TLS:=true}"
   : "${SMTP_USERNAME:=}"
   : "${SMTP_PASSWORD:=}"
+  : "${MINIO_ROOT_USER:=shopminio}"
 
   local enc_redis enc_mongo enc_elastic
   enc_redis=$(urlencode "${REDIS_PASSWORD}")
@@ -166,6 +170,7 @@ source_env() {
   AUTH_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/auth_db?sslmode=disable"
   ORDER_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/order_db?sslmode=disable"
   PRODUCT_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/product_db?sslmode=disable"
+  CARO_DATABASE_URL="postgres://${POSTGRES_USER}:${enc_pg}@postgres.infra.svc.cluster.local:5432/caro_db?sslmode=disable"
   MONGO_URI_PRODUCT="mongodb://${MONGO_USER}:${enc_mongo}@mongodb.infra.svc.cluster.local:27017/product_db?authSource=admin"
   MONGO_URI_CHAT="mongodb://${MONGO_USER}:${enc_mongo}@mongodb.infra.svc.cluster.local:27017/chat_db?authSource=admin"
   ELASTICSEARCH_URL="http://elastic:${enc_elastic}@elasticsearch.infra.svc.cluster.local:9200"
@@ -212,6 +217,13 @@ apply_infra_secrets() {
 
   apply_secret infra elasticsearch-secret \
     --from-literal=ELASTIC_PASSWORD="${ELASTIC_PASSWORD}"
+
+  apply_secret infra minio-secret \
+    --from-literal=MINIO_ROOT_USER="${MINIO_ROOT_USER}" \
+    --from-literal=MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD}"
+
+  apply_secret infra coturn-secret \
+    --from-literal=TURN_PASSWORD="${TURN_CREDENTIAL:-change-me-caro-turn}"
 }
 
 apply_shop_secrets() {
@@ -224,7 +236,9 @@ apply_shop_secrets() {
     --from-literal=DB_PASSWORD="${POSTGRES_PASSWORD}" \
     --from-literal=REDIS_URL="${REDIS_URL}/0" \
     --from-literal=JWT_PRIVATE_KEY="$(cat "${JWT_DIR}/jwt-private.pem")" \
-    --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")"
+    --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")" \
+    --from-literal=MINIO_ACCESS_KEY="${MINIO_ROOT_USER}" \
+    --from-literal=MINIO_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
 
   apply_secret shop api-gateway-secret \
     --from-literal=REDIS_URL="${REDIS_URL}/0" \
@@ -246,6 +260,11 @@ apply_shop_secrets() {
     --from-literal=MONGODB_URI="${MONGO_URI_CHAT}" \
     --from-literal=REDIS_URL="${REDIS_URL}/2" \
     --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")"
+
+  apply_secret shop caro-service-secret \
+    --from-literal=DATABASE_URL="${CARO_DATABASE_URL}" \
+    --from-literal=JWT_PUBLIC_KEY="$(cat "${JWT_DIR}/jwt-public.pem")" \
+    --from-literal=TURN_CREDENTIAL="${TURN_CREDENTIAL:-change-me-caro-turn}"
 
   apply_secret shop notification-service-secret \
     --from-literal=SMTP_HOST="${SMTP_HOST}" \
@@ -294,11 +313,11 @@ trap cleanup EXIT
 verify_secrets() {
   log "Verifying secrets..."
   local missing=0
-  for s in postgres-secret mongodb-secret redis-secret elasticsearch-secret; do
+  for s in postgres-secret mongodb-secret redis-secret elasticsearch-secret minio-secret coturn-secret; do
     kubectl get secret "$s" -n infra >/dev/null 2>&1 || { log "MISSING infra/$s"; missing=1; }
   done
   for s in auth-service-secret api-gateway-secret product-service-secret order-service-secret \
-           chat-service-secret notification-service-secret search-service-secret analytics-service-secret; do
+           chat-service-secret caro-service-secret notification-service-secret search-service-secret analytics-service-secret; do
     kubectl get secret "$s" -n shop >/dev/null 2>&1 || { log "MISSING shop/$s"; missing=1; }
   done
   [[ "${missing}" -eq 0 ]] || die "Some secrets missing"
@@ -314,7 +333,7 @@ print_summary() {
   echo "  File lưu mật khẩu:  ${ENV_FILE}"
   echo "  (chmod 600 — backup vào password manager!)"
   echo ""
-  echo "  Infra secrets:  postgres, mongodb, redis, elasticsearch"
+  echo "  Infra secrets:  postgres, mongodb, redis, elasticsearch, minio"
   echo "  Shop secrets:   auth, api-gateway, product, order, chat,"
   echo "                  notification, search, analytics"
   echo ""
@@ -353,7 +372,7 @@ main() {
   apply_infra_secrets
   if [[ "${FORCE}" == "true" && "${APPLY_ONLY}" != "true" ]]; then
     log "Restarting infra pods to apply new passwords (redis/postgres/mongo/elastic)..."
-    for sts in redis postgres mongodb elasticsearch; do
+    for sts in redis postgres mongodb elasticsearch minio; do
       kubectl rollout restart statefulset/"${sts}" -n infra 2>/dev/null || true
     done
   fi

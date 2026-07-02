@@ -46,7 +46,7 @@ async function loadAvatar() {
 
   const apiBase = (config.public.apiUrl as string) || ''
   try {
-    const blob = await $fetch<Blob>(`${apiBase}/api/auth/avatars/${props.userId}`, {
+    const blob = await $fetch<Blob>(`${apiBase}/api/admin/users/${props.userId}/avatar`, {
       headers: auth.authHeaders(),
       responseType: 'blob',
     })

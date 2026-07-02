@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: coturn
+  namespace: infra
+  labels:
+    app: coturn
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3478
+    targetPort: 3478
+    protocol: UDP
+    name: turn-udp
+  - port: 3478
+    targetPort: 3478
+    protocol: TCP
+    name: turn-tcp
+  selector:
+    app: coturn
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coturn
+  namespace: infra
+  labels:
+    app: coturn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coturn
+  template:
+    metadata:
+      labels:
+        app: coturn
+    spec:
+      containers:
+      - name: coturn
+        image: coturn/coturn:4.6.2
+        args:
+        - -n
+        - --log-file=stdout
+        - --listening-port=3478
+        - --fingerprint
+        - --lt-cred-mech
+        - --user=$(TURN_USERNAME):$(TURN_PASSWORD)
+        - --realm=vocabee.cloud
+        - --no-cli
+        ports:
+        - containerPort: 3478
+          protocol: UDP
+        - containerPort: 3478
+          protocol: TCP
+        env:
+        - name: TURN_USERNAME
+          value: "caro"
+        - name: TURN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coturn-secret
+              key: TURN_PASSWORD
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "300m"

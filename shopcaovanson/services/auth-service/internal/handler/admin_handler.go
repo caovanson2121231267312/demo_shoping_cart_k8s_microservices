@@ -26,6 +26,7 @@ func (h *AdminHandler) RegisterRoutes(router fiber.Router) {
 	admin.Get("/stats", middleware.RequireMinRole(domain.RoleManager), h.Stats)
 	admin.Get("/roles", h.ListRoles)
 	admin.Get("/users", h.ListUsers)
+	admin.Get("/users/:id/avatar", h.ServeUserAvatar)
 	admin.Get("/users/:id", h.GetUser)
 	admin.Put("/users/:id/role", middleware.RequireMinRole(domain.RoleAdmin), h.UpdateUserRole)
 	admin.Put("/users/:id/status", middleware.RequireMinRole(domain.RoleAdmin), h.UpdateUserStatus)
@@ -129,6 +130,19 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 		return mapAdminError(c, err)
 	}
 	return c.JSON(user)
+}
+
+func (h *AdminHandler) ServeUserAvatar(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user id"})
+	}
+	viewerID, err := middleware.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+	}
+	viewerRole := middleware.GetUserRole(c)
+	return h.avatarSvc.Stream(c, viewerID, viewerRole, id)
 }
 
 func (h *AdminHandler) UploadUserAvatar(c *fiber.Ctx) error {

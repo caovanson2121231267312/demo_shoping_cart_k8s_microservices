@@ -94,6 +94,7 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 	rasaURL := strings.TrimRight(cfg.RasaServiceURL, "/")
 	notificationURL := strings.TrimRight(cfg.NotificationServiceURL, "/")
 	analyticsURL := strings.TrimRight(cfg.AnalyticsServiceURL, "/")
+	caroURL := strings.TrimRight(cfg.CaroServiceURL, "/")
 
 	app.All("/api/auth", middleware.PublicOrAuth(), proxyHandler(authURL))
 	app.All("/api/auth/*", middleware.PublicOrAuth(), proxyHandler(authURL))
@@ -143,6 +144,9 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 	app.All("/api/analytics/track", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
 	app.All("/api/admin/analytics", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
 	app.All("/api/admin/analytics/*", middleware.PublicOrAuth(), proxyHandler(analyticsURL))
+
+	app.All("/api/caro", middleware.PublicOrAuth(), proxyHandler(caroURL))
+	app.All("/api/caro/*", middleware.PublicOrAuth(), proxyHandler(caroURL))
 }
 
 func proxyHandler(baseURL string) fiber.Handler {

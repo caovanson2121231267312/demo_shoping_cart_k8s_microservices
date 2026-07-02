@@ -51,7 +51,7 @@ type UserProfile struct {
 }
 
 func AvatarURLForUser(id uuid.UUID) string {
-	return fmt.Sprintf("/api/auth/avatars/%s", id.String())
+	return fmt.Sprintf("/api/admin/users/%s/avatar", id.String())
 }
 
 func (u *User) ToProfile() UserProfile {

@@ -17,6 +17,7 @@ data:
   CHAT_SERVICE_URL: "http://chat-service.shop.svc.cluster.local"
   NOTIFICATION_SERVICE_URL: "http://notification-service.shop.svc.cluster.local"
   ANALYTICS_SERVICE_URL: "http://analytics-service.shop.svc.cluster.local"
+  CARO_SERVICE_URL: "http://caro-service.shop.svc.cluster.local"
   RASA_SERVICE_URL: "http://rasa-service.shop.svc.cluster.local"
   REDIS_HOST: "redis.infra.svc.cluster.local"
   REDIS_PORT: "6379"

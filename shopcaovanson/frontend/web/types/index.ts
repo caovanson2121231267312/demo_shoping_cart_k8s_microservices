@@ -375,3 +375,44 @@ export const ARTICLE_CATEGORIES: Record<string, string> = {
   'cong-nghe': 'Công nghệ',
   'meo-vat': 'Mẹo vặt',
 }
+
+export type CaroRoomStatus = 'waiting' | 'rps' | 'playing' | 'finished'
+export type CaroSymbol = 'X' | 'O' | null
+
+export interface CaroRoom {
+  id: string
+  code: string
+  board_size: number
+  status: CaroRoomStatus
+  visibility: 'public' | 'private'
+  host_name?: string
+  player_x_name?: string | null
+  player_o_name?: string | null
+  player_x_id?: string | null
+  player_o_id?: string | null
+  current_turn?: CaroSymbol
+  winner_id?: string | null
+  you_are?: 'X' | 'O' | null
+  is_host?: boolean
+}
+
+export interface CaroChatMessage {
+  id?: string
+  user_id: string
+  user_name: string
+  content: string
+  created_at?: string
+}
+
+export interface CaroPublicRoom {
+  id: string
+  code: string
+  board_size: number
+  status: CaroRoomStatus
+  host_name: string
+  player_x_name?: string | null
+  player_o_name?: string | null
+  created_at: string
+  updated_at?: string
+  visibility?: 'public' | 'private'
+}
