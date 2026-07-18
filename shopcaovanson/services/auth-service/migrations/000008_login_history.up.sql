@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_login_history_created_at ON login_history (create
 CREATE INDEX IF NOT EXISTS idx_login_history_email_created ON login_history (email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_login_history_user_created ON login_history (user_id, created_at DESC) WHERE user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_login_history_success_created ON login_history (success, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_login_history_day ON login_history ((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date);
+CREATE INDEX IF NOT EXISTS idx_login_history_day ON login_history ((CAST((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS date)));
 
 -- Báo cáo Excel tổng hợp theo ngày (file trên MinIO)
 CREATE TABLE IF NOT EXISTS login_reports (
