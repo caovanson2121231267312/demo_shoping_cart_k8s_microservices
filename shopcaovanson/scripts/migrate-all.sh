@@ -9,6 +9,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 NAMESPACE="${NAMESPACE:-shop}"
+REGISTRY="${REGISTRY:-ghcr.io}"
+IMAGE_OWNER="${IMAGE_OWNER:-caovanson}"
 MIGRATION_IMAGE_TAG="${MIGRATION_IMAGE_TAG:-latest}"
 JOB_TIMEOUT="${JOB_TIMEOUT:-300}"
 
@@ -67,8 +69,10 @@ run_migration_job() {
   local step="$3"
   local total="$4"
   local job_name="migrate-${service}-$(date +%s)"
+  local image="${REGISTRY}/${IMAGE_OWNER}/${service}:${MIGRATION_IMAGE_TAG}"
 
   log "[${step}/${total}] Migration ${service} → database ${db_name}"
+  log "[${step}/${total}] image=${image}"
   log "[${step}/${total}] Creating job/${job_name}..."
 
   kubectl -n "${NAMESPACE}" delete job -l "app.kubernetes.io/migrate=${service}" --ignore-not-found=true 2>/dev/null || true
@@ -90,10 +94,12 @@ spec:
         app.kubernetes.io/migrate: ${service}
     spec:
       restartPolicy: Never
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: migrate
-        image: ghcr.io/caovanson/${service}:${MIGRATION_IMAGE_TAG}
-        imagePullPolicy: IfNotPresent
+        image: ${image}
+        imagePullPolicy: Always
         workingDir: /app
         command: ["/bin/sh", "-c"]
         args:
@@ -101,6 +107,7 @@ spec:
             set -e
             export MIGRATIONS_PATH=file:///app/migrations
             echo "[migrate] starting ${service} on ${db_name}..."
+            ls -la /app/migrations || true
             /app/migrate up
             echo "[migrate] done ${service}"
         envFrom:
@@ -120,7 +127,7 @@ EOF
   JOB_LOG_PREFIX="[migrate-all]" wait_for_k8s_job "${job_name}" "${NAMESPACE}" "${JOB_TIMEOUT}" || die "Migration failed: ${service}"
 
   log "[${step}/${total}] --- logs ${job_name} ---"
-  kubectl -n "${NAMESPACE}" logs "job/${job_name}" 2>/dev/null | tail -20 || true
+  kubectl -n "${NAMESPACE}" logs "job/${job_name}" 2>/dev/null | tail -40 || true
   log "[${step}/${total}] ✓ ${service}"
 }
 
