@@ -8,6 +8,7 @@ on:
     paths:
       - 'shopcaovanson/**'
       - '.github/workflows/deploy-shopcaovanson.yaml'
+      - '.github/actions/**'
   workflow_dispatch:
     inputs:
       deploy_all:
@@ -130,9 +131,6 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.api-gateway == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -140,15 +138,10 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/api-gateway
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/api-gateway:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/api-gateway:latest
+          image: api-gateway
 
   build-auth-service:
     needs: detect-changes
@@ -161,16 +154,11 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson
           file: shopcaovanson/services/auth-service/Dockerfile
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/auth-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/auth-service:latest
+          image: auth-service
 
   build-product-service:
     needs: detect-changes
@@ -183,16 +171,11 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson
           file: shopcaovanson/services/product-service/Dockerfile
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/product-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/product-service:latest
+          image: product-service
 
   build-order-service:
     needs: detect-changes
@@ -205,24 +188,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson
           file: shopcaovanson/services/order-service/Dockerfile
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/order-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/order-service:latest
+          image: order-service
 
   build-chat-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.chat-service == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -230,23 +205,15 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/chat-service
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/chat-service:latest
+          image: chat-service
 
   build-caro-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.caro-service == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -254,23 +221,15 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/caro-service
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/caro-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/caro-service:latest
+          image: caro-service
 
   build-notification-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.notification-service == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -278,23 +237,15 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/notification-service
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/notification-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/notification-service:latest
+          image: notification-service
 
   build-search-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.search-service == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -302,23 +253,15 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/search-service
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/search-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/search-service:latest
+          image: search-service
 
   build-analytics-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.analytics-service == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -326,23 +269,15 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/analytics-service
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/analytics-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/analytics-service:latest
+          image: analytics-service
 
   build-rasa-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.rasa-service == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shopcaovanson
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3
@@ -350,15 +285,10 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/services/rasa-service
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/rasa-service:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/rasa-service:latest
+          image: rasa-service
 
   build-frontend:
     needs: detect-changes
@@ -371,15 +301,10 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+      - uses: ./.github/actions/build-push-ghcr
         with:
           context: shopcaovanson/frontend/web
-          push: true
-          provenance: false
-          sbom: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/frontend-web:latest
+          image: frontend-web
 
   deploy-k8s:
     needs:
