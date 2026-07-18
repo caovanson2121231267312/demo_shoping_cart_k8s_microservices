@@ -139,10 +139,43 @@ create_databases() {
   log "✓ Databases ready"
 }
 
+# Clear golang-migrate dirty flag so a failed migration can be retried.
+clear_dirty_migrations() {
+  local postgres_pod
+  postgres_pod=$(kubectl -n infra get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+  [[ -n "${postgres_pod}" ]] || return 0
+
+  for db in auth_db product_db order_db; do
+    local status
+    status=$(kubectl -n infra exec "${postgres_pod}" -- \
+      psql -U shopcaovanson -d "${db}" -tAc \
+      "SELECT version::text || ':' || dirty::text FROM schema_migrations LIMIT 1;" \
+      2>/dev/null | tr -d '[:space:]' || true)
+    if [[ "${status}" == *":t" ]] || [[ "${status}" == *":true" ]]; then
+      local ver="${status%%:*}"
+      local prev=0
+      if [[ -n "${ver}" && "${ver}" =~ ^[0-9]+$ && "${ver}" -gt 0 ]]; then
+        prev=$((ver - 1))
+      fi
+      log "WARN: ${db} dirty at version=${ver} — resetting to ${prev}"
+      if [[ "${db}" == "auth_db" && "${ver}" == "8" ]]; then
+        kubectl -n infra exec "${postgres_pod}" -- \
+          psql -U shopcaovanson -d auth_db -v ON_ERROR_STOP=1 -c \
+          "DROP TABLE IF EXISTS login_reports; DROP TABLE IF EXISTS login_history;" >/dev/null
+      fi
+      kubectl -n infra exec "${postgres_pod}" -- \
+        psql -U shopcaovanson -d "${db}" -v ON_ERROR_STOP=1 -c \
+        "UPDATE schema_migrations SET version = ${prev}, dirty = false;" >/dev/null
+      log "✓ ${db} dirty cleared (version=${prev})"
+    fi
+  done
+}
+
 run_k8s_migrations() {
   check_kubectl
   wait_for_postgres
   create_databases
+  clear_dirty_migrations
 
   local services=(auth-service product-service order-service)
   local dbs=(auth_db product_db order_db caro_db)

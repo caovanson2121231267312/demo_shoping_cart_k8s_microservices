@@ -66,7 +66,25 @@ spec:
         image: ${image}
         imagePullPolicy: Always
         workingDir: /app
-        command: ["/app/migrate", "up"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -e
+            export MIGRATIONS_PATH=file:///app/migrations
+            echo "[ci-migrate] starting ${service}..."
+            # If previous run left dirty=true, force back one version then up again.
+            out=$(/app/migrate version 2>&1 || true)
+            echo "${out}"
+            if echo "${out}" | grep -q 'dirty=true'; then
+              ver=$(echo "${out}" | sed -n 's/.*version=\([0-9][0-9]*\).*/\1/p' | head -1)
+              if [ -n "${ver}" ] && [ "${ver}" -gt 0 ]; then
+                prev=$((ver - 1))
+                echo "[ci-migrate] clearing dirty version=${ver} → force ${prev}"
+                /app/migrate force "${prev}" || true
+              fi
+            fi
+            /app/migrate up
+            echo "[ci-migrate] done ${service}"
         env:
         - name: MIGRATIONS_PATH
           value: file:///app/migrations

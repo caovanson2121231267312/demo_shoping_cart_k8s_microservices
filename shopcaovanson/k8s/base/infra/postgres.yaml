@@ -107,4 +107,6 @@ spec:
       accessModes: ["ReadWriteOnce"]
       resources:
         requests:
-          storage: 50Gi
+          # Do not change this on an existing cluster — StatefulSet forbids PVC template updates.
+          # Expand PVC manually if needed: kubectl -n infra edit pvc postgres-data-postgres-0
+          storage: 20Gi
