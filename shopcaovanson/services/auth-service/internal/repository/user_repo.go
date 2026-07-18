@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +40,10 @@ type UserRepository interface {
 
 type userRepository struct {
 	db *sqlx.DB
+
+	statsMu      sync.Mutex
+	statsCache   *domain.AdminStats
+	statsCacheAt time.Time
 }
 
 func NewUserRepository(db *sqlx.DB) UserRepository {

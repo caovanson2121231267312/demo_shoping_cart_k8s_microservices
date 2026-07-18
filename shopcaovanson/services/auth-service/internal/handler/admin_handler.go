@@ -15,10 +15,11 @@ import (
 type AdminHandler struct {
 	adminSvc  *service.AdminService
 	avatarSvc *service.AvatarService
+	loginSvc  *service.LoginHistoryService
 }
 
-func NewAdminHandler(adminSvc *service.AdminService, avatarSvc *service.AvatarService) *AdminHandler {
-	return &AdminHandler{adminSvc: adminSvc, avatarSvc: avatarSvc}
+func NewAdminHandler(adminSvc *service.AdminService, avatarSvc *service.AvatarService, loginSvc *service.LoginHistoryService) *AdminHandler {
+	return &AdminHandler{adminSvc: adminSvc, avatarSvc: avatarSvc, loginSvc: loginSvc}
 }
 
 func (h *AdminHandler) RegisterRoutes(router fiber.Router) {
@@ -33,6 +34,11 @@ func (h *AdminHandler) RegisterRoutes(router fiber.Router) {
 	admin.Put("/users/:id", middleware.RequireMinRole(domain.RoleAdmin), h.UpdateUser)
 	admin.Post("/users/:id/avatar", middleware.RequireMinRole(domain.RoleAdmin), h.UploadUserAvatar)
 	admin.Delete("/users/:id/avatar", middleware.RequireMinRole(domain.RoleAdmin), h.DeleteUserAvatar)
+
+	admin.Get("/login-history", middleware.RequireMinRole(domain.RoleManager), h.ListLoginHistory)
+	admin.Get("/login-reports", middleware.RequireMinRole(domain.RoleManager), h.ListLoginReports)
+	admin.Get("/login-reports/:id/download", middleware.RequireMinRole(domain.RoleManager), h.DownloadLoginReport)
+	admin.Post("/login-reports/generate", middleware.RequireMinRole(domain.RoleAdmin), h.GenerateLoginReport)
 }
 
 func (h *AdminHandler) Stats(c *fiber.Ctx) error {
@@ -54,6 +60,7 @@ func (h *AdminHandler) ListUsers(c *fiber.Ctx) error {
 	filter := domain.UserListFilter{
 		Page:        page,
 		Limit:       limit,
+		Cursor:      c.Query("cursor"),
 		Search:      c.Query("search"),
 		Role:        c.Query("role"),
 		CreatedFrom: from,

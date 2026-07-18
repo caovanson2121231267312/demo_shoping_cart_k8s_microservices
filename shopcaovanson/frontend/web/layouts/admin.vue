@@ -187,6 +187,7 @@ const navItems = computed<NavItem[]>(() => [
   { to: '/admin/game', title: 'Game Caro', icon: 'mdi-gamepad-variant-outline', show: authStore.isStaff },
   { to: '/admin/coupons', title: 'Mã giảm giá', icon: 'mdi-ticket-percent-outline', show: admin.canManageOrders.value },
   { to: '/admin/users', title: 'Người dùng', icon: 'mdi-account-group-outline', show: admin.canViewUsers.value },
+  { to: '/admin/login-history', title: 'Lịch sử login', icon: 'mdi-login-variant', show: admin.canViewLoginHistory.value },
 ])
 
 const visibleNav = computed(() => navItems.value.filter((i) => i.show))

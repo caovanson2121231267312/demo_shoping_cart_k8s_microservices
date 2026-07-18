@@ -3,8 +3,10 @@ package handler
 import (
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/shopcaovanson/auth-service/internal/domain"
 	"github.com/shopcaovanson/auth-service/internal/middleware"
 	"github.com/shopcaovanson/auth-service/internal/repository"
 	"github.com/shopcaovanson/auth-service/internal/service"
@@ -109,12 +111,32 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	tokens, err := h.svc.Login(c.Context(), req.Email, req.Password)
+	meta := domain.LoginMeta{
+		IPAddress: clientIP(c),
+		UserAgent: c.Get("User-Agent"),
+	}
+	tokens, err := h.svc.Login(c.Context(), req.Email, req.Password, meta)
 	if err != nil {
 		return mapAuthError(c, err)
 	}
 
 	return c.JSON(tokens)
+}
+
+func clientIP(c *fiber.Ctx) string {
+	if xff := c.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			ip := strings.TrimSpace(parts[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+	if xri := strings.TrimSpace(c.Get("X-Real-IP")); xri != "" {
+		return xri
+	}
+	return c.IP()
 }
 
 func (h *AuthHandler) Refresh(c *fiber.Ctx) error {

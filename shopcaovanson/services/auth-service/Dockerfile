@@ -13,6 +13,7 @@ COPY services/auth-service/ .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /auth-service .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /login-report ./cmd/login-report
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /seed ./scripts/fake_data.go
 
 # Runtime stage
@@ -24,8 +25,11 @@ WORKDIR /app
 
 COPY --from=builder /auth-service /app/auth-service
 COPY --from=builder /migrate /app/migrate
+COPY --from=builder /login-report /app/login-report
 COPY --from=builder /seed /app/seed
 COPY services/auth-service/migrations /app/migrations
+
+ENV TZ=Asia/Ho_Chi_Minh
 
 EXPOSE 8081
 

@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/shopcaovanson/auth-service/internal/domain"
+	"github.com/shopcaovanson/auth-service/internal/pagination"
 )
 
 func (r *userRepository) UpdateRole(ctx context.Context, id uuid.UUID, role string) (*domain.User, error) {
@@ -85,24 +87,62 @@ func (r *userRepository) List(ctx context.Context, filter domain.UserListFilter)
 	}
 
 	whereSQL := strings.Join(where, " AND ")
-	countQuery := "SELECT COUNT(*) FROM users WHERE " + whereSQL
 	var total int
-	if err := r.db.GetContext(ctx, &total, countQuery, args...); err != nil {
+	var err error
+	if isBroadCount(where, args) {
+		total, err = approximateTableCount(ctx, r.db, "users")
+	} else {
+		err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM users WHERE "+whereSQL, args...)
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	offset := (filter.Page - 1) * filter.Limit
-	listArgs := append(args, filter.Limit, offset)
+	useCursor := filter.Cursor != ""
+	if useCursor {
+		cur, err := pagination.Decode(filter.Cursor)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cursor: %w", err)
+		}
+		where = append(where, fmt.Sprintf("(created_at, id) < ($%d, $%d)", idx, idx+1))
+		args = append(args, cur.CreatedAt, cur.ID)
+		idx += 2
+	}
+
+	whereSQL = strings.Join(where, " AND ")
+	useKeyset := useCursor || filter.Page <= 1
+	fetchLimit := filter.Limit
+	if useKeyset {
+		fetchLimit = filter.Limit + 1
+	}
+	listArgs := append(args, fetchLimit)
 	listQuery := fmt.Sprintf(`
 		SELECT id, email, full_name, role, is_active, email_verified, avatar_key, created_at, updated_at
 		FROM users WHERE %s
-		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereSQL, idx, idx+1)
+		ORDER BY created_at DESC, id DESC
+		LIMIT $%d
+	`, whereSQL, idx)
+
+	if !useKeyset {
+		offset := (filter.Page - 1) * filter.Limit
+		listArgs = append(listArgs, offset)
+		listQuery = fmt.Sprintf(`
+			SELECT id, email, full_name, role, is_active, email_verified, avatar_key, created_at, updated_at
+			FROM users WHERE %s
+			ORDER BY created_at DESC, id DESC
+			LIMIT $%d OFFSET $%d
+		`, whereSQL, idx, idx+1)
+	}
 
 	var users []domain.User
 	if err := r.db.SelectContext(ctx, &users, listQuery, listArgs...); err != nil {
 		return nil, err
+	}
+
+	hasMore := false
+	if useKeyset && len(users) > filter.Limit {
+		hasMore = true
+		users = users[:filter.Limit]
 	}
 
 	items := make([]domain.UserProfile, len(users))
@@ -110,20 +150,40 @@ func (r *userRepository) List(ctx context.Context, filter domain.UserListFilter)
 		items[i] = u.ToProfile()
 	}
 
-	return &domain.UserListResult{
+	result := &domain.UserListResult{
 		Items:      items,
 		Total:      total,
 		Page:       filter.Page,
 		Limit:      filter.Limit,
 		TotalPages: totalPages(total, filter.Limit),
-	}, nil
+		HasMore:    hasMore,
+	}
+	if hasMore && len(users) > 0 {
+		last := users[len(users)-1]
+		result.NextCursor = pagination.Encode(last.CreatedAt, last.ID)
+	}
+	return result, nil
 }
 
 func (r *userRepository) Stats(ctx context.Context) (*domain.AdminStats, error) {
-	stats := &domain.AdminStats{UsersByRole: map[string]int{}}
+	const statsCacheTTL = 60 * time.Second
 
-	if err := r.db.GetContext(ctx, &stats.TotalUsers, `SELECT COUNT(*) FROM users`); err != nil {
-		return nil, err
+	r.statsMu.Lock()
+	if r.statsCache != nil && time.Since(r.statsCacheAt) < statsCacheTTL {
+		cached := cloneAdminStats(r.statsCache)
+		r.statsMu.Unlock()
+		return cached, nil
+	}
+	r.statsMu.Unlock()
+
+	stats := &domain.AdminStats{UsersByRole: map[string]int{}}
+	total, err := approximateTableCount(ctx, r.db, "users")
+	if err != nil {
+		if err := r.db.GetContext(ctx, &stats.TotalUsers, `SELECT COUNT(*) FROM users`); err != nil {
+			return nil, err
+		}
+	} else {
+		stats.TotalUsers = total
 	}
 	if err := r.db.GetContext(ctx, &stats.ActiveUsers, `SELECT COUNT(*) FROM users WHERE is_active = TRUE`); err != nil {
 		return nil, err
@@ -141,7 +201,24 @@ func (r *userRepository) Stats(ctx context.Context) (*domain.AdminStats, error) 
 	for _, row := range rows {
 		stats.UsersByRole[row.Role] = row.Count
 	}
+
+	r.statsMu.Lock()
+	r.statsCache = cloneAdminStats(stats)
+	r.statsCacheAt = time.Now()
+	r.statsMu.Unlock()
 	return stats, nil
+}
+
+func cloneAdminStats(s *domain.AdminStats) *domain.AdminStats {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	c.UsersByRole = make(map[string]int, len(s.UsersByRole))
+	for k, v := range s.UsersByRole {
+		c.UsersByRole[k] = v
+	}
+	return &c
 }
 
 func totalPages(total, limit int) int {
@@ -153,4 +230,18 @@ func totalPages(total, limit int) int {
 		pages++
 	}
 	return pages
+}
+
+func isBroadCount(where []string, args []interface{}) bool {
+	return len(where) == 1 && where[0] == "1=1" && len(args) == 0
+}
+
+func approximateTableCount(ctx context.Context, db *sqlx.DB, table string) (int, error) {
+	var total int
+	err := db.GetContext(ctx, &total, `
+		SELECT COALESCE(GREATEST(reltuples::bigint, 0), 0)::int
+		FROM pg_class
+		WHERE relname = $1
+	`, table)
+	return total, err
 }

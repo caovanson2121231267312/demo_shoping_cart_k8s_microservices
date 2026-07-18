@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/caovanson/shopcaovanson/order-service/internal/domain"
+	"github.com/caovanson/shopcaovanson/order-service/internal/pagination"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
 func (r *orderRepo) NextOrderNumber(ctx context.Context) (string, error) {
@@ -101,38 +103,95 @@ func (r *orderRepo) Search(ctx context.Context, filter domain.OrderSearchFilter)
 
 	whereSQL := strings.Join(where, " AND ")
 	var total int
-	if err := r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM orders WHERE "+whereSQL, args...); err != nil {
+	var err error
+	if isBroadCount(where, args) {
+		total, err = approximateTableCount(ctx, r.db, "orders")
+	} else {
+		err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM orders WHERE "+whereSQL, args...)
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	offset := (filter.Page - 1) * filter.Limit
-	listArgs := append(args, filter.Limit, offset)
+	useCursor := filter.Cursor != ""
+	if useCursor {
+		cur, err := pagination.Decode(filter.Cursor)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cursor: %w", err)
+		}
+		where = append(where, fmt.Sprintf("(created_at, id) < ($%d, $%d)", idx, idx+1))
+		args = append(args, cur.CreatedAt, cur.ID)
+		idx += 2
+	}
+
+	whereSQL = strings.Join(where, " AND ")
+	useKeyset := useCursor || filter.Page <= 1
+	fetchLimit := filter.Limit
+	if useKeyset {
+		fetchLimit = filter.Limit + 1
+	}
+	listArgs := append(args, fetchLimit)
 	query := fmt.Sprintf(`
 		SELECT `+orderSelectCols+` FROM orders WHERE %s
-		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereSQL, idx, idx+1)
+		ORDER BY created_at DESC, id DESC
+		LIMIT $%d
+	`, whereSQL, idx)
+
+	if !useKeyset {
+		offset := (filter.Page - 1) * filter.Limit
+		listArgs = append(listArgs, offset)
+		query = fmt.Sprintf(`
+			SELECT `+orderSelectCols+` FROM orders WHERE %s
+			ORDER BY created_at DESC, id DESC
+			LIMIT $%d OFFSET $%d
+		`, whereSQL, idx, idx+1)
+	}
 
 	var orders []domain.Order
 	if err := r.db.SelectContext(ctx, &orders, query, listArgs...); err != nil {
 		return nil, err
 	}
-	if err := r.attachItems(ctx, orders); err != nil {
-		return nil, err
+
+	hasMore := false
+	if useKeyset && len(orders) > filter.Limit {
+		hasMore = true
+		orders = orders[:filter.Limit]
 	}
-	return &domain.OrderListResult{
+
+	result := &domain.OrderListResult{
 		Items:      orders,
 		Total:      total,
 		Page:       filter.Page,
 		Limit:      filter.Limit,
 		TotalPages: totalPages(total, filter.Limit),
-	}, nil
+		HasMore:    hasMore,
+	}
+	if hasMore && len(orders) > 0 {
+		last := orders[len(orders)-1]
+		result.NextCursor = pagination.Encode(last.CreatedAt, last.ID)
+	}
+	return result, nil
 }
 
 func (r *orderRepo) Stats(ctx context.Context) (*domain.OrderStats, error) {
+	const statsCacheTTL = 60 * time.Second
+
+	r.statsMu.Lock()
+	if r.statsCache != nil && time.Since(r.statsCacheAt) < statsCacheTTL {
+		cached := cloneOrderStats(r.statsCache)
+		r.statsMu.Unlock()
+		return cached, nil
+	}
+	r.statsMu.Unlock()
+
 	stats := &domain.OrderStats{ByStatus: map[string]int{}}
-	if err := r.db.GetContext(ctx, &stats.TotalOrders, `SELECT COUNT(*) FROM orders`); err != nil {
-		return nil, err
+	total, err := approximateTableCount(ctx, r.db, "orders")
+	if err != nil {
+		if err := r.db.GetContext(ctx, &stats.TotalOrders, `SELECT COUNT(*) FROM orders`); err != nil {
+			return nil, err
+		}
+	} else {
+		stats.TotalOrders = total
 	}
 	if err := r.db.GetContext(ctx, &stats.Revenue, `
 		SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status != 'cancelled'
@@ -147,10 +206,27 @@ func (r *orderRepo) Stats(ctx context.Context) (*domain.OrderStats, error) {
 	if err := r.db.SelectContext(ctx, &rows, `SELECT status, COUNT(*) AS count FROM orders GROUP BY status`); err != nil {
 		return nil, err
 	}
-	for _, r := range rows {
-		stats.ByStatus[r.Status] = r.Count
+	for _, row := range rows {
+		stats.ByStatus[row.Status] = row.Count
 	}
+
+	r.statsMu.Lock()
+	r.statsCache = cloneOrderStats(stats)
+	r.statsCacheAt = time.Now()
+	r.statsMu.Unlock()
 	return stats, nil
+}
+
+func cloneOrderStats(s *domain.OrderStats) *domain.OrderStats {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	c.ByStatus = make(map[string]int, len(s.ByStatus))
+	for k, v := range s.ByStatus {
+		c.ByStatus[k] = v
+	}
+	return &c
 }
 
 func (r *orderRepo) loadItems(ctx context.Context, order *domain.Order) (*domain.Order, error) {
@@ -163,4 +239,18 @@ func (r *orderRepo) loadItems(ctx context.Context, order *domain.Order) (*domain
 
 func normalizePhone(phone string) string {
 	return strings.NewReplacer(" ", "", "-", "", ".", "").Replace(strings.TrimSpace(phone))
+}
+
+func isBroadCount(where []string, args []interface{}) bool {
+	return len(where) == 1 && where[0] == "1=1" && len(args) == 0
+}
+
+func approximateTableCount(ctx context.Context, db *sqlx.DB, table string) (int, error) {
+	var total int
+	err := db.GetContext(ctx, &total, `
+		SELECT COALESCE(GREATEST(reltuples::bigint, 0), 0)::int
+		FROM pg_class
+		WHERE relname = $1
+	`, table)
+	return total, err
 }

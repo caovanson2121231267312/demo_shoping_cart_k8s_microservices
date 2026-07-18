@@ -207,6 +207,7 @@ func parseProductFilter(c *fiber.Ctx) domain.ProductListFilter {
 	filter := domain.ProductListFilter{
 		Page:            page,
 		Limit:           limit,
+		Cursor:          c.Query("cursor"),
 		Category:        c.Query("category"),
 		Search:          c.Query("search"),
 		Sort:            c.Query("sort"),

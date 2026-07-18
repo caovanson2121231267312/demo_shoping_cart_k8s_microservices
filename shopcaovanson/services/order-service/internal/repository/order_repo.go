@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/caovanson/shopcaovanson/order-service/internal/domain"
@@ -29,6 +30,10 @@ type OrderRepository interface {
 
 type orderRepo struct {
 	db *sqlx.DB
+
+	statsMu      sync.Mutex
+	statsCache   *domain.OrderStats
+	statsCacheAt time.Time
 }
 
 func NewOrderRepository(db *sqlx.DB) OrderRepository {

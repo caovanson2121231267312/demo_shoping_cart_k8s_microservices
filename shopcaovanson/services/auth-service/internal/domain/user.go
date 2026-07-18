@@ -89,6 +89,7 @@ type ResetPasswordResponse struct {
 type UserListFilter struct {
 	Page        int
 	Limit       int
+	Cursor      string
 	Search      string
 	Role        string
 	CreatedFrom *time.Time
@@ -101,6 +102,8 @@ type UserListResult struct {
 	Page       int           `json:"page"`
 	Limit      int           `json:"limit"`
 	TotalPages int           `json:"total_pages"`
+	NextCursor string        `json:"next_cursor,omitempty"`
+	HasMore    bool          `json:"has_more"`
 }
 
 type AdminStats struct {

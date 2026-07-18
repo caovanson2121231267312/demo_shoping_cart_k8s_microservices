@@ -49,7 +49,21 @@
       </template>
 
       <template v-if="!$slots.bottom" #bottom>
+        <AdminCursorPagination
+          v-if="cursorMode"
+          v-model:items-per-page="itemsPerPageModel"
+          :range-text="cursorRangeText"
+          :items-per-page-options="itemsPerPageOptions"
+          :has-prev="hasPrev"
+          :has-more="hasMore"
+          :page-number="cursorPageNumber"
+          :loading="loading"
+          @prev="emit('cursor-prev')"
+          @next="emit('cursor-next')"
+          @change="onCursorPerPageChange"
+        />
         <AdminTablePagination
+          v-else
           v-model:page="pageModel"
           v-model:items-per-page="itemsPerPageModel"
           :total-pages="totalPages"
@@ -123,6 +137,11 @@ const props = withDefaults(defineProps<{
   count?: number
   totalItems?: number
   server?: boolean
+  cursorMode?: boolean
+  hasMore?: boolean
+  hasPrev?: boolean
+  cursorPageNumber?: number
+  rangeOffset?: number
   striped?: boolean
   hover?: boolean
   loading?: boolean
@@ -131,6 +150,11 @@ const props = withDefaults(defineProps<{
   paginationVisible?: number
 }>(), {
   server: false,
+  cursorMode: false,
+  hasMore: false,
+  hasPrev: false,
+  cursorPageNumber: 1,
+  rangeOffset: 0,
   striped: false,
   hover: true,
   loading: false,
@@ -140,6 +164,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:options': []
+  'cursor-next': []
+  'cursor-prev': []
 }>()
 
 const pageModel = defineModel<number>('page', { default: 1 })
@@ -196,6 +222,18 @@ const rangeText = computed(() => {
   return `${start}–${end} / ${total} bản ghi`
 })
 
+const cursorRangeText = computed(() => {
+  const total = recordTotal.value
+  const count = clientItemsCount.value
+  if (count === 0) return '0 bản ghi'
+  const start = props.rangeOffset + 1
+  const end = props.rangeOffset + count
+  if (total > 0) {
+    return `${start}–${end} / ~${total.toLocaleString('vi-VN')} bản ghi`
+  }
+  return `${start}–${end} bản ghi`
+})
+
 const bootstrapped = ref(false)
 const lastRequest = ref({ page: 0, itemsPerPage: 0 })
 
@@ -208,7 +246,25 @@ function requestLoad() {
   emit('update:options')
 }
 
+function onCursorPerPageChange() {
+  bootstrapped.value = true
+  emit('update:options')
+}
+
 function onServerOptions(options: { page: number; itemsPerPage: number }) {
+  if (props.cursorMode) {
+    const nextPerPage = options.itemsPerPage || 20
+    if (bootstrapped.value && lastRequest.value.itemsPerPage === nextPerPage) {
+      return
+    }
+    bootstrapped.value = true
+    lastRequest.value = { page: 1, itemsPerPage: nextPerPage }
+    if (itemsPerPageModel.value !== nextPerPage) itemsPerPageModel.value = nextPerPage
+    pageModel.value = 1
+    emit('update:options')
+    return
+  }
+
   const nextPage = options.page || 1
   const nextPerPage = options.itemsPerPage || 20
   const sameAsLast = lastRequest.value.page === nextPage

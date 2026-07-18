@@ -33,6 +33,7 @@ type ProductDetail struct {
 type ProductListFilter struct {
 	Page            int
 	Limit           int
+	Cursor          string
 	Category        string
 	Search          string
 	MinPrice        *float64
@@ -49,6 +50,8 @@ type ProductListResult struct {
 	Page       int       `json:"page"`
 	Limit      int       `json:"limit"`
 	TotalPages int       `json:"total_pages"`
+	NextCursor string    `json:"next_cursor,omitempty"`
+	HasMore    bool      `json:"has_more"`
 }
 
 type CreateProductInput struct {

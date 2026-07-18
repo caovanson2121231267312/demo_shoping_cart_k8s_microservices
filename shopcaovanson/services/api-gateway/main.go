@@ -103,6 +103,10 @@ func registerProxyRoutes(app *fiber.App, cfg *config.Config) {
 	app.All("/api/admin/users/*", middleware.PublicOrAuth(), proxyHandler(authURL))
 	app.All("/api/admin/roles", middleware.PublicOrAuth(), proxyHandler(authURL))
 	app.All("/api/admin/stats", middleware.PublicOrAuth(), proxyHandler(authURL))
+	app.All("/api/admin/login-history", middleware.PublicOrAuth(), proxyHandler(authURL))
+	app.All("/api/admin/login-history/*", middleware.PublicOrAuth(), proxyHandler(authURL))
+	app.All("/api/admin/login-reports", middleware.PublicOrAuth(), proxyHandler(authURL))
+	app.All("/api/admin/login-reports/*", middleware.PublicOrAuth(), proxyHandler(authURL))
 
 	app.All("/api/admin/categories", middleware.PublicOrAuth(), proxyHandler(productURL))
 	app.All("/api/admin/categories/*", middleware.PublicOrAuth(), proxyHandler(productURL))

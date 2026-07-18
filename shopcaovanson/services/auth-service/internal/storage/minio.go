@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -74,6 +75,40 @@ func (s *AvatarStorage) Enabled() bool {
 
 func AvatarObjectKey(userID uuid.UUID, ext string) string {
 	return fmt.Sprintf("avatars/%s/avatar%s", userID.String(), ext)
+}
+
+func LoginReportObjectKey(reportDate string, fileName string) string {
+	return fmt.Sprintf("reports/login-history/%s/%s", reportDate, fileName)
+}
+
+func (s *AvatarStorage) UploadBytes(ctx context.Context, key string, data []byte, contentType string) error {
+	if s == nil {
+		return ErrStorageDisabled
+	}
+	_, err := s.client.PutObject(ctx, s.bucket, key, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		return fmt.Errorf("upload object: %w", err)
+	}
+	return nil
+}
+
+func (s *AvatarStorage) UploadReader(ctx context.Context, key string, reader io.Reader, size int64, contentType string) error {
+	if s == nil {
+		return ErrStorageDisabled
+	}
+	_, err := s.client.PutObject(ctx, s.bucket, key, reader, size, minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		return fmt.Errorf("upload object: %w", err)
+	}
+	return nil
+}
+
+func (s *AvatarStorage) OpenObject(ctx context.Context, key string) (*Object, error) {
+	return s.Open(ctx, key)
 }
 
 func (s *AvatarStorage) Upload(ctx context.Context, userID uuid.UUID, reader io.Reader, size int64, contentType, ext string) (string, error) {

@@ -1,10 +1,14 @@
 import type {
   AdminUserStats,
+  LoginHistoryResult,
+  LoginReport,
+  LoginReportListResult,
   OrderStats,
   RoleInfo,
   User,
   UserListResult,
 } from '~/types'
+import { downloadBlob } from '~/utils/downloadFile'
 
 export const useAdmin = () => {
   const { apiFetch } = useAuth()
@@ -14,6 +18,7 @@ export const useAdmin = () => {
   const canManageProducts = computed(() => authStore.can('manager'))
   const canManageOrders = computed(() => authStore.can('staff'))
   const canViewUsers = computed(() => authStore.can('support'))
+  const canViewLoginHistory = computed(() => authStore.can('manager'))
 
   const fetchUserStats = () => apiFetch<AdminUserStats>('/api/admin/stats')
   const fetchOrderStats = () => apiFetch<OrderStats>('/api/admin/orders/stats')
@@ -21,6 +26,28 @@ export const useAdmin = () => {
 
   const fetchUsers = (query: Record<string, string | number> = {}) =>
     apiFetch<UserListResult>('/api/admin/users', { query })
+
+  const fetchLoginHistory = (query: Record<string, string | number | boolean> = {}) =>
+    apiFetch<LoginHistoryResult>('/api/admin/login-history', { query })
+
+  const fetchLoginReports = (query: Record<string, string | number> = {}) =>
+    apiFetch<LoginReportListResult>('/api/admin/login-reports', { query })
+
+  const generateLoginReport = (date?: string) =>
+    apiFetch<LoginReport>('/api/admin/login-reports/generate', {
+      method: 'POST',
+      body: date ? { date } : {},
+    })
+
+  const downloadLoginReport = async (id: string, fileName?: string) => {
+    const blob = await apiFetch<Blob>(`/api/admin/login-reports/${id}/download`, {
+      responseType: 'blob',
+    })
+    if (!blob?.size) {
+      throw new Error('File báo cáo trống hoặc không tải được')
+    }
+    downloadBlob(blob, fileName || `login-report-${id}.xlsx`)
+  }
 
   const updateUserRole = (id: string, role: string) =>
     apiFetch<User>(`/api/admin/users/${id}/role`, { method: 'PUT', body: { role } })
@@ -59,10 +86,15 @@ export const useAdmin = () => {
     canManageProducts,
     canManageOrders,
     canViewUsers,
+    canViewLoginHistory,
     fetchUserStats,
     fetchOrderStats,
     fetchRoles,
     fetchUsers,
+    fetchLoginHistory,
+    fetchLoginReports,
+    generateLoginReport,
+    downloadLoginReport,
     updateUserRole,
     updateUserStatus,
     fetchUser,

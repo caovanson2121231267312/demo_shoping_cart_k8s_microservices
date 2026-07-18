@@ -6,6 +6,7 @@ resources:
   - cert-manager/cluster-issuer.yaml
   - ingress/ingress.yaml
   - infra/postgres.yaml
+  - infra/postgres-config.yaml
   - infra/mongodb.yaml
   - infra/redis.yaml
   - infra/zookeeper.yaml
@@ -20,6 +21,7 @@ resources:
   - auth-service/deployment.yaml
   - auth-service/service.yaml
   - auth-service/configmap.yaml
+  - auth-service/login-report-cronjob.yaml
   - product-service/deployment.yaml
   - product-service/service.yaml
   - product-service/configmap.yaml

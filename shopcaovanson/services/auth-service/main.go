@@ -64,7 +64,9 @@ func main() {
 
 	userRepo := repository.NewUserRepository(db)
 	refreshRepo := repository.NewRefreshTokenRepository(db)
-	authSvc := service.NewAuthService(cfg, userRepo, refreshRepo, redisClient, kafkaProducer, privateKey)
+	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
+	loginReportRepo := repository.NewLoginReportRepository(db)
+	authSvc := service.NewAuthService(cfg, userRepo, refreshRepo, loginHistoryRepo, redisClient, kafkaProducer, privateKey)
 	authHandler := handler.NewAuthHandler(authSvc)
 	adminSvc := service.NewAdminService(userRepo)
 
@@ -80,8 +82,9 @@ func main() {
 		log.Println("minio avatar storage disabled (set MINIO_ENABLED=true to enable)")
 	}
 	avatarSvc := service.NewAvatarService(cfg, userRepo, avatarStore)
+	loginHistorySvc := service.NewLoginHistoryService(loginHistoryRepo, loginReportRepo, avatarStore)
 	avatarHandler := handler.NewAvatarHandler(avatarSvc)
-	adminHandler := handler.NewAdminHandler(adminSvc, avatarSvc)
+	adminHandler := handler.NewAdminHandler(adminSvc, avatarSvc, loginHistorySvc)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "auth-service",

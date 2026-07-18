@@ -42,15 +42,21 @@
 
     <AdminDataTable
       server
-      v-model:page="page"
+      cursor-mode
       v-model:items-per-page="limit"
       :headers="headers"
       :items="orders"
       :total-items="total"
       :count="total"
       :loading="loading"
+      :has-more="hasMore"
+      :has-prev="hasPrev"
+      :cursor-page-number="pageIndex + 1"
+      :range-offset="rangeOffset"
       title="Danh sách đơn hàng"
-      @update:options="loadOrders"
+      @update:options="onTableOptions"
+      @cursor-next="onNextPage"
+      @cursor-prev="onPrevPage"
     >
       <template #item.order_number="{ item }">
         <span class="admin-table__mono">{{ item.order_number || item.id.slice(0, 8) }}</span>
@@ -132,7 +138,7 @@ const { searchAdminOrders, updateOrderStatus, exportOrdersExcel } = useOrders()
 const admin = useAdmin()
 const dateFilter = useAdminDateFilter()
 const snackbar = useSnackbar()
-const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
+const { limit, total, hasMore, hasPrev, pageIndex, rangeOffset, applyMeta, reset, goNext, goPrev, queryParams } = useAdminCursorTable(20)
 
 const orders = ref<Order[]>([])
 const loading = ref(false)
@@ -211,10 +217,7 @@ const availableStatuses = (current: string) => {
 const loadOrders = async () => {
   loading.value = true
   try {
-    const query = dateFilter.withDateQuery({
-      limit: limit.value,
-      page: page.value,
-    })
+    const query = dateFilter.withDateQuery(queryParams())
     if (statusFilter.value) query.status = statusFilter.value
     if (searchQuery.value) query.search = searchQuery.value
     const result = await searchAdminOrders(query)
@@ -225,8 +228,21 @@ const loadOrders = async () => {
   }
 }
 
+function onTableOptions() {
+  reset()
+  loadOrders()
+}
+
+function onNextPage() {
+  if (goNext()) loadOrders()
+}
+
+function onPrevPage() {
+  if (goPrev()) loadOrders()
+}
+
 function onSearch() {
-  resetPage()
+  reset()
   loadOrders()
 }
 
@@ -234,7 +250,7 @@ const clearFilters = () => {
   searchQuery.value = ''
   statusFilter.value = null
   dateFilter.resetDates()
-  resetPage()
+  reset()
   loadOrders()
 }
 

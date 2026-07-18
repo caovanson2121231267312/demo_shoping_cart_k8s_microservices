@@ -72,6 +72,8 @@ export interface ProductListResult {
   page: number
   limit: number
   total_pages: number
+  next_cursor?: string
+  has_more?: boolean
 }
 
 export interface ProductReview {
@@ -140,6 +142,8 @@ export interface OrderListResult {
   page: number
   limit: number
   total_pages: number
+  next_cursor?: string
+  has_more?: boolean
 }
 
 export interface ChatRoom {
@@ -206,6 +210,7 @@ export interface ApiError {
 export interface ProductFilters {
   page?: number
   limit?: number
+  cursor?: string
   category?: string
   search?: string
   min_price?: number
@@ -265,6 +270,53 @@ export interface UserListResult {
   page: number
   limit: number
   total_pages: number
+  next_cursor?: string
+  has_more?: boolean
+}
+
+export interface LoginHistoryItem {
+  id: string
+  user_id?: string | null
+  email: string
+  success: boolean
+  failure_reason?: string | null
+  ip_address?: string | null
+  user_agent?: string | null
+  device?: string | null
+  browser?: string | null
+  os?: string | null
+  created_at: string
+  full_name?: string | null
+}
+
+export interface LoginHistoryResult {
+  items: LoginHistoryItem[]
+  total: number
+  limit: number
+  next_cursor?: string
+  has_more?: boolean
+}
+
+export interface LoginReport {
+  id: string
+  report_date: string
+  object_key: string
+  file_name: string
+  file_size: number
+  total_logins: number
+  success_count: number
+  failure_count: number
+  unique_users: number
+  status: string
+  error_message?: string | null
+  created_at: string
+}
+
+export interface LoginReportListResult {
+  items: LoginReport[]
+  total: number
+  page: number
+  limit: number
 }
 
 export interface AdminUserStats {

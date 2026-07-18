@@ -37,10 +37,17 @@ spec:
       - name: dshm
         emptyDir:
           medium: Memory
-          sizeLimit: 256Mi
+          sizeLimit: 512Mi
+      - name: postgres-config
+        configMap:
+          name: postgres-config
       containers:
       - name: postgres
         image: postgres:15-alpine
+        command:
+        - postgres
+        - -c
+        - config_file=/etc/postgresql/postgresql.conf
         ports:
         - containerPort: 5432
           name: postgres
@@ -63,13 +70,16 @@ spec:
           subPath: pgdata
         - name: dshm
           mountPath: /dev/shm
+        - name: postgres-config
+          mountPath: /etc/postgresql
+          readOnly: true
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "200m"
+            memory: "1Gi"
+            cpu: "500m"
           limits:
-            memory: "512Mi"
-            cpu: "1000m"
+            memory: "4Gi"
+            cpu: "2000m"
         livenessProbe:
           exec:
             command:
@@ -97,4 +107,4 @@ spec:
       accessModes: ["ReadWriteOnce"]
       resources:
         requests:
-          storage: 20Gi
+          storage: 50Gi

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/caovanson/shopcaovanson/product-service/internal/domain"
+	"github.com/caovanson/shopcaovanson/product-service/internal/pagination"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -37,39 +38,121 @@ func NewProductRepository(db *sqlx.DB) ProductRepository {
 }
 
 func (r *productRepo) List(ctx context.Context, filter domain.ProductListFilter) (*domain.ProductListResult, error) {
-	where, args := buildProductWhere(filter, nil)
-	orderBy := buildOrderBy(filter.Sort)
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.Limit < 1 || filter.Limit > 100 {
+		filter.Limit = 20
+	}
 
-	countQuery := "SELECT COUNT(*) FROM products p LEFT JOIN categories c ON c.id = p.category_id " + where
+	where, args := buildProductWhere(filter, nil)
+	needsCategoryJoin := filter.Category != ""
+
+	countFrom := "FROM products p"
+	if needsCategoryJoin {
+		countFrom += " LEFT JOIN categories c ON c.id = p.category_id"
+	}
+
 	var total int
-	if err := r.db.GetContext(ctx, &total, countQuery, args...); err != nil {
+	var err error
+	if isBroadProductCount(where, args) {
+		total, err = approximateTableCount(ctx, r.db, "products")
+	} else {
+		countQuery := "SELECT COUNT(*) " + countFrom + " " + where
+		err = r.db.GetContext(ctx, &total, countQuery, args...)
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	offset := (filter.Page - 1) * filter.Limit
-	listArgs := append(args, filter.Limit, offset)
+	useCursor := filter.Cursor != ""
+	orderBy := buildOrderBy(filter.Sort)
+	idx := len(args) + 1
+	listWhere := where
+	listArgs := append([]interface{}(nil), args...)
+
+	if useCursor {
+		keysetOrder, ok := buildKeysetOrderBy(filter.Sort)
+		if !ok {
+			return nil, fmt.Errorf("cursor pagination not supported for sort %q", filter.Sort)
+		}
+		orderBy = keysetOrder
+		cur, err := pagination.Decode(filter.Cursor)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cursor: %w", err)
+		}
+		cursorClause := fmt.Sprintf("(p.created_at, p.id) < ($%d, $%d)", idx, idx+1)
+		if listWhere == "" {
+			listWhere = "WHERE " + cursorClause
+		} else {
+			listWhere += " AND " + cursorClause
+		}
+		listArgs = append(listArgs, cur.CreatedAt, cur.ID)
+		idx += 2
+	}
+
+	useKeyset := useCursor || (filter.Page <= 1 && supportsKeysetSort(filter.Sort))
+	fetchLimit := filter.Limit
+	if useKeyset {
+		fetchLimit = filter.Limit + 1
+		orderBy, _ = buildKeysetOrderBy(filter.Sort)
+	}
+
+	selectCols := `p.id, p.category_id, p.name, p.slug, p.description, p.price, p.sale_price,
+		       p.stock, p.images, p.is_active, p.created_at, p.updated_at`
+	if filter.IncludeInactive {
+		selectCols = `p.id, p.category_id, p.name, p.slug, p.price, p.sale_price,
+		       p.stock, p.images, p.is_active, p.created_at, p.updated_at`
+	}
+
+	listArgs = append(listArgs, fetchLimit)
 	query := fmt.Sprintf(`
-		SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.sale_price,
-		       p.stock, p.images, p.is_active, p.created_at, p.updated_at
+		SELECT %s
 		FROM products p
 		LEFT JOIN categories c ON c.id = p.category_id
 		%s
 		%s
-		LIMIT $%d OFFSET $%d
-	`, where, orderBy, len(args)+1, len(args)+2)
+		LIMIT $%d
+	`, selectCols, listWhere, orderBy, idx)
+
+	if !useKeyset {
+		offset := (filter.Page - 1) * filter.Limit
+		listArgs = append(listArgs, offset)
+		query = fmt.Sprintf(`
+			SELECT %s
+			FROM products p
+			LEFT JOIN categories c ON c.id = p.category_id
+			%s
+			%s
+			LIMIT $%d OFFSET $%d
+		`, selectCols, listWhere, orderBy, idx, idx+1)
+	}
 
 	var rows []productRow
 	if err := r.db.SelectContext(ctx, &rows, query, listArgs...); err != nil {
 		return nil, err
 	}
 
-	return &domain.ProductListResult{
-		Items:      rowsToProducts(rows),
+	hasMore := false
+	if useKeyset && len(rows) > filter.Limit {
+		hasMore = true
+		rows = rows[:filter.Limit]
+	}
+
+	items := rowsToProducts(rows)
+	result := &domain.ProductListResult{
+		Items:      items,
 		Total:      total,
 		Page:       filter.Page,
 		Limit:      filter.Limit,
 		TotalPages: totalPages(total, filter.Limit),
-	}, nil
+		HasMore:    hasMore,
+	}
+	if hasMore && len(items) > 0 {
+		last := items[len(items)-1]
+		result.NextCursor = pagination.Encode(last.CreatedAt, last.ID)
+	}
+	return result, nil
 }
 
 func (r *productRepo) ListByIDs(ctx context.Context, ids []uuid.UUID, filter domain.ProductListFilter) (*domain.ProductListResult, error) {
@@ -407,6 +490,17 @@ func buildOrderBy(sort string) string {
 	}
 }
 
+func supportsKeysetSort(sort string) bool {
+	return sort == "" || sort == "newest"
+}
+
+func buildKeysetOrderBy(sort string) (string, bool) {
+	if !supportsKeysetSort(sort) {
+		return "", false
+	}
+	return "ORDER BY p.created_at DESC, p.id DESC", true
+}
+
 func totalPages(total, limit int) int {
 	if limit <= 0 {
 		return 0
@@ -416,4 +510,18 @@ func totalPages(total, limit int) int {
 		pages++
 	}
 	return pages
+}
+
+func isBroadProductCount(where string, args []interface{}) bool {
+	return where == "" && len(args) == 0
+}
+
+func approximateTableCount(ctx context.Context, db *sqlx.DB, table string) (int, error) {
+	var total int
+	err := db.GetContext(ctx, &total, `
+		SELECT COALESCE(GREATEST(reltuples::bigint, 0), 0)::int
+		FROM pg_class
+		WHERE relname = $1
+	`, table)
+	return total, err
 }

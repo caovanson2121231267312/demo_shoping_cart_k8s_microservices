@@ -32,15 +32,21 @@
 
     <AdminDataTable
       server
-      v-model:page="page"
+      cursor-mode
       v-model:items-per-page="limit"
       :headers="headers"
       :items="users"
       :total-items="total"
       :count="total"
       :loading="loading"
+      :has-more="hasMore"
+      :has-prev="hasPrev"
+      :cursor-page-number="pageIndex + 1"
+      :range-offset="rangeOffset"
       title="Danh sách người dùng"
-      @update:options="load"
+      @update:options="onTableOptions"
+      @cursor-next="onNextPage"
+      @cursor-prev="onPrevPage"
     >
       <template #item.avatar="{ item }">
         <UserAvatar
@@ -194,7 +200,7 @@ definePageMeta({ layout: 'admin' })
 const admin = useAdmin()
 const dateFilter = useAdminDateFilter()
 const snackbar = useSnackbar()
-const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
+const { limit, total, hasMore, hasPrev, pageIndex, rangeOffset, applyMeta, reset, goNext, goPrev, queryParams } = useAdminCursorTable(20)
 const users = ref<User[]>([])
 const roles = ref<RoleInfo[]>([])
 const loading = ref(false)
@@ -250,12 +256,10 @@ function resetEditState() {
 async function load() {
   loading.value = true
   try {
-    const result = await admin.fetchUsers(dateFilter.withDateQuery({
-      page: page.value,
-      limit: limit.value,
+    const result = await admin.fetchUsers(dateFilter.withDateQuery(queryParams({
       ...(search.value ? { search: search.value } : {}),
       ...(roleFilter.value ? { role: roleFilter.value } : {}),
-    }))
+    })))
     users.value = result.items
     applyMeta(result)
   } finally {
@@ -263,8 +267,21 @@ async function load() {
   }
 }
 
+function onTableOptions() {
+  reset()
+  load()
+}
+
+function onNextPage() {
+  if (goNext()) load()
+}
+
+function onPrevPage() {
+  if (goPrev()) load()
+}
+
 function onSearch() {
-  resetPage()
+  reset()
   load()
 }
 
@@ -272,7 +289,7 @@ function clearFilters() {
   search.value = ''
   roleFilter.value = null
   dateFilter.resetDates()
-  resetPage()
+  reset()
   load()
 }
 

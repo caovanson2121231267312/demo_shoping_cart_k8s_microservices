@@ -21,6 +21,7 @@ export const useProducts = () => {
     const query: Record<string, string | number> = {}
     if (filters.page) query.page = filters.page
     if (filters.limit) query.limit = filters.limit
+    if (filters.cursor) query.cursor = filters.cursor
     if (filters.category) query.category = filters.category
     if (filters.search) query.search = filters.search
     if (filters.min_price !== undefined) query.min_price = filters.min_price

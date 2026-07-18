@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: auth-login-report
+  namespace: shop
+  labels:
+    app: auth-login-report
+spec:
+  # 01:00 mỗi ngày (Asia/Ho_Chi_Minh)
+  schedule: "0 1 * * *"
+  timeZone: Asia/Ho_Chi_Minh
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: auth-login-report
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: login-report
+            image: ghcr.io/caovanson/auth-service:latest
+            imagePullPolicy: Always
+            command: ["/app/login-report"]
+            envFrom:
+            - configMapRef:
+                name: auth-service-config
+            - secretRef:
+                name: auth-service-secret
+            env:
+            - name: TZ
+              value: Asia/Ho_Chi_Minh
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: DB_PASSWORD
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: JWT_PRIVATE_KEY
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: MINIO_ACCESS_KEY
+                  optional: true
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: MINIO_SECRET_KEY
+                  optional: true
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "256Mi"
+                cpu: "500m"

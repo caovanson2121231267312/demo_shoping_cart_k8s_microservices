@@ -97,6 +97,7 @@ type LookupOrdersInput struct {
 type OrderSearchFilter struct {
 	Page          int
 	Limit         int
+	Cursor        string
 	Status        string
 	Search        string
 	OrderNumber   string
@@ -118,4 +119,6 @@ type OrderListResult struct {
 	Page       int     `json:"page"`
 	Limit      int     `json:"limit"`
 	TotalPages int     `json:"total_pages"`
+	NextCursor string  `json:"next_cursor,omitempty"`
+	HasMore    bool    `json:"has_more"`
 }

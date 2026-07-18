@@ -21,6 +21,7 @@ import (
 	"github.com/shopcaovanson/auth-service/internal/kafka"
 	"github.com/shopcaovanson/auth-service/internal/middleware"
 	"github.com/shopcaovanson/auth-service/internal/repository"
+	"github.com/shopcaovanson/auth-service/internal/uaparser"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,6 +42,7 @@ type AuthService struct {
 	cfg          *config.Config
 	userRepo     repository.UserRepository
 	refreshRepo  repository.RefreshTokenRepository
+	loginRepo    repository.LoginHistoryRepository
 	redis        *redis.Client
 	kafka        *kafka.Producer
 	privateKey   *rsa.PrivateKey
@@ -50,6 +52,7 @@ func NewAuthService(
 	cfg *config.Config,
 	userRepo repository.UserRepository,
 	refreshRepo repository.RefreshTokenRepository,
+	loginRepo repository.LoginHistoryRepository,
 	redisClient *redis.Client,
 	kafkaProducer *kafka.Producer,
 	privateKey *rsa.PrivateKey,
@@ -58,6 +61,7 @@ func NewAuthService(
 		cfg:         cfg,
 		userRepo:    userRepo,
 		refreshRepo: refreshRepo,
+		loginRepo:   loginRepo,
 		redis:       redisClient,
 		kafka:       kafkaProducer,
 		privateKey:  privateKey,
@@ -133,28 +137,69 @@ func (s *AuthService) Register(ctx context.Context, email, password, fullName st
 	}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, email, password string) (*domain.TokenPair, error) {
+func (s *AuthService) Login(ctx context.Context, email, password string, meta domain.LoginMeta) (*domain.TokenPair, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
+			s.recordLogin(ctx, nil, email, false, "invalid_credentials", meta)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		uid := user.ID
+		s.recordLogin(ctx, &uid, email, false, "invalid_credentials", meta)
 		return nil, ErrInvalidCredentials
 	}
 	if !user.IsActive {
+		uid := user.ID
+		s.recordLogin(ctx, &uid, email, false, "account_disabled", meta)
 		return nil, ErrAccountDisabled
 	}
 	if !user.EmailVerified {
+		uid := user.ID
+		s.recordLogin(ctx, &uid, email, false, "email_not_verified", meta)
 		return nil, ErrEmailNotVerified
 	}
 
-	return s.issueTokenPair(ctx, user)
+	tokens, err := s.issueTokenPair(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	uid := user.ID
+	s.recordLogin(ctx, &uid, email, true, "", meta)
+	return tokens, nil
+}
+
+func (s *AuthService) recordLogin(ctx context.Context, userID *uuid.UUID, email string, success bool, reason string, meta domain.LoginMeta) {
+	if s.loginRepo == nil {
+		return
+	}
+	browser, osName, device := uaparser.Parse(meta.UserAgent)
+	now := time.Now().UTC()
+	row := &domain.LoginHistory{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Email:     email,
+		Success:   success,
+		CreatedAt: now,
+	}
+	if reason != "" {
+		row.FailureReason = &reason
+	}
+	if ip := strings.TrimSpace(meta.IPAddress); ip != "" {
+		row.IPAddress = &ip
+	}
+	if ua := strings.TrimSpace(meta.UserAgent); ua != "" {
+		row.UserAgent = &ua
+	}
+	row.Browser = &browser
+	row.OS = &osName
+	row.Device = &device
+	_ = s.loginRepo.Create(ctx, row)
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, token string) (*domain.TokenPair, error) {

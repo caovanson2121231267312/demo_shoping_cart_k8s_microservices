@@ -162,6 +162,7 @@ func (h *OrderHandler) ListAllOrders(c *fiber.Ctx) error {
 	filter := domain.OrderSearchFilter{
 		Page:        queryInt(c, "page", 1),
 		Limit:       queryInt(c, "limit", 20),
+		Cursor:      c.Query("cursor"),
 		Status:      c.Query("status"),
 		Search:      c.Query("search"),
 		CreatedFrom: from,
@@ -179,6 +180,7 @@ func (h *OrderHandler) SearchOrders(c *fiber.Ctx) error {
 	filter := domain.OrderSearchFilter{
 		Page:          queryInt(c, "page", 1),
 		Limit:         queryInt(c, "limit", 20),
+		Cursor:        c.Query("cursor"),
 		Status:        c.Query("status"),
 		Search:        c.Query("search"),
 		OrderNumber:   c.Query("order_number"),

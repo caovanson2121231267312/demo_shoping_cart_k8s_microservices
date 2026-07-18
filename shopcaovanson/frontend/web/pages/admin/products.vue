@@ -14,15 +14,21 @@
 
     <AdminDataTable
       server
-      v-model:page="page"
+      cursor-mode
       v-model:items-per-page="limit"
       :headers="headers"
       :items="products"
       :total-items="total"
       :count="total"
       :loading="loading"
+      :has-more="hasMore"
+      :has-prev="hasPrev"
+      :cursor-page-number="pageIndex + 1"
+      :range-offset="rangeOffset"
       title="Danh sách sản phẩm"
-      @update:options="loadData"
+      @update:options="onTableOptions"
+      @cursor-next="onNextPage"
+      @cursor-prev="onPrevPage"
     >      <template #item.name="{ item }">
         <div class="admin-table__avatar-cell">
           <v-avatar size="44" rounded="lg">
@@ -129,7 +135,7 @@ const { fetchProducts, fetchCategories, createProduct, updateProduct, deleteProd
 const { formatVND } = useFormat()
 const dateFilter = useAdminDateFilter()
 const snackbar = useSnackbar()
-const { page, limit, total, applyMeta, resetPage } = useAdminServerTable(20)
+const { limit, total, hasMore, hasPrev, pageIndex, rangeOffset, applyMeta, reset, goNext, goPrev, queryParams } = useAdminCursorTable(20)
 
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
@@ -183,8 +189,7 @@ const loadData = async () => {
   try {
     const [prodResult, cats] = await Promise.all([
       fetchProducts({
-        page: page.value,
-        limit: limit.value,
+        ...queryParams(),
         include_inactive: true,
         ...dateFilter.queryParams.value,
       }),
@@ -200,18 +205,31 @@ const loadData = async () => {
   }
 }
 
-const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN')
+function onTableOptions() {
+  reset()
+  loadData()
+}
+
+function onNextPage() {
+  if (goNext()) loadData()
+}
+
+function onPrevPage() {
+  if (goPrev()) loadData()
+}
 
 const clearFilters = () => {
   dateFilter.resetDates()
-  resetPage()
+  reset()
   loadData()
 }
 
 function onFilter() {
-  resetPage()
+  reset()
   loadData()
 }
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN')
 
 onMounted(async () => {
   categories.value = await fetchCategories()
