@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -15,13 +16,16 @@ import (
 )
 
 func main() {
-	direction := flag.String("direction", "", "migration direction: up or down")
+	direction := flag.String("direction", "", "migration direction: up, down, or force")
 	steps := flag.Int("steps", 0, "number of migration steps (0 = all)")
+	forceVersion := flag.Int("version", -1, "version for force (clears dirty flag)")
 	flag.Parse()
 
 	dir := *direction
-	if dir == "" && flag.NArg() > 0 {
-		dir = flag.Arg(0)
+	args := flag.Args()
+	if dir == "" && len(args) > 0 {
+		dir = args[0]
+		args = args[1:]
 	}
 	if dir == "" {
 		dir = "up"
@@ -63,8 +67,31 @@ func main() {
 			} else {
 				runErr = m.Down()
 			}
+		case "force":
+			ver := *forceVersion
+			if ver < 0 && len(args) > 0 {
+				ver, runErr = strconv.Atoi(args[0])
+			}
+			if runErr != nil {
+				done <- fmt.Errorf("force version: %w", runErr)
+				return
+			}
+			if ver < 0 {
+				done <- fmt.Errorf("force requires a version, e.g. migrate force 7")
+				return
+			}
+			runErr = m.Force(ver)
+		case "version":
+			v, dirty, vErr := m.Version()
+			if vErr != nil && vErr != migrate.ErrNilVersion {
+				done <- vErr
+				return
+			}
+			log.Printf("current version=%d dirty=%v", v, dirty)
+			done <- nil
+			return
 		default:
-			runErr = fmt.Errorf("invalid direction: %s", dir)
+			runErr = fmt.Errorf("invalid direction: %s (use up|down|force|version)", dir)
 		}
 		done <- runErr
 	}()
