@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hướng dẫn Monitoring — shopcaovanson</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --surface: #151b24; --surface2: #1e2836; --border: #2a384d;
+      --text: #e6edf5; --muted: #8b9cb3; --primary: #1e88e5; --primary-light: #64b5f6;
+      --accent: #00acc1; --warning: #fb8c00; --success: #43a047; --danger: #e53935;
+      --code-bg: #0d1117; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 15px; }
+    .hero { background: linear-gradient(135deg, #00695c 0%, #00838f 40%, #1565c0 100%); padding: 2.8rem 2rem; text-align: center; border-bottom: 3px solid var(--accent); }
+    .hero h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    .hero p { color: rgba(255,255,255,0.92); max-width: 820px; margin: 0 auto; }
+    .hero .badges { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .badge { background: rgba(255,255,255,0.14); padding: 0.3rem 0.9rem; border-radius: 20px; font-size: 0.84rem; }
+    .page-wrap { margin-left: 280px; }
+    .container { max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .toc-sidebar { position: fixed; left: 0; top: 0; z-index: 200; height: 100vh; width: 280px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
+    .toc-panel { padding: 1.2rem 1rem 2rem; }
+    .toc-panel h2 { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .toc-panel ol { list-style: none; }
+    .toc-panel a { display: block; padding: 0.35rem 0.5rem; border-radius: 6px; color: var(--text); text-decoration: none; font-size: 0.86rem; }
+    .toc-panel a:hover { background: var(--surface2); color: var(--primary-light); }
+    section { margin-bottom: 3rem; scroll-margin-top: 1rem; }
+    h2 { font-size: 1.55rem; color: var(--primary-light); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.2rem; }
+    h3 { font-size: 1.12rem; color: var(--accent); margin: 1.4rem 0 0.7rem; }
+    h4 { font-size: 1rem; color: var(--warning); margin: 1rem 0 0.5rem; }
+    ul, ol { padding-left: 1.5rem; margin: 0.5rem 0 1rem; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.5rem; margin: 1rem 0; }
+    .card.info { border-left: 4px solid var(--primary); }
+    .card.warn { border-left: 4px solid var(--warning); }
+    .card.ok { border-left: 4px solid var(--success); }
+    .card.danger { border-left: 4px solid var(--danger); }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid var(--border); padding: 0.55rem 0.8rem; text-align: left; vertical-align: top; }
+    th { background: var(--surface2); color: var(--primary-light); }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    code { font-family: Consolas, monospace; background: var(--code-bg); padding: 0.12rem 0.38rem; border-radius: 4px; font-size: 0.88em; color: #79c0ff; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.1rem; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.84rem; line-height: 1.5; color: #c9d1d9; margin: 0.8rem 0 1.2rem; white-space: pre-wrap; }
+    .cmd-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; overflow: hidden; }
+    .cmd-header { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; background: var(--surface2); border-bottom: 1px solid var(--border); }
+    .cmd-title { font-weight: 600; color: var(--primary-light); font-size: 0.92rem; }
+    .copy-btn { background: var(--primary); color: #fff; border: none; padding: 0.3rem 0.75rem; border-radius: 6px; font-size: 0.78rem; cursor: pointer; }
+    .copy-btn:hover { opacity: 0.9; }
+    .cmd-block pre { margin: 0; border: none; border-radius: 0; }
+    .arch { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: Consolas, monospace; font-size: 0.78rem; line-height: 1.4; white-space: pre; overflow-x: auto; color: #8b9cb3; }
+    .step { counter-increment: step; margin: 1rem 0; padding-left: 2.5rem; position: relative; }
+    .step::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.8rem; height: 1.8rem; background: var(--primary); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+    .steps { counter-reset: step; }
+    @media (max-width: 900px) {
+      .toc-sidebar { display: none; }
+      .page-wrap { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+<nav class="toc-sidebar">
+  <div class="toc-panel">
+    <h2>Mục lục</h2>
+    <ol>
+      <li><a href="#tong-quan">1. Tổng quan</a></li>
+      <li><a href="#cai-dat">2. Cài đặt / kiểm tra</a></li>
+      <li><a href="#grafana">3. Dùng Grafana</a></li>
+      <li><a href="#prometheus">4. Dùng Prometheus</a></li>
+      <li><a href="#kubectl">5. Monitor bằng kubectl</a></li>
+      <li><a href="#hang-ngay">6. Checklist hàng ngày</a></li>
+      <li><a href="#debug-app">7. Debug lỗi app</a></li>
+      <li><a href="#debug-infra">8. Debug lỗi infra</a></li>
+      <li><a href="#debug-monitor">9. Debug chính monitoring</a></li>
+      <li><a href="#promql">10. Query PromQL hữu ích</a></li>
+      <li><a href="#faq">11. FAQ</a></li>
+    </ol>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <header class="hero">
+    <h1>Hướng dẫn Monitoring — shopcaovanson</h1>
+    <p>Prometheus + Grafana trên Kubernetes: truy cập, đọc dashboard, debug CrashLoop/OOM, và xử lý khi chính hệ thống monitor bị lỗi.</p>
+    <div class="badges">
+      <span class="badge">Grafana: monitor.shopcaovanson.xyz</span>
+      <span class="badge">Namespace: monitoring</span>
+      <span class="badge">VPS: 110.172.29.72</span>
+      <span class="badge">Overlay: dev (16GB)</span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- 1 -->
+    <section id="tong-quan">
+      <h2>1. Tổng quan kiến trúc</h2>
+      <div class="arch">Bạn (trình duyệt)
+    │
+    ├─ https://monitor.shopcaovanson.xyz  → Ingress nginx → Grafana
+    │                                         │
+    │                                         └─ đọc metrics từ Prometheus
+    │
+    └─ (admin) SSH + port-forward :9090   → Prometheus UI
+
+Prometheus thu thập:
+  • node-exporter     → CPU/RAM/disk của VPS (node)
+  • kube-state-metrics → trạng thái Deployment/Pod/PVC
+  • cAdvisor (kubelet) → CPU/RAM từng container
+  • (tuỳ chọn) metrics app nếu service expose /metrics
+
+Namespaces quan trọng:
+  shop        → api-gateway, auth, product, order, frontend...
+  infra       → postgres, kafka, redis, mongo, ES, minio, zookeeper
+  monitoring  → grafana, prometheus, operator, node-exporter</div>
+
+      <div class="card info">
+        <strong>Khi nào dùng cái gì?</strong>
+        <ul>
+          <li><strong>Grafana</strong> — theo dõi hàng ngày, biểu đồ, tìm pod ăn RAM.</li>
+          <li><strong>kubectl</strong> — debug nhanh khi pod CrashLoop / deploy fail.</li>
+          <li><strong>Prometheus UI</strong> — query PromQL chi tiết (admin).</li>
+          <li><strong>Scripts</strong> — <code>diagnose-apps.sh</code>, <code>diagnose-infra.sh</code>, <code>verify-app.sh</code>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="cai-dat">
+      <h2>2. Cài đặt &amp; kiểm tra trạng thái</h2>
+
+      <h3>2.1 Cài lần đầu (đã làm rồi thì bỏ qua)</h3>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Trên VPS</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>cd /home/demo_shoping_cart_k8s_microservices/shopcaovanson
+bash scripts/install-monitoring.sh
+bash scripts/monitoring-access.sh</pre>
+      </div>
+      <p>Script sẽ tạo namespace <code>monitoring</code>, cài Helm chart <code>kube-prometheus-stack</code>, Ingress Grafana, TLS Let’s Encrypt, và lưu mật khẩu vào <code>.monitoring-credentials</code> (không commit git).</p>
+
+      <h3>2.2 Kiểm tra đã sẵn sàng</h3>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Tất cả pod Running + TLS Ready</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>kubectl get pods -n monitoring
+kubectl get ingress -n monitoring
+kubectl get certificate -n monitoring</pre>
+      </div>
+      <table>
+        <tr><th>Thành phần</th><th>Trạng thái OK</th></tr>
+        <tr><td>Grafana pod</td><td><code>3/3 Running</code></td></tr>
+        <tr><td>Prometheus pod</td><td><code>2/2 Running</code></td></tr>
+        <tr><td>Ingress</td><td>HOSTS = <code>monitor.shopcaovanson.xyz</code>, ADDRESS = IP VPS</td></tr>
+        <tr><td>Certificate</td><td><code>grafana-tls Ready = True</code></td></tr>
+      </table>
+
+      <div class="card warn">
+        <strong>DNS bắt buộc:</strong> bản ghi A <code>monitor.shopcaovanson.xyz</code> → <code>110.172.29.72</code>.
+        Không có DNS thì Ingress/TLS vẫn “Ready” trong cluster nhưng trình duyệt không vào được (hoặc sai site).
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="grafana">
+      <h2>3. Cách dùng Grafana (chi tiết)</h2>
+
+      <h3>3.1 Đăng nhập</h3>
+      <div class="steps">
+        <div class="step">Mở <a href="https://monitor.shopcaovanson.xyz" style="color:#64b5f6">https://monitor.shopcaovanson.xyz</a></div>
+        <div class="step">User: <code>admin</code></div>
+        <div class="step">Password: lấy bằng lệnh dưới (hoặc file <code>.monitoring-credentials</code>)</div>
+      </div>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Lấy / xem lại mật khẩu</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>bash scripts/monitoring-access.sh
+
+# hoặc
+kubectl get secret kube-prometheus-stack-grafana -n monitoring \
+  -o jsonpath='{.data.admin-password}' | base64 -d; echo</pre>
+      </div>
+
+      <h3>3.2 Tìm dashboard có sẵn</h3>
+      <p>Menu trái → <strong>Dashboards</strong> → <strong>Browse</strong>. Chart kube-prometheus-stack đã import sẵn nhiều dashboard. Ưu tiên dùng:</p>
+      <table>
+        <tr><th>Dashboard</th><th>Dùng để</th></tr>
+        <tr><td><strong>Kubernetes / Compute Resources / Cluster</strong></td><td>Tổng CPU/RAM cả cluster — VPS 16GB có đang đầy không</td></tr>
+        <tr><td><strong>Kubernetes / Compute Resources / Namespace (Pods)</strong></td><td>Chọn namespace <code>shop</code> hoặc <code>infra</code> — pod nào ăn RAM</td></tr>
+        <tr><td><strong>Kubernetes / Compute Resources / Pod</strong></td><td>Chi tiết 1 pod (auth-service, postgres-0…)</td></tr>
+        <tr><td><strong>Kubernetes / Compute Resources / Node</strong></td><td>Node <code>k8s-master</code>: CPU, memory, disk, network</td></tr>
+        <tr><td><strong>Node Exporter / Nodes</strong></td><td>Disk đầy, load average, network VPS</td></tr>
+        <tr><td><strong>Kubernetes / Persistent Volumes</strong></td><td>PVC postgres/kafka/ES sắp đầy chưa</td></tr>
+      </table>
+
+      <h3>3.3 Cách đọc dashboard Namespace Pods</h3>
+      <ol>
+        <li>Mở <em>Namespace (Pods)</em>.</li>
+        <li>Góc trên chọn <strong>namespace = shop</strong>.</li>
+        <li>Xem panel <strong>Memory Usage</strong> / <strong>CPU Usage</strong> — cột cao bất thường = nghi ngờ OOM hoặc leak.</li>
+        <li>Đổi <code>namespace = infra</code> để xem postgres, kafka, elasticsearch (thường nặng nhất).</li>
+        <li>Time range góc phải: <code>Last 15 minutes</code> khi debug live; <code>Last 24 hours</code> khi tìm spike ban đêm.</li>
+      </ol>
+
+      <h3>3.4 Dấu hiệu nguy hiểm trên Grafana</h3>
+      <table>
+        <tr><th>Hiện tượng</th><th>Ý nghĩa</th><th>Làm gì</th></tr>
+        <tr><td>Memory node &gt; 85–90%</td><td>VPS sắp OOMKill</td><td>Giảm replica / tắt job nặng / tăng RAM</td></tr>
+        <tr><td>Pod restart count tăng</td><td>CrashLoop hoặc OOM</td><td>Xem logs + Events (§7)</td></tr>
+        <tr><td>CPU node 100% kéo dài</td><td>Throttling / chậm API</td><td>Tìm pod CPU cao, scale hoặc tối ưu</td></tr>
+        <tr><td>PVC gần full</td><td>Postgres/ES sẽ fail write</td><td>Expand PVC hoặc dọn dữ liệu</td></tr>
+        <tr><td>Pod không có metric</td><td>Mới tạo hoặc scrape lỗi</td><td>Đợi 1–2 phút; kiểm tra NetworkPolicy</td></tr>
+      </table>
+
+      <h3>3.5 Explore (query nhanh trong Grafana)</h3>
+      <p>Menu trái → <strong>Explore</strong> → chọn datasource <strong>Prometheus</strong> → dán PromQL (xem §10) → Run query.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="prometheus">
+      <h2>4. Cách dùng Prometheus UI</h2>
+      <div class="card info">
+        Prometheus <strong>không</strong> expose ra internet (chỉ ClusterIP). Phải port-forward + (nếu từ máy Windows) SSH tunnel.
+      </div>
+
+      <h3>4.1 Từ máy Windows (1 lệnh)</h3>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">SSH + port-forward gộp</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>ssh -L 9090:127.0.0.1:9090 root@110.172.29.72 "kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"</pre>
+      </div>
+      <p>Giữ cửa sổ mở → trình duyệt: <code>http://localhost:9090</code></p>
+
+      <h3>4.2 Hai terminal (nếu thích)</h3>
+      <p><strong>VPS:</strong></p>
+      <pre>kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090</pre>
+      <p><strong>Windows:</strong></p>
+      <pre>ssh -L 9090:127.0.0.1:9090 root@110.172.29.72</pre>
+
+      <div class="card danger">
+        <strong>Lỗi <code>channel N: open failed: connect failed: Connection refused</code></strong><br>
+        Nghĩa là trên VPS không có gì listen <code>127.0.0.1:9090</code> — thường vì quên chạy <code>kubectl port-forward</code>, hoặc session port-forward đã tắt. Chạy lại port-forward rồi tunnel.
+      </div>
+
+      <h3>4.3 Trong Prometheus UI</h3>
+      <ul>
+        <li><strong>Graph</strong> — nhập query → Execute → xem biểu đồ.</li>
+        <li><strong>Status → Targets</strong> — target nào <code>UP</code>/<code>DOWN</code> (scrape fail).</li>
+        <li><strong>Status → TSDB Status</strong> — dung lượng metric lưu (retention ~5 ngày trên VPS này).</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section id="kubectl">
+      <h2>5. Monitor bằng kubectl (không cần Grafana)</h2>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Resource tức thì</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>kubectl top nodes
+kubectl top pods -n shop --sort-by=memory
+kubectl top pods -n infra --sort-by=memory
+kubectl top pods -n monitoring --sort-by=memory</pre>
+      </div>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Trạng thái pod</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>kubectl get pods -n shop -o wide
+kubectl get pods -n infra -o wide
+kubectl get deploy -n shop
+kubectl get sts -n infra</pre>
+      </div>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Script chẩn đoán sẵn có</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>bash scripts/verify-app.sh
+bash scripts/diagnose-apps.sh
+bash scripts/diagnose-infra.sh
+bash scripts/monitoring-access.sh</pre>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="hang-ngay">
+      <h2>6. Checklist hàng ngày (5–10 phút)</h2>
+      <ol>
+        <li>Mở Grafana → Cluster / Node: RAM &lt; ~85%, disk còn trống.</li>
+        <li><code>kubectl get pods -n shop</code> — không CrashLoopBackOff / ImagePullBackOff.</li>
+        <li><code>kubectl get pods -n infra</code> — postgres, kafka, redis, ES Running.</li>
+        <li>Mở site: <code>https://shopcaovanson.xyz</code> và API <code>https://vocabee.cloud</code>.</li>
+        <li>Sau mỗi deploy CI: xem job GitHub Actions xanh; nếu đỏ đọc bước migrate/deploy.</li>
+      </ol>
+      <div class="card ok">
+        VPS 16GB: luôn ưu tiên theo dõi <strong>infra</strong> (ES + Kafka + Postgres) vì chiếm RAM lớn nhất.
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="debug-app">
+      <h2>7. Debug lỗi ứng dụng (namespace shop)</h2>
+
+      <h3>7.1 Quy trình chuẩn khi “web chết / API 502”</h3>
+      <div class="steps">
+        <div class="step">Xác định pod lỗi: <code>kubectl get pods -n shop</code></div>
+        <div class="step">Xem Events: <code>kubectl describe pod &lt;pod&gt; -n shop | sed -n '/Events:/,$p'</code></div>
+        <div class="step">Xem log hiện tại + log lần crash trước</div>
+        <div class="step">Đối chiếu Grafana: OOM? CPU spike? Restart tăng?</div>
+        <div class="step">Sửa / restart / rollback image</div>
+      </div>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Logs 1 service (ví dụ auth)</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>POD=$(kubectl get pods -n shop -l app=auth-service -o jsonpath='{.items[0].metadata.name}')
+kubectl logs "$POD" -n shop --tail=100
+kubectl logs "$POD" -n shop --previous --tail=100   # lần crash trước
+kubectl describe pod "$POD" -n shop | tail -40
+
+# hoặc full scan
+bash scripts/diagnose-apps.sh</pre>
+      </div>
+
+      <h3>7.2 Bảng lỗi thường gặp</h3>
+      <table>
+        <tr><th>STATUS / triệu chứng</th><th>Nguyên nhân hay gặp</th><th>Cách xử lý</th></tr>
+        <tr>
+          <td><code>CrashLoopBackOff</code></td>
+          <td>App panic; sai env/secret; DB/Kafka down; migration thiếu</td>
+          <td>Đọc logs + <code>--previous</code>. Kiểm tra infra. Chạy migrate. Fix config rồi <code>rollout restart</code>.</td>
+        </tr>
+        <tr>
+          <td><code>OOMKilled</code> (Reason trong describe)</td>
+          <td>Memory limit quá thấp / leak / seed quá lớn</td>
+          <td>Grafana xem RAM. Tăng limits trong deployment. Tránh seed 60M trên VPS 16GB.</td>
+        </tr>
+        <tr>
+          <td><code>ImagePullBackOff</code> / <code>ErrImagePull</code></td>
+          <td>Thiếu <code>ghcr-secret</code>; image private; sai tag</td>
+          <td><code>bash scripts/setup-ghcr-pull-secret.sh</code>. Kiểm tra image tag SHA trên GHCR.</td>
+        </tr>
+        <tr>
+          <td><code>CreateContainerConfigError</code></td>
+          <td>Thiếu Secret/ConfigMap key</td>
+          <td><code>kubectl describe pod</code> → thiếu key nào → tạo/sửa secret.</td>
+        </tr>
+        <tr>
+          <td><code>Pending</code></td>
+          <td>Không đủ CPU/RAM schedule; PVC Pending</td>
+          <td><code>kubectl describe pod</code> + <code>kubectl top nodes</code> + <code>get pvc</code>.</td>
+        </tr>
+        <tr>
+          <td>HTTP 502 / 504 qua Ingress</td>
+          <td>Pod chưa Ready; service selector sai; probe fail</td>
+          <td><code>kubectl get endpoints -n shop</code>; readiness probe; logs gateway.</td>
+        </tr>
+        <tr>
+          <td>Login / JWT lỗi</td>
+          <td>Redis down; auth CrashLoop; sai JWT key</td>
+          <td>Kiểm tra redis + auth logs; so secret JWT public/private.</td>
+        </tr>
+        <tr>
+          <td>Upload avatar / MinIO lỗi</td>
+          <td>MinIO down; sai bucket/policy; NetworkPolicy</td>
+          <td><code>kubectl get pods -n infra -l app=minio</code>; logs auth; secret MinIO.</td>
+        </tr>
+      </table>
+
+      <h3>7.3 Restart / rollback nhanh</h3>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Restart 1 service</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>kubectl -n shop rollout restart deployment/auth-service
+kubectl -n shop rollout status deployment/auth-service --timeout=180s</pre>
+      </div>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Xem lịch sử image / rollback</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>kubectl -n shop rollout history deployment/auth-service
+kubectl -n shop rollout undo deployment/auth-service</pre>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="debug-infra">
+      <h2>8. Debug lỗi hạ tầng (namespace infra)</h2>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Chẩn đoán infra</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>bash scripts/diagnose-infra.sh
+kubectl get pods -n infra
+kubectl get pvc -n infra
+kubectl top pods -n infra --sort-by=memory</pre>
+      </div>
+
+      <h3>8.1 PostgreSQL</h3>
+      <table>
+        <tr><th>Triệu chứng</th><th>Xử lý</th></tr>
+        <tr>
+          <td><code>"root" execution ... not permitted</code></td>
+          <td>Không được ghi đè <code>command: [postgres,...]</code>. Dùng <code>args</code> giữ entrypoint. Apply lại <code>k8s/base/infra/postgres.yaml</code> rồi <code>kubectl -n infra delete pod postgres-0</code>.</td>
+        </tr>
+        <tr>
+          <td>CrashLoop / data directory lỗi</td>
+          <td>Xem logs. <strong>Không</strong> xóa PVC trừ khi chấp nhận mất data.</td>
+        </tr>
+        <tr>
+          <td>App không connect DB</td>
+          <td>Service DNS: <code>postgres.infra.svc.cluster.local:5432</code>. Kiểm tra secret <code>DATABASE_URL</code>, NetworkPolicy.</td>
+        </tr>
+      </table>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Logs + restart Postgres</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>kubectl -n infra logs postgres-0 --tail=80
+kubectl -n infra delete pod postgres-0
+kubectl -n infra get pod postgres-0 -w</pre>
+      </div>
+
+      <h3>8.2 Kafka / Zookeeper</h3>
+      <ul>
+        <li>Auth/order timeout Kafka → thường ZK hoặc Kafka CrashLoop.</li>
+        <li>NetworkPolicy phải cho phép pod trong <code>infra</code> nói chuyện với nhau (<code>podSelector: {}</code>).</li>
+        <li>Script hỗ trợ: <code>bash scripts/fix-kafka.sh</code> (nếu có trong repo).</li>
+      </ul>
+      <pre>kubectl -n infra logs kafka-0 --tail=50
+kubectl -n infra logs zookeeper-0 --tail=50
+kubectl -n infra describe pod kafka-0 | tail -30</pre>
+
+      <h3>8.3 Redis / Mongo / Elasticsearch / MinIO</h3>
+      <table>
+        <tr><th>Component</th><th>Khi nào nghi</th><th>Lệnh nhanh</th></tr>
+        <tr><td>Redis</td><td>Session/cache/login lỗi</td><td><code>kubectl -n infra logs redis-0 --tail=40</code></td></tr>
+        <tr><td>Mongo</td><td>Product detail / chat</td><td><code>kubectl -n infra logs mongodb-0 --tail=40</code></td></tr>
+        <tr><td>Elasticsearch</td><td>Search trống / OOM</td><td>Grafana RAM ES; logs; tránh index quá lớn trên 16GB</td></tr>
+        <tr><td>MinIO</td><td>Avatar/upload fail</td><td><code>kubectl -n infra get pod -l app=minio</code></td></tr>
+      </table>
+
+      <h3>8.4 PVC / Disk</h3>
+      <pre>kubectl get pvc -A
+df -h
+# Node disk đầy → mọi StatefulSet sẽ chết dần</pre>
+    </section>
+
+    <!-- 9 -->
+    <section id="debug-monitor">
+      <h2>9. Debug chính hệ thống monitoring</h2>
+
+      <h3>9.1 Không vào được https://monitor.shopcaovanson.xyz</h3>
+      <div class="cmd-block">
+        <div class="cmd-header"><span class="cmd-title">Tự chẩn đoán + sửa</span><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
+        <pre>bash scripts/fix-monitoring-access.sh
+bash scripts/fix-monitoring-access.sh --fix
+bash scripts/fix-monitoring-access.sh --renew-cert</pre>
+      </div>
+      <table>
+        <tr><th>Triệu chứng</th><th>Nguyên nhân</th><th>Sửa</th></tr>
+        <tr><td>DNS không resolve / sai IP</td><td>Chưa trỏ A record</td><td>A → 110.172.29.72</td></tr>
+        <tr><td>Certificate không Ready</td><td>HTTP-01 challenge fail</td><td><code>--renew-cert</code>; kiểm tra port 80 mở; IngressClass nginx</td></tr>
+        <tr><td>502 Bad Gateway</td><td>Grafana pod down</td><td><code>kubectl get pods -n monitoring</code>; restart grafana</td></tr>
+        <tr><td>Timeout</td><td>NetworkPolicy chặn ingress</td><td>Apply <code>allow-grafana-ingress.yaml</code></td></tr>
+        <tr><td>namespaces "monitoring" not found</td><td>Chưa cài</td><td><code>bash scripts/install-monitoring.sh</code></td></tr>
+      </table>
+
+      <h3>9.2 Quên mật khẩu Grafana</h3>
+      <pre>kubectl get secret kube-prometheus-stack-grafana -n monitoring \
+  -o jsonpath='{.data.admin-password}' | base64 -d; echo</pre>
+
+      <h3>9.3 Prometheus targets DOWN / không có metric shop</h3>
+      <ul>
+        <li>Mở Prometheus → Status → Targets.</li>
+        <li>NetworkPolicy: cần <code>allow-monitoring-scrape.yaml</code> để Prometheus scrape được shop/infra.</li>
+        <li>metrics-server (cho <code>kubectl top</code>) khác Prometheus — nếu <code>kubectl top</code> lỗi, cài/sửa metrics-server riêng.</li>
+      </ul>
+      <pre>kubectl apply -f k8s/base/monitoring/allow-monitoring-scrape.yaml
+kubectl apply -f k8s/base/monitoring/allow-grafana-ingress.yaml</pre>
+
+      <h3>9.4 Monitoring làm VPS OOM</h3>
+      <p>Stack đã tối ưu (Alertmanager tắt, retention 5 ngày, limit RAM Prometheus 1Gi). Nếu vẫn nặng:</p>
+      <ul>
+        <li>Tạm scale down Grafana khi không dùng (không khuyến nghị lâu dài).</li>
+        <li>Giảm scrape interval / retention trong <code>values-kube-prometheus.yaml</code> rồi <code>helm upgrade</code>.</li>
+        <li>Ưu tiên tắt job seed / ES nặng trước.</li>
+      </ul>
+    </section>
+
+    <!-- 10 -->
+    <section id="promql">
+      <h2>10. Query PromQL hữu ích</h2>
+      <p>Dán vào Grafana Explore hoặc Prometheus Graph.</p>
+
+      <h4>Pod đang chạy / không chạy</h4>
+      <pre>kube_pod_status_phase{namespace="shop",phase="Running"} == 1
+kube_pod_container_status_restarts_total{namespace="shop"}</pre>
+
+      <h4>RAM / CPU</h4>
+      <pre># RAM đang dùng theo pod (bytes)
+sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~"shop|infra", container!=""})
+
+# CPU cores
+sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~"shop|infra", container!=""}[5m]))
+
+# RAM node còn lại
+node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes</pre>
+
+      <h4>OOMKill gần đây</h4>
+      <pre>increase(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[6h])</pre>
+
+      <h4>Disk PVC</h4>
+      <pre>kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes</pre>
+
+      <h4>Target scrape</h4>
+      <pre>up</pre>
+    </section>
+
+    <!-- 11 -->
+    <section id="faq">
+      <h2>11. FAQ</h2>
+
+      <h3>Có cần build lại app để có monitoring không?</h3>
+      <p>Không. Monitoring scrape metrics Kubernetes/node. App không bắt buộc expose <code>/metrics</code> (có thì tốt hơn cho business metrics).</p>
+
+      <h3>Sau <code>deploy-all.sh</code> có mất Grafana không?</h3>
+      <p>Không — monitoring nằm namespace riêng, cài bằng Helm. Chỉ mất nếu bạn xoá namespace <code>monitoring</code>.</p>
+
+      <h3>Alert / Telegram / Email?</h3>
+      <p>Hiện <code>alertmanager.enabled: false</code> để tiết kiệm RAM. Muốn bật: sửa <code>values-kube-prometheus.yaml</code> rồi helm upgrade, cấu hình receiver.</p>
+
+      <h3>File quan trọng</h3>
+      <table>
+        <tr><th>File / script</th><th>Vai trò</th></tr>
+        <tr><td><code>scripts/install-monitoring.sh</code></td><td>Cài Prometheus + Grafana</td></tr>
+        <tr><td><code>scripts/monitoring-access.sh</code></td><td>In URL + password</td></tr>
+        <tr><td><code>scripts/fix-monitoring-access.sh</code></td><td>Sửa Ingress/TLS/DNS issues</td></tr>
+        <tr><td><code>k8s/base/monitoring/values-kube-prometheus.yaml</code></td><td>Resource/retention</td></tr>
+        <tr><td><code>.monitoring-credentials</code></td><td>Mật khẩu local trên VPS — không commit</td></tr>
+      </table>
+
+      <div class="card warn">
+        <strong>Bảo mật:</strong> Không paste mật khẩu Grafana vào chat/public. Đổi password định kỳ trong Grafana (Administration → Users) nếu đã lộ.
+      </div>
+    </section>
+
+    <section>
+      <h2>Tóm tắt 30 giây</h2>
+      <ol>
+        <li>Hàng ngày: mở <strong>https://monitor.shopcaovanson.xyz</strong> → xem Node + namespace shop/infra.</li>
+        <li>Pod lỗi: <code>diagnose-apps.sh</code> / <code>diagnose-infra.sh</code> + logs + Grafana restart count.</li>
+        <li>Monitor lỗi: <code>fix-monitoring-access.sh --fix</code>.</li>
+        <li>Prometheus UI chỉ khi cần query sâu — nhớ port-forward đang chạy trước khi SSH tunnel.</li>
+      </ol>
+    </section>
+
+  </div>
+</div>
+
+<script>
+function copyCmd(btn) {
+  const pre = btn.closest('.cmd-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    const t = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = t; }, 1500);
+  });
+}
+</script>
+</body>
+</html>

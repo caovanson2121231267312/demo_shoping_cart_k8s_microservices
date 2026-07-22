@@ -23,32 +23,32 @@ grafana:
 prometheus:
   enabled: true
   prometheusSpec:
-    retention: 5d
-    retentionSize: 2GB
-    scrapeInterval: 30s
+    retention: 3d
+    retentionSize: 1GB
+    scrapeInterval: 60s
     resources:
       requests:
-        cpu: 200m
-        memory: 400Mi
+        cpu: 100m
+        memory: 256Mi
       limits:
-        cpu: 500m
-        memory: 1Gi
+        cpu: 400m
+        memory: 640Mi
     storageSpec:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 10Gi
+              storage: 5Gi
 
 prometheusOperator:
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m
+      memory: 96Mi
     limits:
-      cpu: 300m
-      memory: 256Mi
+      cpu: 200m
+      memory: 192Mi
 
 kubeStateMetrics:
   enabled: true

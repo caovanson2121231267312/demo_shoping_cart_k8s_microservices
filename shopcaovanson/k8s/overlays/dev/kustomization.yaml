@@ -55,6 +55,13 @@ patches:
         value: 1
   - target:
       kind: Deployment
+      name: caro-service
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
       name: frontend
     patch: |-
       - op: replace
@@ -69,7 +76,7 @@ patches:
         value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 2
+        value: 1
   - target:
       kind: HorizontalPodAutoscaler
       name: product-service-hpa
@@ -79,7 +86,7 @@ patches:
         value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 2
+        value: 1
   - target:
       kind: Deployment
     patch: |-
