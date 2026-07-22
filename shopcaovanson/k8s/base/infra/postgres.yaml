@@ -44,8 +44,10 @@ spec:
       containers:
       - name: postgres
         image: postgres:15-alpine
-        command:
-        - postgres
+        # Dùng args (không ghi đè command/entrypoint) — entrypoint sẽ drop root → user postgres.
+        # Nếu dùng command: [postgres,...] thì process chạy root → CrashLoop:
+        #   "root" execution of the PostgreSQL server is not permitted
+        args:
         - -c
         - config_file=/etc/postgresql/postgresql.conf
         ports:
